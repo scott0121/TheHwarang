@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1ff40c58fb06c6a42b0354190352de5e, type: 3}
+  m_Name: PrefabDatabase
+  m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Data.PrefabDatabaseSO
+  playerPrefab: {fileID: 7224194390816387261, guid: a401a2b0f688b5b45b230e2867b74378, type: 3}
+  companionPrefab: {fileID: 6094855261140439799, guid: 083cdae5dcb816944807575c1a91c8b7, type: 3}
+  arrowProjectilePrefab: {fileID: 4101925674279290782, guid: 02ea43cb4f82e3640b159f82f1d9b3e3, type: 3}
+  minionMonsterPrefab: {fileID: 2415010694333537076, guid: b780c3ab7b04976409424060c948ae4b, type: 3}
+  eliteMonsterPrefab: {fileID: 1296619876738765983, guid: 60f4aacc0e5beb54da3bad9b6e044f2b, type: 3}
+  foxBossPrefab: {fileID: 122574293480809460, guid: d751b3341e0c1bf42bc02c348e868b5e, type: 3}
+  archerMonsterPrefab: {fileID: 3415010694333537001, guid: 8180c3ab7b04976409424060c948ae41, type: 3}
+  bigMonMonsterPrefab: {fileID: 4415010694333537001, guid: 8180c3ab7b04976409424060c948ae42, type: 3}
+  zhuMonsterPrefab: {fileID: 5415010694333537001, guid: 8180c3ab7b04976409424060c948ae43, type: 3}
+  dungeonRoomPrefab: {fileID: 5804676793993055354, guid: fe4b9fc8fcac998499e611d457199596, type: 3}
+  doorSocketPrefab: {fileID: 7684010554880747814, guid: 698b124af9e2c084484f99ebdda16f6a, type: 3}
+  doorBarrierPrefab: {fileID: 0}
+  mainCameraPrefab: {fileID: 100001, guid: c03164a78be2a8848a609613524efca2, type: 3}

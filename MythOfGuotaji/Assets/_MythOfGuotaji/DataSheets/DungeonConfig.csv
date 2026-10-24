@@ -1,0 +1,2 @@
+GridSize,RoomSize,WallHeight,DoorWidth,ExtraLoopRatio,MinDistanceForKeyRoom,NormalRoomMinionCount,TrapRoomMinionCount,KeyRoomMinionCount
+6,39,4.5,12.0,0.25,3,6,10,5

@@ -1,0 +1,3 @@
+﻿Category,BaseDamage,AttackRateOrCooldown,CritChanceOrAngle,CritMultiplierOrRadius,Count,SpreadAngle,Pierce,Knockback,ProjSpeed,ProjLifeTime,ProjRadius
+Bow,25,2.8,0.15,2,1,12,0,4.5,24,2.5,0.4
+Dagger,50,0.85,150,4.2,0,0,0,9,0,0,0

@@ -1,0 +1,211 @@
+fileFormatVersion: 2
+guid: 6bddef67d5c980e48be3e62a7d65790b
+ModelImporter:
+  serializedVersion: 23
+  fileIDToRecycleName:
+    100000: ForearmPadPos
+    100002: root
+    100004: SK_ShoulderPad
+    100006: //RootNode
+    100008: SK_Werehog
+    100010: SM_ForearmArmor
+    100012: SM_Mace
+    100014: WeaponPos
+    100016: WEREHOG_
+    100018: WEREHOG_ Head
+    100020: WEREHOG_ L Calf
+    100022: WEREHOG_ L Clavicle
+    100024: WEREHOG_ L Finger0
+    100026: WEREHOG_ L Finger01
+    100028: WEREHOG_ L Finger02
+    100030: WEREHOG_ L Finger1
+    100032: WEREHOG_ L Finger11
+    100034: WEREHOG_ L Finger12
+    100036: WEREHOG_ L Finger2
+    100038: WEREHOG_ L Finger21
+    100040: WEREHOG_ L Finger22
+    100042: WEREHOG_ L Foot
+    100044: WEREHOG_ L Forearm
+    100046: WEREHOG_ L Hand
+    100048: WEREHOG_ L HorseLink
+    100050: WEREHOG_ L Thigh
+    100052: WEREHOG_ L Toe0
+    100054: WEREHOG_ L UpperArm
+    100056: WEREHOG_ Neck
+    100058: WEREHOG_ Neck1
+    100060: WEREHOG_ Pelvis
+    100062: WEREHOG_ Ponytail1
+    100064: WEREHOG_ R Calf
+    100066: WEREHOG_ R Clavicle
+    100068: WEREHOG_ R Finger0
+    100070: WEREHOG_ R Finger01
+    100072: WEREHOG_ R Finger02
+    100074: WEREHOG_ R Finger1
+    100076: WEREHOG_ R Finger11
+    100078: WEREHOG_ R Finger12
+    100080: WEREHOG_ R Finger2
+    100082: WEREHOG_ R Finger21
+    100084: WEREHOG_ R Finger22
+    100086: WEREHOG_ R Foot
+    100088: WEREHOG_ R Forearm
+    100090: WEREHOG_ R Hand
+    100092: WEREHOG_ R HorseLink
+    100094: WEREHOG_ R Thigh
+    100096: WEREHOG_ R Toe0
+    100098: WEREHOG_ R UpperArm
+    100100: WEREHOG_ Spine
+    100102: WEREHOG_ Spine1
+    100104: WHEREHOG_SHOULDER_PAD
+    400000: ForearmPadPos
+    400002: root
+    400004: SK_ShoulderPad
+    400006: //RootNode
+    400008: SK_Werehog
+    400010: SM_ForearmArmor
+    400012: SM_Mace
+    400014: WeaponPos
+    400016: WEREHOG_
+    400018: WEREHOG_ Head
+    400020: WEREHOG_ L Calf
+    400022: WEREHOG_ L Clavicle
+    400024: WEREHOG_ L Finger0
+    400026: WEREHOG_ L Finger01
+    400028: WEREHOG_ L Finger02
+    400030: WEREHOG_ L Finger1
+    400032: WEREHOG_ L Finger11
+    400034: WEREHOG_ L Finger12
+    400036: WEREHOG_ L Finger2
+    400038: WEREHOG_ L Finger21
+    400040: WEREHOG_ L Finger22
+    400042: WEREHOG_ L Foot
+    400044: WEREHOG_ L Forearm
+    400046: WEREHOG_ L Hand
+    400048: WEREHOG_ L HorseLink
+    400050: WEREHOG_ L Thigh
+    400052: WEREHOG_ L Toe0
+    400054: WEREHOG_ L UpperArm
+    400056: WEREHOG_ Neck
+    400058: WEREHOG_ Neck1
+    400060: WEREHOG_ Pelvis
+    400062: WEREHOG_ Ponytail1
+    400064: WEREHOG_ R Calf
+    400066: WEREHOG_ R Clavicle
+    400068: WEREHOG_ R Finger0
+    400070: WEREHOG_ R Finger01
+    400072: WEREHOG_ R Finger02
+    400074: WEREHOG_ R Finger1
+    400076: WEREHOG_ R Finger11
+    400078: WEREHOG_ R Finger12
+    400080: WEREHOG_ R Finger2
+    400082: WEREHOG_ R Finger21
+    400084: WEREHOG_ R Finger22
+    400086: WEREHOG_ R Foot
+    400088: WEREHOG_ R Forearm
+    400090: WEREHOG_ R Hand
+    400092: WEREHOG_ R HorseLink
+    400094: WEREHOG_ R Thigh
+    400096: WEREHOG_ R Toe0
+    400098: WEREHOG_ R UpperArm
+    400100: WEREHOG_ Spine
+    400102: WEREHOG_ Spine1
+    400104: WHEREHOG_SHOULDER_PAD
+    2100000: M_Werehog
+    2100002: M_WerehogGear
+    2300000: SM_ForearmArmor
+    2300002: SM_Mace
+    3300000: SM_ForearmArmor
+    3300002: SM_Mace
+    4300000: SK_Werehog
+    4300002: SK_ShoulderPad
+    4300004: SM_ForearmArmor
+    4300006: SM_Mace
+    7400000: Take 001
+    9500000: //RootNode
+    13700000: SK_ShoulderPad
+    13700002: SK_Werehog
+  externalObjects: {}
+  materials:
+    importMaterials: 1
+    materialName: 1
+    materialSearch: 1
+    materialLocation: 0
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 1
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    previousCalculatedGlobalScale: 0.01
+    hasPreviousCalculatedGlobalScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  importAnimation: 1
+  copyAvatar: 0
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: root
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

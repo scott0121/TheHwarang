@@ -1,0 +1,216 @@
+fileFormatVersion: 2
+guid: 5b83e762d4f986444819a9ec4636bb20
+ModelImporter:
+  serializedVersion: 23
+  fileIDToRecycleName:
+    100000: root
+    100002: //RootNode
+    100004: WEREHOG_
+    100006: WEREHOG_ Head
+    100008: WEREHOG_ L Calf
+    100010: WEREHOG_ L Clavicle
+    100012: WEREHOG_ L Finger0
+    100014: WEREHOG_ L Finger01
+    100016: WEREHOG_ L Finger02
+    100018: WEREHOG_ L Finger1
+    100020: WEREHOG_ L Finger11
+    100022: WEREHOG_ L Finger12
+    100024: WEREHOG_ L Finger2
+    100026: WEREHOG_ L Finger21
+    100028: WEREHOG_ L Finger22
+    100030: WEREHOG_ L Foot
+    100032: WEREHOG_ L Forearm
+    100034: WEREHOG_ L Hand
+    100036: WEREHOG_ L HorseLink
+    100038: WEREHOG_ L Thigh
+    100040: WEREHOG_ L Toe0
+    100042: WEREHOG_ L UpperArm
+    100044: WEREHOG_ Neck
+    100046: WEREHOG_ Neck1
+    100048: WEREHOG_ Pelvis
+    100050: WEREHOG_ Ponytail1
+    100052: WEREHOG_ R Calf
+    100054: WEREHOG_ R Clavicle
+    100056: WEREHOG_ R Finger0
+    100058: WEREHOG_ R Finger01
+    100060: WEREHOG_ R Finger02
+    100062: WEREHOG_ R Finger1
+    100064: WEREHOG_ R Finger11
+    100066: WEREHOG_ R Finger12
+    100068: WEREHOG_ R Finger2
+    100070: WEREHOG_ R Finger21
+    100072: WEREHOG_ R Finger22
+    100074: WEREHOG_ R Foot
+    100076: WEREHOG_ R Forearm
+    100078: WEREHOG_ R Hand
+    100080: WEREHOG_ R HorseLink
+    100082: WEREHOG_ R Thigh
+    100084: WEREHOG_ R Toe0
+    100086: WEREHOG_ R UpperArm
+    100088: WEREHOG_ Spine
+    100090: WEREHOG_ Spine1
+    100092: WHEREHOG_SHOULDER_PAD
+    400000: root
+    400002: //RootNode
+    400004: WEREHOG_
+    400006: WEREHOG_ Head
+    400008: WEREHOG_ L Calf
+    400010: WEREHOG_ L Clavicle
+    400012: WEREHOG_ L Finger0
+    400014: WEREHOG_ L Finger01
+    400016: WEREHOG_ L Finger02
+    400018: WEREHOG_ L Finger1
+    400020: WEREHOG_ L Finger11
+    400022: WEREHOG_ L Finger12
+    400024: WEREHOG_ L Finger2
+    400026: WEREHOG_ L Finger21
+    400028: WEREHOG_ L Finger22
+    400030: WEREHOG_ L Foot
+    400032: WEREHOG_ L Forearm
+    400034: WEREHOG_ L Hand
+    400036: WEREHOG_ L HorseLink
+    400038: WEREHOG_ L Thigh
+    400040: WEREHOG_ L Toe0
+    400042: WEREHOG_ L UpperArm
+    400044: WEREHOG_ Neck
+    400046: WEREHOG_ Neck1
+    400048: WEREHOG_ Pelvis
+    400050: WEREHOG_ Ponytail1
+    400052: WEREHOG_ R Calf
+    400054: WEREHOG_ R Clavicle
+    400056: WEREHOG_ R Finger0
+    400058: WEREHOG_ R Finger01
+    400060: WEREHOG_ R Finger02
+    400062: WEREHOG_ R Finger1
+    400064: WEREHOG_ R Finger11
+    400066: WEREHOG_ R Finger12
+    400068: WEREHOG_ R Finger2
+    400070: WEREHOG_ R Finger21
+    400072: WEREHOG_ R Finger22
+    400074: WEREHOG_ R Foot
+    400076: WEREHOG_ R Forearm
+    400078: WEREHOG_ R Hand
+    400080: WEREHOG_ R HorseLink
+    400082: WEREHOG_ R Thigh
+    400084: WEREHOG_ R Toe0
+    400086: WEREHOG_ R UpperArm
+    400088: WEREHOG_ Spine
+    400090: WEREHOG_ Spine1
+    400092: WHEREHOG_SHOULDER_PAD
+    7400000: IdleBreathe
+    9500000: //RootNode
+  externalObjects: {}
+  materials:
+    importMaterials: 1
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 0
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations:
+    - serializedVersion: 16
+      name: IdleBreathe
+      takeName: Take 001
+      firstFrame: 0
+      lastFrame: 60
+      wrapMode: 0
+      orientationOffsetY: 0
+      level: 0
+      cycleOffset: 0
+      loop: 0
+      hasAdditiveReferencePose: 0
+      loopTime: 1
+      loopBlend: 0
+      loopBlendOrientation: 1
+      loopBlendPositionY: 1
+      loopBlendPositionXZ: 1
+      keepOriginalOrientation: 1
+      keepOriginalPositionY: 1
+      keepOriginalPositionXZ: 1
+      heightFromFeet: 0
+      mirror: 0
+      bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+      curves: []
+      events: []
+      transformMask: []
+      maskType: 3
+      maskSource: {instanceID: 0}
+      additiveReferencePoseFrame: 0
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    importVisibility: 1
+    importBlendShapes: 1
+    importCameras: 1
+    importLights: 1
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    optimizeMeshForGPU: 1
+    keepQuads: 0
+    weldVertices: 1
+    preserveHierarchy: 0
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    previousCalculatedGlobalScale: 0.01
+    hasPreviousCalculatedGlobalScale: 1
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 3
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 1
+    normalSmoothingSource: 0
+  importAnimation: 1
+  copyAvatar: 1
+  humanDescription:
+    serializedVersion: 2
+    human: []
+    skeleton: []
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    rootMotionBoneName: root
+    hasTranslationDoF: 0
+    hasExtraRoot: 0
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {fileID: 9000000, guid: 6bddef67d5c980e48be3e62a7d65790b,
+    type: 3}
+  animationType: 2
+  humanoidOversampling: 1
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

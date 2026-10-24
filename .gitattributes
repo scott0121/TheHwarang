@@ -1,0 +1,18 @@
+# Normalize text line endings
+* text=auto
+
+# Unity YAML assets: keep as text, merge-friendly
+*.unity   text eol=lf linguist-language=Unity
+*.prefab  text eol=lf
+*.asset   text eol=lf
+*.mat     text eol=lf
+*.anim    text eol=lf
+*.controller text eol=lf
+*.meta    text eol=lf
+*.cs      text diff=csharp
+*.md      text
+*.json    text
+*.csv     text
+
+# Large source art -> Git LFS
+*.psd filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,6 @@
+Type,DisplayName,MaxHp,MoveSpeed,AttackDamage,AttackRange,AttackCooldown,SeparationRadius,DropsBossKey,AffinityReward,GoldReward,ScaleMultiplier,ColorHex
+Minion,산해경 잡몹 (독충/괴조),35,4.2,6,1.3,1,0.9,False,0,2,1,#D93333FF
+Minion_Archer,맹독충,30,2.7,7,15,0.7,1.0,False,1,3,0.9,#33E64DFF
+Minion_BigMon,거북이,60,2,12,2,1.8,1.4,False,2,5,1.4,#409980FF
+Elite,정예 열쇠 수문장,120,3.5,15,1.8,1.2,1.5,True,1,20,1.5,#F2BF1AFF
+FoxBoss,구미호 여우 요괴,350,4.8,20,2.5,0.8,2.2,False,5,100,2.2,#E6661AFF

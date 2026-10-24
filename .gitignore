@@ -1,0 +1,48 @@
+# Unity project lives in MythOfGuotaji/
+MythOfGuotaji/[Ll]ibrary/
+MythOfGuotaji/[Tt]emp/
+MythOfGuotaji/[Oo]bj/
+MythOfGuotaji/[Bb]uild/
+MythOfGuotaji/[Bb]uilds/
+MythOfGuotaji/[Ll]ogs/
+MythOfGuotaji/[Uu]ser[Ss]ettings/
+MythOfGuotaji/[Mm]emoryCaptures/
+MythOfGuotaji/[Rr]ecordings/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Unity generated
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+sysinfo.txt
+*.apk
+*.aab
+*.unitypackage
+*.app
+crashlytics-build.properties
+MythOfGuotaji/Assets/AssetStoreTools*
+
+# Unity AI / cache
+MythOfGuotaji/Assets/Plugins/Editor/JetBrains*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

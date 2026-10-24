@@ -1,0 +1,231 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &7224194390816387261
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 716241042407652706}
+  - component: {fileID: 4279317615387275985}
+  - component: {fileID: 4096760433580137560}
+  - component: {fileID: 792926379903963278}
+  - component: {fileID: 824075572452368628}
+  - component: {fileID: 8595506445056660437}
+  m_Layer: 0
+  m_Name: Player_Guotaji
+  m_TagString: Player
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &716241042407652706
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7224194390816387261}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 6104753340978569098}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!136 &4279317615387275985
+CapsuleCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7224194390816387261}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 2
+  m_Radius: 0.5
+  m_Height: 2
+  m_Direction: 1
+  m_Center: {x: 0, y: 1, z: 0}
+--- !u!143 &4096760433580137560
+CharacterController:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7224194390816387261}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Height: 2
+  m_Radius: 0.5
+  m_SlopeLimit: 45
+  m_StepOffset: 0.3
+  m_SkinWidth: 0.08
+  m_MinMoveDistance: 0.001
+  m_Center: {x: 0, y: 1, z: 0}
+--- !u!114 &792926379903963278
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7224194390816387261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ab578316bb7118c4bba56abce899d17c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Combat.BowWeapon
+  _normalArrowPrefab: {fileID: 0}
+  _chargedArrowPrefab: {fileID: 0}
+  _firePoint: {fileID: 0}
+  _baseDamage: 25
+  _attackRate: 2.8
+  _critChance: 0.15
+  _critMultiplier: 2
+  _enemyLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  _normalRange: 15
+  _chargedRange: 25
+  _normalSpeed: 24
+  _chargedSpeed: 36
+  _chargedDamageMultiplier: 2
+  _chargedKnockback: 12
+  _chargeStartTime: 0.3
+  _maxChargeTime: 3
+  _chargeMinRange: 0
+  _chargeMaxRange: 25
+  _chargeTelegraphWidth: 0.3
+  arrowCount: 1
+  spreadAngle: 12
+  pierceCount: 0
+  knockbackPower: 4.5
+  element: 0
+--- !u!114 &824075572452368628
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7224194390816387261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54233041e44153f48a226df8a5f81fe3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Combat.DaggerWeapon
+  _baseDamage: 50
+  _attackRadius: 4.2
+  _attackAngle: 150
+  _cooldown: 0.85
+  _knockback: 9
+  _enemyLayer:
+    serializedVersion: 2
+    m_Bits: 0
+--- !u!114 &8595506445056660437
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7224194390816387261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 67312db13dc884449a0d731d0d7e63eb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Actor.PlayerController
+  _moveSpeed: 7.5
+  _dashSpeed: 16
+  _dashDuration: 0.2
+  _dashCooldown: 1
+  _maxHp: 100
+  _bow: {fileID: 0}
+  _dagger: {fileID: 0}
+  _visualRoot: {fileID: 0}
+  _minChargeTime: 0.3
+  _maxChargeTime: 3
+  _sameCategoryGCD: 0.5
+  _diffCategoryGCD: 0.2
+--- !u!1001 &5545555055943488357
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 716241042407652706}
+    m_Modifications:
+    - target: {fileID: 1751253882560449775, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1751253882560449775, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1751253882560449775, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1751253882560449775, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1751253882560449775, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1751253882560449775, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1751253882560449775, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1751253882560449775, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1751253882560449775, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1751253882560449775, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6738533136525852619, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+      propertyPath: m_Name
+      value: CatPlayer_Job00
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+--- !u!4 &6104753340978569098 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1751253882560449775, guid: bb99803a893e6c84da306c6e027e744e, type: 3}
+  m_PrefabInstance: {fileID: 5545555055943488357}
+  m_PrefabAsset: {fileID: 0}

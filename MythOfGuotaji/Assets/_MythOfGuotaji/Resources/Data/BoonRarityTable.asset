@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 41eb2e93276d4fb78e7e5e359d498739, type: 3}
+  m_Name: BoonRarityTable
+  m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Data.BoonRarityTableSO
+  rarityConfigs:
+  - rarity: 0
+    rarityName: "\uC77C\uBC18"
+    statMultiplier: 1
+    rollWeight: 70
+    rarityColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
+    applyMode: 0
+    descriptionTag: "[\uC77C\uBC18]"
+  - rarity: 1
+    rarityName: "\uD76C\uADC0"
+    statMultiplier: 1.5
+    rollWeight: 24
+    rarityColor: {r: 0, g: 0.85, b: 1, a: 1}
+    applyMode: 0
+    descriptionTag: "[\uD76C\uADC0 1.5x]"
+  - rarity: 2
+    rarityName: "\uC804\uC124"
+    statMultiplier: 2.2
+    rollWeight: 6
+    rarityColor: {r: 1, g: 0.84, b: 0, a: 1}
+    applyMode: 0
+    descriptionTag: "[\uC804\uC124 2.2x]"

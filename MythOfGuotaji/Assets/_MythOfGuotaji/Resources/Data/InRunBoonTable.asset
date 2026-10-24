@@ -1,0 +1,169 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eaab69a2d71e4558a229730b3f00f767, type: 3}
+  m_Name: InRunBoonTable
+  m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Data.InRunBoonTableSO
+  entries:
+  - boonId: Vigor
+    title: "\uC6A9\uC0AC\uC758 \uC228\uACB0"
+    category: "\uC0DD\uC874 & \uAE30\uB3D9"
+    statType: 0
+    baseStepValue: 15
+    maxValue: 165
+    maxUpgradeCount: 10
+    defaultRarity: 0
+    unit: HP
+    isIntegerStat: 0
+    descriptionFormat: "\uCD5C\uB300 \uCCB4\uB825 +{0}HP (\uB204\uC801: {1}/{2}HP)"
+  - boonId: SwiftWind
+    title: "\uCD95\uC9C0\uBC95"
+    category: "\uC0DD\uC874 & \uAE30\uB3D9"
+    statType: 1
+    baseStepValue: 0.75
+    maxValue: 3
+    maxUpgradeCount: 4
+    defaultRarity: 0
+    unit: m/s
+    isIntegerStat: 0
+    descriptionFormat: "\uC774\uB3D9 \uC18D\uB3C4 +{0}m/s (\uB204\uC801: {1}/{2}m/s)"
+  - boonId: WindStep
+    title: "\uBC14\uB78C \uAC78\uC74C"
+    category: "\uC0DD\uC874 & \uAE30\uB3D9"
+    statType: 2
+    baseStepValue: 0.15
+    maxValue: 0.6
+    maxUpgradeCount: 4
+    defaultRarity: 0
+    unit: "\uCD08"
+    isIntegerStat: 0
+    descriptionFormat: "\uB300\uC2DC \uCF58\uB2E4\uC6B4 -{0}\uCD08 (\uB204\uC801: -{1}/-{2}\uCD08)"
+  - boonId: BowDamage
+    title: "\uCC9C\uB9C8\uC758 \uC2DC\uC704"
+    category: "\uD65C & \uC0AC\uACA9"
+    statType: 3
+    baseStepValue: 2.5
+    maxValue: 22.5
+    maxUpgradeCount: 10
+    defaultRarity: 0
+    unit: 
+    isIntegerStat: 0
+    descriptionFormat: "\uD654\uC0B4 \uAE30\uBC38 \uACF5\uACA9\uB825 +{0} (\uB204\uC801: +{1}/+{2})"
+  - boonId: BowRate
+    title: "\uCF8C\uC18D \uC18D\uC0AC"
+    category: "\uD65C & \uC0AC\uACA9"
+    statType: 4
+    baseStepValue: 0.15
+    maxValue: 0.6
+    maxUpgradeCount: 4
+    defaultRarity: 0
+    unit: '%'
+    isIntegerStat: 0
+    descriptionFormat: "\uD654\uC0B4 \uC5F0\uC0AC \uC18D\uB3C4 +{0}% (\uB204\uC801: +{1}/+{2}%)"
+  - boonId: ArrowPierce
+    title: "\uAD00\uD1B5\uC2DC\uC704"
+    category: "\uD65C & \uC0AC\uACA9"
+    statType: 5
+    baseStepValue: 1
+    maxValue: 3
+    maxUpgradeCount: 3
+    defaultRarity: 1
+    unit: "\uD68C"
+    isIntegerStat: 1
+    descriptionFormat: "\uD654\uC0B4 \uCD94\uAC00 \uAD00\uD1B5 \uC218 +{0}\uD68C (\uB204\uC801: +{1}/+{2}\uD68C)"
+  - boonId: ArrowMulti
+    title: "\uC2E0\uAD81"
+    category: "\uD65C & \uC0AC\uACA9"
+    statType: 6
+    baseStepValue: 1
+    maxValue: 2
+    maxUpgradeCount: 2
+    defaultRarity: 2
+    unit: "\uBC1C"
+    isIntegerStat: 1
+    descriptionFormat: "\uD654\uC0B4 \uB3D9\uC2DC \uBC1C\uC0AC \uC218 +{0}\uBC1C (\uB204\uC801: +{1}/+{2}\uBC1C)"
+  - boonId: ChargeSnipe
+    title: "\uC12C\uAD11 \uAD00\uD1B5\uC0AC"
+    category: "\uCC28\uC9D5 \uD654\uC0B4"
+    statType: 7
+    baseStepValue: 4
+    maxValue: 16
+    maxUpgradeCount: 4
+    defaultRarity: 1
+    unit: m
+    isIntegerStat: 0
+    descriptionFormat: "\uCC28\uC9D5 \uAD00\uD1B5 \uC0AC\uAC70\uB9AC +{0}m (\uB204\uC801: +{1}/+{2}m)"
+  - boonId: ChargeDamage
+    title: "\uAC70\uC554 \uACA9\uD0C0"
+    category: "\uCC28\uC9D5 \uD654\uC0B4"
+    statType: 8
+    baseStepValue: 0.25
+    maxValue: 1
+    maxUpgradeCount: 4
+    defaultRarity: 1
+    unit: "\uBC30"
+    isIntegerStat: 0
+    descriptionFormat: "\uCC28\uC9D5 \uD53C\uD574 \uBC30\uC728 +{0}\uBC30 (\uB204\uC801: +{1}/+{2}\uBC30)"
+  - boonId: QuickDraw
+    title: "\uC2E0\uC18D\uD55C \uB2F9\uAE40"
+    category: "\uCC28\uC9D5 \uD654\uC0B4"
+    statType: 9
+    baseStepValue: 0.15
+    maxValue: 0.45
+    maxUpgradeCount: 3
+    defaultRarity: 0
+    unit: '%'
+    isIntegerStat: 0
+    descriptionFormat: "\uCC28\uC9D5 \uC18C\uC694 \uC2DC\uAC04 \uB2E8\uCD95 +{0}% (\uB204\uC801: +{1}/+{2}%)"
+  - boonId: DaggerEdge
+    title: "\uC608\uB9AC\uD55C \uCE7C\uB0A0"
+    category: "\uB2E8\uAC80 & \uD328\uB9C1"
+    statType: 10
+    baseStepValue: 6
+    maxValue: 30
+    maxUpgradeCount: 5
+    defaultRarity: 0
+    unit: 
+    isIntegerStat: 0
+    descriptionFormat: "\uB2E8\uAC80 \uADFC\uC811 \uACF5\uACA9\uB825 +{0} (\uB204\uC801: +{1}/+{2})"
+  - boonId: DaggerRadius
+    title: "\uBE44\uC218 \uADA4\uC801"
+    category: "\uB2E8\uAC80 & \uD328\uB9C1"
+    statType: 11
+    baseStepValue: 0.3
+    maxValue: 1.2
+    maxUpgradeCount: 4
+    defaultRarity: 0
+    unit: m
+    isIntegerStat: 0
+    descriptionFormat: "\uB2E8\uAC80 \uACF5\uACA9 \uBC18\uACBD +{0}m (\uB204\uC801: +{1}/+{2}m)"
+  - boonId: MoonParry
+    title: "\uB2EC\uBE5B \uD328\uB9C1"
+    category: "\uB2E8\uAC80 & \uD328\uB9C1"
+    statType: 12
+    baseStepValue: 0.35
+    maxValue: 1.4
+    maxUpgradeCount: 4
+    defaultRarity: 1
+    unit: "\uBC30"
+    isIntegerStat: 0
+    descriptionFormat: "\uD22C\uC0AC\uCCB4 \uBC18\uC0AC \uD53C\uD574 \uBC30\uC728 +{0}\uBC30 (\uB204\uC801: +{1}/+{2}\uBC30)"
+  - boonId: FluidCadence
+    title: "\uC720\uC5F0\uD55C \uC5F0\uACC4"
+    category: "\uC720\uD2F8 & \uD68C\uBB0Bok"
+    statType: 0
+    baseStepValue: 0
+    maxValue: 0
+    maxUpgradeCount: 0
+    defaultRarity: 0
+    unit: 
+    isIntegerStat: 0
+    descriptionFormat: 
