@@ -14,18 +14,35 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Data.MonsterStatsTableSO
   entries:
   - type: 0
-    displayName: "\uC0B0\uD574\uACBD \uC7A1\uBAB9 (\uB3C5\uCDA9/\uAD34\uC870)"
+    displayName: "\uC0B0\uD574\uACBD \uC7A1\uBAF9"
+    description: "\uD54C\uB808\uC774\uC5B4\uB97C \uD5A5\uD574 \uB5BC\uC9C0\uC5B4 \uBAB0\uB824\uB4E4\uBA70 5m \uB3CC\uC9C4 \uCDA9\uACA9\uD30C\uB97C \uC0AC\uC6A9\uD558\uB294 \uAE30\uBCF8 \uC694\uAD34"
+    category: Normal
+    scaleMultiplier: 1
+    tintColor: {r: 1, g: 1, b: 1, a: 1}
     maxHp: 35
     moveSpeed: 4.2
-    attackDamage: 6
-    attackRange: 5
-    attackCooldown: 1
+    defense: 0
     separationRadius: 0.9
-    dropsBossKey: 0
-    affinityReward: 0
-    goldReward: 2
-    scaleMultiplier: 1
-    tintColor: {r: 0.85, g: 0.2, b: 0.2, a: 1}
+    hitStunDuration: 0.15
+    gemDropCount: 1
+    expPerGem: 1
+    goldReward: 3
+    affinityReward: 1
+    heartDropChance: 0.25
+    heartHealAmount: 5
+    specialDrops: []
+    normalAttack:
+      attackRange: 1.8
+      attackDamage: 6
+      attackCooldown: 1
+      windupTime: 0.2
+      recoveryTime: 0.2
+      hitboxRadius: 0.8
+      attackVFX: HCFX_Slash_01
+      hitVFX: HCFX_Dust_FloorHit_01
+    specialSkillIds:
+    - minion_dash
+    projectileParryType: 0
     projectileSpeed: 6
     kiteDistance: 0
     knockbackPower: 2
@@ -35,145 +52,599 @@ MonoBehaviour:
     flightDuration: 2
     arcHeight: 6
     postAttackDelay: 0.2
-    gemDropCount: 1
-    expPerGem: 1
     dashDistance: 5
     dashWidth: 0.5
     dashDuration: 0.3
   - type: 1
-    displayName: "\uC815\uC608 \uC5F4\uC1E0 \uC218\uBB38\uC7A5"
-    maxHp: 120
-    moveSpeed: 3.5
-    attackDamage: 15
-    attackRange: 1.8
-    attackCooldown: 1.2
-    separationRadius: 1.5
-    dropsBossKey: 1
-    affinityReward: 1
-    goldReward: 20
-    scaleMultiplier: 1.5
-    tintColor: {r: 0.95, g: 0.75, b: 0.1, a: 1}
-    projectileSpeed: 6
-    kiteDistance: 0
-    knockbackPower: 4
-    telegraphDuration: 0.5
-    specialAttackRadius: 2.5
-    specialAttackAngle: 90
-    flightDuration: 2
-    arcHeight: 6
-    postAttackDelay: 0.2
-    gemDropCount: 5
-    expPerGem: 2
-    dashDistance: 2
-    dashWidth: 0.5
-    dashDuration: 0.3
-  - type: 2
-    displayName: "\uAD6C\uBBF8\uD638 \uC5EC\uC6B0 \uC694\uAD34"
-    maxHp: 350
-    moveSpeed: 4.8
-    attackDamage: 20
-    attackRange: 2.5
-    attackCooldown: 0.8
+    displayName: "\uC5F4\uC1E0\uC9C0\uAE30 \uC911\uAC04\uBCF4\uC2A4"
+    description: "\uC911\uAC04\uBCF4\uC2A4\uBC29 2\uCC28 \uC6E8\uC774\uBE0C\uC5D0 \uB4F1\uC7A5\uD558\uBA70, \uAC70\uB300\uD55C \uBC14\uC744\uB97C \uAD74\uB9AC\uACE0 \uC0AC\uB9DD \uC2DC \uBCF4\uC2A4\uBC29 \uD669\uAE08 \uC5F4\uC1E0\uB97C 100% \uD655\uC815 \uB4DC\uB86D"
+    category: Elite
+    scaleMultiplier: 1.8
+    tintColor: {r: 1, g: 0.85, b: 0.2, a: 1}
+    maxHp: 550
+    moveSpeed: 3.6
+    defense: 8
     separationRadius: 2.2
-    dropsBossKey: 0
-    affinityReward: 5
-    goldReward: 100
-    scaleMultiplier: 2.2
-    tintColor: {r: 0.9, g: 0.4, b: 0.1, a: 1}
-    projectileSpeed: 6
-    kiteDistance: 0
-    knockbackPower: 6
-    telegraphDuration: 0.5
-    specialAttackRadius: 2.5
-    specialAttackAngle: 90
-    flightDuration: 2
-    arcHeight: 6
-    postAttackDelay: 0.2
-    gemDropCount: 12
+    hitStunDuration: 0.1
+    gemDropCount: 6
     expPerGem: 3
-    dashDistance: 2
-    dashWidth: 0.5
-    dashDuration: 0.3
-  - type: 3
-    displayName: "\uB9F9\uB3C5\uCDA9"
-    maxHp: 30
-    moveSpeed: 2.7
-    attackDamage: 7
-    attackRange: 15
-    attackCooldown: 0.7
-    separationRadius: 1.1
-    dropsBossKey: 0
-    affinityReward: 1
-    goldReward: 3
-    scaleMultiplier: 0.9
-    tintColor: {r: 0.2, g: 0.95, b: 0.25, a: 1}
-    projectileSpeed: 6
-    kiteDistance: 5
-    knockbackPower: 2
-    telegraphDuration: 0.5
-    specialAttackRadius: 2.5
-    specialAttackAngle: 90
-    flightDuration: 2
-    arcHeight: 6
-    postAttackDelay: 0.2
-    gemDropCount: 1
-    expPerGem: 1
-    dashDistance: 2
-    dashWidth: 0.5
-    dashDuration: 0.3
-  - type: 4
-    displayName: "\uAC70\uBD81\uC774"
-    maxHp: 60
-    moveSpeed: 2
-    attackDamage: 12
-    attackRange: 20
-    attackCooldown: 3.5
-    separationRadius: 1.4
-    dropsBossKey: 0
-    affinityReward: 2
-    goldReward: 5
-    scaleMultiplier: 1.4
-    tintColor: {r: 0.25, g: 0.6, b: 0.5, a: 1}
-    projectileSpeed: 6
+    goldReward: 40
+    affinityReward: 8
+    heartDropChance: 1
+    heartHealAmount: 15
+    specialDrops:
+    - itemId: BossKey
+      itemName: "\uBCF4\uC2A4\uBC29 \uD669\uAE08 \uC5F4\uC1E0"
+      dropChance: 1
+      dropVFX: HCFX_Marble_02_Get
+    normalAttack:
+      attackRange: 2.8
+      attackDamage: 16
+      attackCooldown: 1.5
+      windupTime: 0.3
+      recoveryTime: 0.3
+      hitboxRadius: 1.6
+      attackVFX: HCFX_Slash_01
+      hitVFX: HCFX_Dust_FloorHit_01
+    specialSkillIds:
+    - elite_boulder
+    projectileParryType: 0
+    projectileSpeed: 8
     kiteDistance: 0
-    knockbackPower: 12
-    telegraphDuration: 0.4
-    specialAttackRadius: 3
-    specialAttackAngle: 360
+    knockbackPower: 5
+    telegraphDuration: 0.6
+    specialAttackRadius: 2
+    specialAttackAngle: 0
     flightDuration: 2
     arcHeight: 6
     postAttackDelay: 0.4
-    gemDropCount: 2
+    dashDistance: 0
+    dashWidth: 0
+    dashDuration: 0
+  - type: 2
+    displayName: "\uCC9C\uB144 \uC5EC\uC6B0 \uC694\uAD34 (\uBCF4\uC2A4)"
+    description: "\uBCF4\uC2A4\uBC29 2\uCC28 \uC6E8\uC774\uBE0C\uC5D0 \uAC15\uB9BC\uD558\uB294 \uB300\uC694\uAD34. 5m \uC601\uD63C \uD761\uC778 \uC18C\uC6A9\uB3CC\uC774\uC640 120\uB3C4 \uBD80\uCC44\uAF34 \uC694\uD654 \uBD84\uC1C4 \uD328\uD134\uC744 \uAD6C\uC0AC"
+    category: Boss
+    scaleMultiplier: 2.6
+    tintColor: {r: 1, g: 0.35, b: 0.35, a: 1}
+    maxHp: 900
+    moveSpeed: 4
+    defense: 12
+    separationRadius: 3
+    hitStunDuration: 0
+    gemDropCount: 15
+    expPerGem: 5
+    goldReward: 150
+    affinityReward: 25
+    heartDropChance: 1
+    heartHealAmount: 30
+    specialDrops: []
+    normalAttack:
+      attackRange: 3.2
+      attackDamage: 24
+      attackCooldown: 1.8
+      windupTime: 0.35
+      recoveryTime: 0.35
+      hitboxRadius: 2
+      attackVFX: HCFX_Slash_01
+      hitVFX: HCFX_Dust_FloorHit_01
+    specialSkillIds:
+    - boss_vacuum
+    - boss_cleave
+    projectileParryType: 0
+    projectileSpeed: 0
+    kiteDistance: 0
+    knockbackPower: 3
+    telegraphDuration: 0.5
+    specialAttackRadius: 3.5
+    specialAttackAngle: 120
+    flightDuration: 0
+    arcHeight: 0
+    postAttackDelay: 0.3
+    dashDistance: 0
+    dashWidth: 0
+    dashDuration: 0
+  - type: 3
+    displayName: "\uC0B0\uD574\uACBD \uB9F9\uB3C5\uCDA9 (Minion_Archer)"
+    description: "\uBE60\uB978 \uC18D\uB3C4\uB85C 15m \uC6D0\uAC70\uB9AC \uB3C5\uCE68\uC744 \uC3D8\uBA70 \uD54C\uB808\uC774\uC5B4\uAC00 \uC811\uADFC\uD558\uBA74 \uCE74\uC774\uD305 \uD6C4\uD1F4\uD558\uB294 \uAE30\uB3D9\uD615 \uC694\uAD34"
+    category: Ranged
+    scaleMultiplier: 0.9
+    tintColor: {r: 0.2, g: 0.9, b: 0.3, a: 1}
+    maxHp: 30
+    moveSpeed: 2.7
+    defense: 0
+    separationRadius: 1
+    hitStunDuration: 0.2
+    gemDropCount: 1
     expPerGem: 1
+    goldReward: 4
+    affinityReward: 1
+    heartDropChance: 0.2
+    heartHealAmount: 5
+    specialDrops: []
+    normalAttack:
+      attackRange: 15
+      attackDamage: 7
+      attackCooldown: 0.7
+      windupTime: 0.2
+      recoveryTime: 0.2
+      hitboxRadius: 0.6
+      attackVFX: HCFX_Poison_01
+      hitVFX: HCFX_Poison_01
+    specialSkillIds:
+    - toxic_spit
+    projectileParryType: 0
+    projectileSpeed: 6
+    kiteDistance: 6
+    knockbackPower: 1
+    telegraphDuration: 0.3
+    specialAttackRadius: 0.5
+    specialAttackAngle: 0
+    flightDuration: 0
+    arcHeight: 0
+    postAttackDelay: 0.2
+    dashDistance: 0
+    dashWidth: 0
+    dashDuration: 0
+  - type: 4
+    displayName: "\uD669\uB3D9 \uAC70\uBD81 \uC694\uAD34 (Minion_BigMon)"
+    description: "\uB192\uC740 \uCCB4\uB825\uACFC \uBC29\uC5B4\uB825\uC73C\uB85C \uD54C\uB808\uC774\uC5B4\uB97C \uD5A5\uD574 20m\uB97C \uAC00\uC18D \uB3CC\uC9C4\uD558\uB294 \uC911\uC7A5\uAC11 \uC694\uAD34. \uCDA9\uB3CC \uC2DC 3m \uCDA9\uACA9\uD30C"
+    category: Heavy
+    scaleMultiplier: 1.4
+    tintColor: {r: 0.25, g: 0.6, b: 0.5, a: 1}
+    maxHp: 90
+    moveSpeed: 2
+    defense: 5
+    separationRadius: 1.6
+    hitStunDuration: 0.1
+    gemDropCount: 3
+    expPerGem: 2
+    goldReward: 12
+    affinityReward: 3
+    heartDropChance: 0.35
+    heartHealAmount: 8
+    specialDrops: []
+    normalAttack:
+      attackRange: 20
+      attackDamage: 12
+      attackCooldown: 3.5
+      windupTime: 0.4
+      recoveryTime: 0.4
+      hitboxRadius: 1.4
+      attackVFX: HCFX_Dust_01
+      hitVFX: HCFX_Dust_FloorHit_01
+    specialSkillIds:
+    - turtle_charge
+    projectileParryType: 0
+    projectileSpeed: 0
+    kiteDistance: 0
+    knockbackPower: 4
+    telegraphDuration: 0.4
+    specialAttackRadius: 3
+    specialAttackAngle: 0
+    flightDuration: 0
+    arcHeight: 0
+    postAttackDelay: 0.4
     dashDistance: 20
     dashWidth: 1.5
     dashDuration: 3
-    heartDropChance: 0.4
-    heartHealAmount: 5
   - type: 5
-    displayName: "\uC8FC(\u9D38)"
-    maxHp: 50
-    moveSpeed: 1.2
-    attackDamage: 18
-    attackRange: 20
-    attackCooldown: 3
-    separationRadius: 1.4
-    dropsBossKey: 0
-    affinityReward: 2
-    goldReward: 6
+    displayName: "\uC0B0\uD574\uACBD \uC8FC(Zhu) (Minion_Zhu)"
+    description: "\uBCBD\uC744 \uBB34\uC2DC\uD558\uB294 \uD3EC\uBB3C\uC120 \uACE1\uC0AC \uBC15\uACA9\uD3EC\uB97C \uD22C\uCC99\uD558\uB294 \uC6D0\uAC70\uB9AC \uACE1\uC0AC\uD615 \uC694\uAD34. 5m \uC6D0\uD615 \uC7A5\uD310 \uBC0F 2\uCD08 \uACE1\uC0AC"
+    category: Ranged
     scaleMultiplier: 1.15
     tintColor: {r: 0.72, g: 0.22, b: 0.85, a: 1}
-    projectileSpeed: 10
-    kiteDistance: 5
+    maxHp: 50
+    moveSpeed: 1.2
+    defense: 2
+    separationRadius: 1.2
+    hitStunDuration: 0.2
+    gemDropCount: 2
+    expPerGem: 2
+    goldReward: 8
+    affinityReward: 2
+    heartDropChance: 0.3
+    heartHealAmount: 5
+    specialDrops: []
+    normalAttack:
+      attackRange: 20
+      attackDamage: 18
+      attackCooldown: 3
+      windupTime: 0.4
+      recoveryTime: 0.3
+      hitboxRadius: 1.2
+      attackVFX: HCFX_Buff_Up
+      hitVFX: HCFX_Splash_01
+    specialSkillIds:
+    - zhu_parabolic
+    projectileParryType: 0
+    projectileSpeed: 0
+    kiteDistance: 0
     knockbackPower: 4
     telegraphDuration: 0.5
     specialAttackRadius: 2.5
-    specialAttackAngle: 90
+    specialAttackAngle: 360
     flightDuration: 2
     arcHeight: 6
-    postAttackDelay: 0.2
+    postAttackDelay: 0.3
+    dashDistance: 0
+    dashWidth: 0
+    dashDuration: 0
+  - type: 6
+    displayName: "\uB3C4\uAE68\uBE44 \uD654\uC5FC\uC220\uC0AC"
+    description: "\uD328\uB9C1 \uAC00\uB2A5\uD55C \uD478\uB978 \uD654\uC5FC\uAD6C \uBC1C\uC0AC. \uD328\uB9C1 \uC131\uACF5 \uC2DC \uBCF4\uD638\uB9C9 \uBD84\uC1C4 \uBC0F 3\uCD08 \uAE30\uC808"
+    category: Ranged
+    scaleMultiplier: 1.1
+    tintColor: {r: 0.3, g: 0.6, b: 1, a: 1}
+    maxHp: 45
+    moveSpeed: 3.2
+    defense: 6
+    separationRadius: 1.2
+    hitStunDuration: 0.15
     gemDropCount: 2
+    expPerGem: 2
+    goldReward: 8
+    affinityReward: 2
+    heartDropChance: 0.3
+    heartHealAmount: 5
+    specialDrops: []
+    normalAttack:
+      attackRange: 14
+      attackDamage: 10
+      attackCooldown: 2.5
+      windupTime: 0.3
+      recoveryTime: 0.2
+      hitboxRadius: 0.8
+      attackVFX: HCFX_ElementOrb_02
+      hitVFX: HCFX_Explosion_02
+    specialSkillIds:
+    - dokkaebi_fireball
+    projectileParryType: 0
+    projectileSpeed: 5
+    kiteDistance: 5
+    knockbackPower: 2
+    telegraphDuration: 0.3
+    specialAttackRadius: 0.8
+    specialAttackAngle: 0
+    flightDuration: 0
+    arcHeight: 0
+    postAttackDelay: 0.2
+    dashDistance: 0
+    dashWidth: 0
+    dashDuration: 0
+  - type: 7
+    displayName: "\uC800\uB3CC\uB9F9\uC9C4 \uBA67\uB3FC\uC9C0 \uC694\uAD34"
+    description: "14m/s\uB85C 15m \uB3CC\uC9C4. \uB3CC\uC9C4 \uCC30\uB098 \uB2E8\uAC80 \uD328\uB9C1 \uC2DC \uBCBD \uCDA9\uB3CC \uAE30\uC808, \uC2AC\uB77C\uC774\uB529 \uBB34\uC801 \uD68C\uD53C"
+    category: Heavy
+    scaleMultiplier: 1.3
+    tintColor: {r: 0.7, g: 0.45, b: 0.3, a: 1}
+    maxHp: 70
+    moveSpeed: 3.5
+    defense: 3
+    separationRadius: 1.4
+    hitStunDuration: 0.1
+    gemDropCount: 2
+    expPerGem: 2
+    goldReward: 10
+    affinityReward: 2
+    heartDropChance: 0.35
+    heartHealAmount: 8
+    specialDrops: []
+    normalAttack:
+      attackRange: 15
+      attackDamage: 16
+      attackCooldown: 3
+      windupTime: 0.35
+      recoveryTime: 0.4
+      hitboxRadius: 1.2
+      attackVFX: HCFX_Dust_Dash_01
+      hitVFX: HCFX_Dust_FloorHit_02
+    specialSkillIds:
+    - boar_charge
+    projectileParryType: 0
+    projectileSpeed: 0
+    kiteDistance: 0
+    knockbackPower: 4
+    telegraphDuration: 0.35
+    specialAttackRadius: 1.5
+    specialAttackAngle: 0
+    flightDuration: 0
+    arcHeight: 0
+    postAttackDelay: 0.4
+    dashDistance: 15
+    dashWidth: 1.2
+    dashDuration: 1.1
+  - type: 8
+    displayName: "\uC694\uC120 \uAC70\uBBF8 (\uC0AC\uC744 \uACAC\uC778)"
+    description: "12m \uC0AC\uC744 \uACAC\uC778. \uC2AC\uB77C\uC774\uB529 \uBB34\uC801 \uB300\uC2DC\uB85C \uC989\uC2DC \uC808\uB2E8 \uD0C8\uCD9C"
+    category: Support
+    scaleMultiplier: 1
+    tintColor: {r: 0.8, g: 0.2, b: 0.8, a: 1}
+    maxHp: 40
+    moveSpeed: 3.8
+    defense: 1
+    separationRadius: 1.1
+    hitStunDuration: 0.15
+    gemDropCount: 2
+    expPerGem: 2
+    goldReward: 7
+    affinityReward: 2
+    heartDropChance: 0.25
+    heartHealAmount: 5
+    specialDrops: []
+    normalAttack:
+      attackRange: 12
+      attackDamage: 8
+      attackCooldown: 4.5
+      windupTime: 0.3
+      recoveryTime: 0.3
+      hitboxRadius: 1
+      attackVFX: HCFX_Poison_02
+      hitVFX: HCFX_Poison_01
+    specialSkillIds:
+    - spider_web_tether
+    projectileParryType: 0
+    projectileSpeed: 8
+    kiteDistance: 0
+    knockbackPower: -3.5
+    telegraphDuration: 0.3
+    specialAttackRadius: 1
+    specialAttackAngle: 0
+    flightDuration: 0
+    arcHeight: 0
+    postAttackDelay: 0.3
+    dashDistance: 0
+    dashWidth: 0
+    dashDuration: 0
+  - type: 9
+    displayName: "\uC9C4\uD759 \uC774\uAD34 (\uC7A5\uD310 \uBC14\uC778\uB4DC)"
+    description: "3m \uC9C4\uD759 \uB2AA\uC9C0\uB85C \uC774\uB3D9\uC18D\uB3C4 60% \uAC10\uC18D \uBC0F \uCE74\uC774\uD305 \uBD09\uC778"
+    category: Support
+    scaleMultiplier: 1.2
+    tintColor: {r: 0.45, g: 0.35, b: 0.2, a: 1}
+    maxHp: 55
+    moveSpeed: 2
+    defense: 4
+    separationRadius: 1.3
+    hitStunDuration: 0.1
+    gemDropCount: 2
+    expPerGem: 2
+    goldReward: 8
+    affinityReward: 2
+    heartDropChance: 0.3
+    heartHealAmount: 6
+    specialDrops: []
+    normalAttack:
+      attackRange: 9
+      attackDamage: 6
+      attackCooldown: 5
+      windupTime: 0.5
+      recoveryTime: 0.3
+      hitboxRadius: 1.2
+      attackVFX: HCFX_Poison_01
+      hitVFX: HCFX_Splash_03
+    specialSkillIds:
+    - mud_puddle
+    projectileParryType: 0
+    projectileSpeed: 0
+    kiteDistance: 0
+    knockbackPower: 0
+    telegraphDuration: 0.5
+    specialAttackRadius: 3
+    specialAttackAngle: 360
+    flightDuration: 0
+    arcHeight: 0
+    postAttackDelay: 0.3
+    dashDistance: 0
+    dashWidth: 0
+    dashDuration: 0
+  - type: 10
+    displayName: "\uD658\uC601 \uC5EC\uC6B0\uADC0 (\uBD84\uC2E0 \uC794\uC0C1\uC220)"
+    description: "\uD53C\uACA9 \uC2DC \uBCF8\uCCB4 1 + \uD658\uC601 2\uB9C8\uB9AC\uB85C 3\uBC29\uD5A5 \uBD84\uC2E0 \uAD50\uB780"
+    category: Agile
+    scaleMultiplier: 0.95
+    tintColor: {r: 1, g: 0.5, b: 0.7, a: 1}
+    maxHp: 35
+    moveSpeed: 5
+    defense: 0
+    separationRadius: 1
+    hitStunDuration: 0.15
+    gemDropCount: 1
+    expPerGem: 2
+    goldReward: 9
+    affinityReward: 2
+    heartDropChance: 0.25
+    heartHealAmount: 5
+    specialDrops: []
+    normalAttack:
+      attackRange: 6
+      attackDamage: 8
+      attackCooldown: 2
+      windupTime: 0.2
+      recoveryTime: 0.2
+      hitboxRadius: 0.8
+      attackVFX: HCFX_Slash_01
+      hitVFX: HCFX_Feathers
+    specialSkillIds:
+    - phantom_decoy
+    projectileParryType: 0
+    projectileSpeed: 0
+    kiteDistance: 0
+    knockbackPower: 0
+    telegraphDuration: 0.1
+    specialAttackRadius: 2
+    specialAttackAngle: 0
+    flightDuration: 0
+    arcHeight: 0
+    postAttackDelay: 0.2
+    dashDistance: 0
+    dashWidth: 0
+    dashDuration: 0
+  - type: 11
+    displayName: "\uD751\uCCA0 \uBC29\uD328\uBCD1 (\uD480\uCC28\uC9D5 \uD544\uC218)"
+    description: "\uC804\uBA74 \uCCA0\uAC11 \uBC29\uD328\uB85C \uC77C\uBC18 \uD654\uC0B4 100% \uB3C4\uD0C4. 3\uB2E8\uACC4 \uD480\uCC28\uC9D5 \uAD00\uD1B5 \uD654\uC0B4\uB85C\uB9CC \uD30C\uAD34"
+    category: Heavy
+    scaleMultiplier: 1.35
+    tintColor: {r: 0.4, g: 0.45, b: 0.55, a: 1}
+    maxHp: 100
+    moveSpeed: 2.2
+    defense: 10
+    separationRadius: 1.5
+    hitStunDuration: 0.05
+    gemDropCount: 3
+    expPerGem: 3
+    goldReward: 15
+    affinityReward: 3
+    heartDropChance: 0.4
+    heartHealAmount: 10
+    specialDrops: []
+    normalAttack:
+      attackRange: 3.5
+      attackDamage: 14
+      attackCooldown: 2
+      windupTime: 0.3
+      recoveryTime: 0.3
+      hitboxRadius: 1.2
+      attackVFX: HCFX_Hit_01
+      hitVFX: HCFX_Hit_02
+    specialSkillIds:
+    - iron_shield_stance
+    projectileParryType: 0
+    projectileSpeed: 0
+    kiteDistance: 0
+    knockbackPower: 2
+    telegraphDuration: 0.2
+    specialAttackRadius: 1.5
+    specialAttackAngle: 120
+    flightDuration: 0
+    arcHeight: 0
+    postAttackDelay: 0.3
+    dashDistance: 0
+    dashWidth: 0
+    dashDuration: 0
+  - type: 12
+    displayName: "\uC601\uB825 \uD761\uC218 \uAD34\uBB3C (\uCC28\uC9D5 \uAE08\uC9C0)"
+    description: "\uCC28\uC9D5 \uC0F7 \uD53C\uACA9 \uC2DC \uCCB4\uB825 \uD68C\uBCF5 \uBC0F 1.4\uBC30 \uD3ED\uC8FC. \uC77C\uBC18 \uC18D\uC0AC\uB098 \uB2E8\uAC80\uB85C\uB9CC \uCC98\uCE58"
+    category: Gimmick
+    scaleMultiplier: 1.2
+    tintColor: {r: 0.6, g: 0.2, b: 0.9, a: 1}
+    maxHp: 80
+    moveSpeed: 3
+    defense: 2
+    separationRadius: 1.3
+    hitStunDuration: 0.1
+    gemDropCount: 3
+    expPerGem: 3
+    goldReward: 14
+    affinityReward: 3
+    heartDropChance: 0.35
+    heartHealAmount: 8
+    specialDrops: []
+    normalAttack:
+      attackRange: 3
+      attackDamage: 10
+      attackCooldown: 1.5
+      windupTime: 0.2
+      recoveryTime: 0.2
+      hitboxRadius: 1
+      attackVFX: HCFX_Energy_01
+      hitVFX: HCFX_Buff_Up
+    specialSkillIds:
+    - energy_absorb
+    projectileParryType: 0
+    projectileSpeed: 0
+    kiteDistance: 0
+    knockbackPower: 1
+    telegraphDuration: 0.2
+    specialAttackRadius: 1.2
+    specialAttackAngle: 0
+    flightDuration: 0
+    arcHeight: 0
+    postAttackDelay: 0.2
+    dashDistance: 0
+    dashWidth: 0
+    dashDuration: 0
+  - type: 13
+    displayName: "\uC790\uD3ED \uCC38\uC0C8 \uB5BC (\uCD08\uACE0\uC18D \uBB3C\uB7C9)"
+    description: "\uCCB4\uB825 10, 12m/s \uB3CC\uC9C4 \uD6C4 2m \uC790\uD3ED. \uC694\uACA9 \uB610\uB294 \uC2AC\uB77C\uC774\uB529 \uBB34\uC801 \uD68C\uD53C"
+    category: Swarm
+    scaleMultiplier: 0.65
+    tintColor: {r: 1, g: 0.3, b: 0.2, a: 1}
+    maxHp: 10
+    moveSpeed: 12
+    defense: 0
+    separationRadius: 0.6
+    hitStunDuration: 0
+    gemDropCount: 1
     expPerGem: 1
-    dashDistance: 2
-    dashWidth: 0.5
-    dashDuration: 0.3
+    goldReward: 2
+    affinityReward: 1
+    heartDropChance: 0.15
+    heartHealAmount: 4
+    specialDrops: []
+    normalAttack:
+      attackRange: 8
+      attackDamage: 18
+      attackCooldown: 1
+      windupTime: 0.2
+      recoveryTime: 0.1
+      hitboxRadius: 1
+      attackVFX: HCFX_Energy_02
+      hitVFX: HCFX_Explosion_02
+    specialSkillIds:
+    - sparrow_kamikaze
+    projectileParryType: 0
+    projectileSpeed: 0
+    kiteDistance: 0
+    knockbackPower: 3
+    telegraphDuration: 0.2
+    specialAttackRadius: 2
+    specialAttackAngle: 360
+    flightDuration: 0
+    arcHeight: 0
+    postAttackDelay: 0.1
+    dashDistance: 8
+    dashWidth: 0.8
+    dashDuration: 0.6
+  - type: 14
+    displayName: "\uC0AC\uBC29\uC2E0 \uD1A0\uD15C (\uACE0\uC815 \uD3EC\uB300)"
+    description: "\uACE0\uC815\uD615 \uC11D\uC0C1. 4\uBC29\uD5A5 \uD68C\uC804 \uD0C4\uD658 \uC9C0\uC18D \uBC1C\uC0AC. \uBAA8\uB4E0 \uD0C4\uD658 \uD328\uB9C1 \uAC00\uB2A5"
+    category: Turret
+    scaleMultiplier: 1.6
+    tintColor: {r: 0.85, g: 0.85, b: 0.7, a: 1}
+    maxHp: 20
+    moveSpeed: 5
+    defense: 5
+    separationRadius: 2
+    hitStunDuration: 0
+    gemDropCount: 4
+    expPerGem: 3
+    goldReward: 20
+    affinityReward: 4
+    heartDropChance: 0.5
+    heartHealAmount: 12
+    specialDrops: []
+    normalAttack:
+      attackRange: 30
+      attackDamage: 9
+      attackCooldown: 1
+      windupTime: 0.2
+      recoveryTime: 0.2
+      hitboxRadius: 1
+      attackVFX: HCFX_MagicCircle_02
+      hitVFX: HCFX_Hit_03
+    specialSkillIds:
+    - totem_turret_barrage
+    projectileParryType: 1
+    projectileSpeed: 8
+    kiteDistance: 1
+    knockbackPower: 1
+    telegraphDuration: 0.2
+    specialAttackRadius: 1
+    specialAttackAngle: 0
+    flightDuration: 0
+    arcHeight: 0
+    postAttackDelay: 0.2
+    dashDistance: 0
+    dashWidth: 0
+    dashDuration: 0

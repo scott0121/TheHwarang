@@ -14,14 +14,57 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Data.PrefabDatabaseSO
   playerPrefab: {fileID: 7224194390816387261, guid: a401a2b0f688b5b45b230e2867b74378, type: 3}
   companionPrefab: {fileID: 6094855261140439799, guid: 083cdae5dcb816944807575c1a91c8b7, type: 3}
+  helperCompanionPrefab: {fileID: 8438065313925903308, guid: 888be5a5e8737d440aee09612f8e9ef0, type: 3}
+  expGemPrefab: {fileID: 3191191397850931312, guid: 9ba703e4f0b8e43489ac7f470a2c45b0, type: 3}
+  recoveryHeartPrefab: {fileID: 7861195238079741851, guid: 3e3b5073bfe1e0048952ed1115b29064, type: 3}
   arrowProjectilePrefab: {fileID: 4101925674279290782, guid: 02ea43cb4f82e3640b159f82f1d9b3e3, type: 3}
+  chargedArrowProjectilePrefab: {fileID: 5819146256159109793, guid: 4753b193a48c6354f8d01d9430fd7ac5, type: 3}
+  daggerSlashVfxPrefab: {fileID: 5464029098265300554, guid: 2fe4a063919ab1e4aba107bac3797855, type: 3}
+  venomProjectilePrefab: {fileID: 8706364319936615067, guid: 34949e0d3d15fab42adafe95e49af1bd, type: 3}
+  zhuParabolicProjectilePrefab: {fileID: 7787776543866009244, guid: 75677a73bbfa9884ba5548e5eed62ee8, type: 3}
+  dokkaebiFireballPrefab: {fileID: 2591782346017576514, guid: 49e60a61208ea764aa248cf0aa482269, type: 3}
+  totemEnergyOrbPrefab: {fileID: 3508883844556018142, guid: 649912592cac4114ebabde60364ed690, type: 3}
+  rollingBoulderPrefab: {fileID: 2841237773007066642, guid: d103df27e5f6dfc4dbea10d8ada164cd, type: 3}
+  rockShardPrefab: {fileID: 749147130047373659, guid: 070a979f6d5a9d94caaad413cdb4f637, type: 3}
+  spiderWebTetherPrefab: {fileID: 1823208975306736666, guid: f1769827b326dc240be28bd37cdf1f21, type: 3}
+  mudPuddleZonePrefab: {fileID: 620725458342837681, guid: b85ae98d7504bfe43a243ea08da857f6, type: 3}
+  boxTelegraphPrefab: {fileID: 6746167159061486726, guid: 8d094b40b30bbf64cb8e064039bc360b, type: 3}
+  sectorTelegraphPrefab: {fileID: 4541986259751157035, guid: 10b6d8c0ac61ac04c99707ad9b4c15e0, type: 3}
+  circleTelegraphPrefab: {fileID: 9046473434622864451, guid: ffccb6f8ed8f93c40b8487c86e5c6288, type: 3}
+  chargeAimBoxPrefab: {fileID: 7391516041175607914, guid: 8ce92ad33a2a4d942bc499451086e628, type: 3}
+  shockwaveRingPrefab: {fileID: 419069222565121849, guid: e44d82bfaa241da4fa6c848b0190be8e, type: 3}
+  sweepWavePrefab: {fileID: 7135760595014350988, guid: c5693bd30e6c8c147a0af77163b427c8, type: 3}
+  vacuumWavePrefab: {fileID: 2823545941865097964, guid: 040c9470fc67fac4993cd30801f9c27b, type: 3}
+  gemCollectVfxPrefab: {fileID: 2978459983018526263, guid: edb59b025dba30840bea6da0997fd450, type: 3}
   minionMonsterPrefab: {fileID: 2415010694333537076, guid: b780c3ab7b04976409424060c948ae4b, type: 3}
   eliteMonsterPrefab: {fileID: 1296619876738765983, guid: 60f4aacc0e5beb54da3bad9b6e044f2b, type: 3}
   foxBossPrefab: {fileID: 122574293480809460, guid: d751b3341e0c1bf42bc02c348e868b5e, type: 3}
   archerMonsterPrefab: {fileID: 3415010694333537001, guid: 8180c3ab7b04976409424060c948ae41, type: 3}
   bigMonMonsterPrefab: {fileID: 4415010694333537001, guid: 8180c3ab7b04976409424060c948ae42, type: 3}
   zhuMonsterPrefab: {fileID: 5415010694333537001, guid: 8180c3ab7b04976409424060c948ae43, type: 3}
-  dungeonRoomPrefab: {fileID: 5804676793993055354, guid: fe4b9fc8fcac998499e611d457199596, type: 3}
+  dokkaebiFireMonsterPrefab: {fileID: 3650585906219654437, guid: 0b2ff120179cba248881178db88dacda, type: 3}
+  boarChargerMonsterPrefab: {fileID: 6036993616018114278, guid: 060cf4135d126eb489f8c26ddd2e01e6, type: 3}
+  spiderTetherMonsterPrefab: {fileID: 2656957550201503595, guid: 8e6a3ad5b742063459359d0f86cb7b08, type: 3}
+  mudSlimeMonsterPrefab: {fileID: 5673913171509155504, guid: 1ee409f562a8e454d8ab134b95ba81b1, type: 3}
+  phantomFoxMonsterPrefab: {fileID: 7873613001308517939, guid: d8959455a90c36546967c065153e334f, type: 3}
+  ironShieldMonsterPrefab: {fileID: 335121432274441200, guid: b23c4bf78a0fdf349bc7c65d20697ce3, type: 3}
+  energyAbsorberMonsterPrefab: {fileID: 4339560579355578121, guid: 6a919bdcb02b6f74ea8e7834efdbd9c2, type: 3}
+  bombSparrowMonsterPrefab: {fileID: 5807218173615667770, guid: 5c9353350091c9043b574b5e30df76e0, type: 3}
+  totemTurretMonsterPrefab: {fileID: 3692353488143495177, guid: 0bd524aba9417f840a02beffb2aca59c, type: 3}
+  dungeonRoomPrefab: {fileID: 8370899327803619044, guid: 384c7eebc49ee6049a01e5ca90283822, type: 3}
   doorSocketPrefab: {fileID: 7684010554880747814, guid: 698b124af9e2c084484f99ebdda16f6a, type: 3}
   doorBarrierPrefab: {fileID: 0}
+  autoDoorPrefab: {fileID: 1511821125424655841, guid: d1e605f959d59794da2532dae6619c97, type: 3}
+  fogShroudPrefab: {fileID: 1735214448922763731, guid: e6f18fd8b922c2b45ab788ee92594957, type: 3}
   mainCameraPrefab: {fileID: 100001, guid: c03164a78be2a8848a609613524efca2, type: 3}
+  ingameSystemManagersPrefab: {fileID: 3553756889037518378, guid: 5993ad32c88b1ce41b0539f22189d0c3, type: 3}
+  outgameShrineEnvPrefab: {fileID: 5377644518380864515, guid: 2af359cfe2f1f384082663b6466ead6d, type: 3}
+  playerHealthBarUIPrefab: {fileID: 2201562264924229241, guid: c72f9447af515af44b84933d8f9845a2, type: 3}
+  boonSelectionUIPrefab: {fileID: 7064831591624369264, guid: 17bf4a78226d71d43b66172b04e3f00b, type: 3}
+  bossHealthBarUIPrefab: {fileID: 5792575099293509552, guid: 19ea1f04799ce6b42bb0c8a4eb618974, type: 3}
+  monsterHealthBarManagerPrefab: {fileID: 6284728207608412937, guid: 689dd1f35d824684293130d572b65647, type: 3}
+  stageClearUIPrefab: {fileID: 4262599600829530708, guid: c42bd15e2022c4d4194d12e9cf4eb670, type: 3}
+  progressionDebugUIPrefab: {fileID: 3187140729941379317, guid: d2bc5623a89c47f4b876399091d3b6e6, type: 3}
+  screenDamageVignetteUIPrefab: {fileID: 8494025593463441707, guid: 2b86e8d38735b3044890a912754ec4cb, type: 3}
+  aimCursorManagerPrefab: {fileID: 3116705257383035409, guid: c033be7feee298e45a0a21161dccbb04, type: 3}
+  introOutgameUIPrefab: {fileID: 2723967402659483883, guid: f1b6744cba7fa39428998b06826e4abb, type: 3}

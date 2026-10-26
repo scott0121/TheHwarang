@@ -1,4 +1,4 @@
-%YAML 1.1
+﻿%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -121,3 +121,165 @@ MonoBehaviour:
     projectileOrTrailVFX: HCFX_Charging_01_Step3
     impactOrExplosionVFX: HCFX_Explosion_03
     soundCue: Boss_Roar
+  - monsterType: 6
+    monsterName: "\uB3C4\uAE68\uBE44 \uD654\uC5FC\uC220\uC0AC (Dokkaebi_Fire)"
+    skillName: "3\uC5F0\uBC1C \uD654\uC5FC \uD0C4\uB9C9"
+    skillDescription: "\uCE90\uB9AD\uD130\uB97C \uC870\uC900\uD558\uC5EC 3\uC5F0\uBC1C \uD654\uC5FC \uD22C\uC0AC\uCCB4 \uBC1C\uC0AC. \uB2E8\uAC80 \uD328\uB9C1 \uAC00\uB2A5"
+    attackRange: 12
+    attackDamage: 10
+    cooldown: 2
+    telegraphDuration: 0.25
+    aoeRadius: 0.8
+    knockbackDistance: 1
+    projectileSpeed: 9
+    flightDuration: 0
+    arcHeight: 0
+    telegraphVFX: ''
+    castOrMuzzleVFX: HCFX_Fire_01
+    projectileOrTrailVFX: HCFX_ElementOrb_01
+    impactOrExplosionVFX: HCFX_Explosion_01
+    soundCue: Fireball_Cast
+  - monsterType: 7
+    monsterName: "\uC800\uB3CC\uB9F9\uC9C4 \uBA67\uB3FC\uC9C0 (Boar_Charger)"
+    skillName: "\uCD08\uACE0\uC18D \uC800\uB3CC\uB9F9\uC9C4"
+    skillDescription: "0.5\uCD08 \uC608\uACE0 \uD6C4 \uC804\uBC29 14m \uCD08\uACE0\uC18D \uB3CC\uC9C4. \uBCBD \uCDA9\uB3CC \uC2DC 2\uCD08\uAC04 \uAE30\uC808"
+    attackRange: 14
+    attackDamage: 14
+    cooldown: 4
+    telegraphDuration: 0.5
+    aoeRadius: 1.5
+    knockbackDistance: 6
+    projectileSpeed: 16
+    flightDuration: 0
+    arcHeight: 0
+    telegraphVFX: Telegraph_Rect_14x1.2
+    castOrMuzzleVFX: HCFX_Dust_Dash_01
+    projectileOrTrailVFX: HCFX_Dust_Dash_01_Air
+    impactOrExplosionVFX: HCFX_Explosion_01
+    soundCue: Boar_Charge
+  - monsterType: 8
+    monsterName: "\uC694\uC120 \uAC70\uBBF8 (Spider_Tether)"
+    skillName: "\uC694\uC120 \uD3EC\uBC15 & \uC778\uB825 \uB04C\uC5B4\uB2F9\uAE40"
+    skillDescription: "12m \uC0AC\uAC70\uB9AC \uAC70\uBBF8\uC904 \uBC1C\uC0AC. \uC801\uC911 \uC2DC \uBAAC\uC2A4\uD130 \uC55E\uC73C\uB85C \uB04C\uC5B4\uB2F9\uAE40 + 0.5\uCD08 \uC2A4\uD134"
+    attackRange: 12
+    attackDamage: 5
+    cooldown: 4.5
+    telegraphDuration: 0.3
+    aoeRadius: 0.6
+    knockbackDistance: -8
+    projectileSpeed: 12
+    flightDuration: 0
+    arcHeight: 0
+    telegraphVFX: ''
+    castOrMuzzleVFX: HCFX_Web_Shoot
+    projectileOrTrailVFX: HCFX_Energy_01
+    impactOrExplosionVFX: HCFX_Hit_02
+    soundCue: Spider_Tether
+  - monsterType: 9
+    monsterName: "\uC9C4\uD759 \uC2AC\uB77C\uC784 (Mud_Slime)"
+    skillName: "\uC9C4\uD759 \uC218\uB801 \uC7A5\uD310 \uC0DD\uC131"
+    skillDescription: "\uCE90\uB9AD\uD130 \uBC1C\uBC11\uC5D0 \uC9C1\uACBD 3m \uC9C4\uD759 \uC218\uB801 \uC0DD\uC131. 4\uCD08\uAC04 \uC774\uB3D9\uC18D\uB3C4 50% \uAC10\uC18D"
+    attackRange: 9
+    attackDamage: 6
+    cooldown: 5
+    telegraphDuration: 0.5
+    aoeRadius: 3
+    knockbackDistance: 0
+    projectileSpeed: 0
+    flightDuration: 0
+    arcHeight: 0
+    telegraphVFX: Telegraph_Circle_3m
+    castOrMuzzleVFX: HCFX_Buff_Down
+    projectileOrTrailVFX: ''
+    impactOrExplosionVFX: HCFX_Poison_02
+    soundCue: Mud_Splash
+  - monsterType: 10
+    monsterName: "\uD658\uC601 \uC5EC\uC6B0 (Phantom_Fox)"
+    skillName: "\uD658\uC601 \uBD84\uC2E0 & \uC794\uC0C1 \uC810\uBA78"
+    skillDescription: "\uCCB4\uB825 50% \uC774\uD558 \uC2DC 2\uB9C8\uB9AC \uD658\uC601 \uBD84\uC2E0 \uC0DD\uC131 \uBC0F \uCE90\uB9AD\uD130 \uC0AC\uAC01\uC73C\uB85C \uC810\uBA78"
+    attackRange: 6
+    attackDamage: 8
+    cooldown: 2
+    telegraphDuration: 0.2
+    aoeRadius: 1
+    knockbackDistance: 1.5
+    projectileSpeed: 0
+    flightDuration: 0
+    arcHeight: 0
+    telegraphVFX: ''
+    castOrMuzzleVFX: HCFX_Shine_01
+    projectileOrTrailVFX: HCFX_Charging_01_Step2
+    impactOrExplosionVFX: HCFX_Hit_04
+    soundCue: Fox_Blink
+  - monsterType: 11
+    monsterName: "\uCCA0\uAC11 \uBC29\uD328 \uB3C4\uAE68\uBE44 (Iron_Shield)"
+    skillName: "\uCCA0\uC639\uC131 \uAE08\uAC15 \uAC00\uB4DC"
+    skillDescription: "\uC804\uBC29 180\uB3C4 \uC77C\uBC18 \uD654\uC0B4/\uB2E8\uAC80 \uD53C\uD574 0. \uD480\uCC28\uC9D5 \uD654\uC0B4\uB098 \uBC30\uD6C4 \uACF5\uACA9\uC73C\uB85C\uB9CC \uD53C\uD574 \uAC00\uB2A5"
+    attackRange: 3.5
+    attackDamage: 12
+    cooldown: 2
+    telegraphDuration: 0.3
+    aoeRadius: 1.5
+    knockbackDistance: 3
+    projectileSpeed: 0
+    flightDuration: 0
+    arcHeight: 0
+    telegraphVFX: Telegraph_Sector_180
+    castOrMuzzleVFX: HCFX_Shield_Guard
+    projectileOrTrailVFX: ''
+    impactOrExplosionVFX: HCFX_Hit_06
+    soundCue: Shield_Clang
+  - monsterType: 12
+    monsterName: "\uB9C8\uB825 \uD761\uC218\uCDA9 (Energy_Absorber)"
+    skillName: "\uB9C8\uB825 \uD761\uC218 & \uCCB4\uB825 \uC7AC\uC0DD"
+    skillDescription: "\uCC28\uC9D5 \uD654\uC0B4 \uD53C\uACA9 \uC2DC \uB370\uBBF8\uC9C0 \uBB34\uD6A8\uD654 \uBC0F \uCCB4\uB825 25% \uD68C\uBCF5. \uC77C\uBC18 \uD654\uC0B4 \uBC0F \uB2E8\uAC80\uC73C\uB85C\uB9CC \uCC98\uCE58 \uAC00\uB2A5"
+    attackRange: 3
+    attackDamage: 7
+    cooldown: 1.5
+    telegraphDuration: 0.2
+    aoeRadius: 1.2
+    knockbackDistance: 1
+    projectileSpeed: 0
+    flightDuration: 0
+    arcHeight: 0
+    telegraphVFX: ''
+    castOrMuzzleVFX: HCFX_Aura_Absorption
+    projectileOrTrailVFX: HCFX_Buff_Up
+    impactOrExplosionVFX: HCFX_Hit_05
+    soundCue: Energy_Absorb
+  - monsterType: 13
+    monsterName: "\uC790\uD3ED \uB9F9\uAE08\uCC38\uC0C8 (Bomb_Sparrow)"
+    skillName: "\uBE44\uD589 \uAE09\uAC15\uD558 \uC790\uD3ED \uACF5\uACA9"
+    skillDescription: "\uCD08\uACE0\uC18D(6.5m/s) \uC774\uB3D9 \uD6C4 2m \uBC18\uACBD \uC790\uD3ED \uD3ED\uBC1C (25 \uD53C\uD574). \uCCB4\uB825 15\uB85C \uB0AE\uC544 \uC811\uADFC \uC804 \uCC98\uCE58 \uD544\uC694"
+    attackRange: 8
+    attackDamage: 25
+    cooldown: 1
+    telegraphDuration: 0.35
+    aoeRadius: 2
+    knockbackDistance: 4
+    projectileSpeed: 10
+    flightDuration: 0
+    arcHeight: 0
+    telegraphVFX: Telegraph_Circle_2m
+    castOrMuzzleVFX: HCFX_Energy_02
+    projectileOrTrailVFX: HCFX_Dust_Dash_01_Air
+    impactOrExplosionVFX: HCFX_Explosion_02
+    soundCue: Sparrow_Explode
+  - monsterType: 14
+    monsterName: "\uC0AC\uBC29\uC2E0 \uD1A0\uD15C (Totem_Turret)"
+    skillName: "\uC0AC\uBC29\uC2E0 \uD1A0\uD15C \uACE0\uC815 \uD3EC\uB300 \uD0C4\uB9C9"
+    skillDescription: "\uC77C\uBC18 \uACF5\uACA9 \uBA74\uC5ED. \uD328\uB9C1\uB41C \uD0C4\uD658\uC73C\uB85C\uB9CC \uD53C\uD574. \uC0AC\uAC70\uB9AC \uC811\uADFC \uD6C4 \uC81C\uC790\uB82C \uACE0\uC815 4\uBC29\uD5A5 \uD68C\uC804 \uD0C4\uB9C9 \uB09C\uC0AC"
+    attackRange: 16
+    attackDamage: 8
+    cooldown: 1
+    telegraphDuration: 0.2
+    aoeRadius: 1
+    knockbackDistance: 1
+    projectileSpeed: 6
+    flightDuration: 0
+    arcHeight: 0
+    telegraphVFX: ''
+    castOrMuzzleVFX: HCFX_MagicCircle_02
+    projectileOrTrailVFX: HCFX_Energy_03
+    impactOrExplosionVFX: HCFX_Hit_03
+    soundCue: Totem_Fire

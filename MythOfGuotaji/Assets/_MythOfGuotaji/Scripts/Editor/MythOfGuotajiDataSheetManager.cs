@@ -166,13 +166,11 @@ namespace MythOfGuotaji.Editor
             var table = LoadOrCreateAsset<MonsterStatsTableSO>($"{DataDirectory}/MonsterStatsTable.asset");
             if (table.entries == null || table.entries.Count == 0)
             {
-                // 채워넣기
-                table.entries = new List<MonsterStatEntry>
+                table.entries = new List<MonsterStatEntry>();
+                foreach (MonsterType t in Enum.GetValues(typeof(MonsterType)))
                 {
-                    table.GetStat(MonsterType.Minion),
-                    table.GetStat(MonsterType.Elite),
-                    table.GetStat(MonsterType.FoxBoss)
-                };
+                    table.entries.Add(table.GetStat(t));
+                }
                 EditorUtility.SetDirty(table);
             }
 
@@ -200,7 +198,7 @@ namespace MythOfGuotaji.Editor
             if (lines.Length < 2) return;
 
             var table = LoadOrCreateAsset<MonsterStatsTableSO>($"{DataDirectory}/MonsterStatsTable.asset");
-            table.entries.Clear();
+            if (table.entries == null) table.entries = new List<MonsterStatEntry>();
 
             for (int i = 1; i < lines.Length; i++)
             {
@@ -210,32 +208,30 @@ namespace MythOfGuotaji.Editor
 
                 if (!Enum.TryParse<MonsterType>(cols[0], out var mType)) continue;
 
-                var entry = new MonsterStatEntry
+                // 기존 엔트리가 있으면 패턴/고급 필드를 보존하며 기본 스탯만 갱신 (Merge)
+                var entry = table.entries.Find(e => e.type == mType);
+                if (entry == null)
                 {
-                    type = mType,
-                    displayName = cols[1],
-                    maxHp = float.Parse(cols[2], CultureInfo.InvariantCulture),
-                    moveSpeed = float.Parse(cols[3], CultureInfo.InvariantCulture),
-                    attackDamage = float.Parse(cols[4], CultureInfo.InvariantCulture),
-                    attackRange = float.Parse(cols[5], CultureInfo.InvariantCulture),
-                    attackCooldown = float.Parse(cols[6], CultureInfo.InvariantCulture),
-                    separationRadius = float.Parse(cols[7], CultureInfo.InvariantCulture),
-                    dropsBossKey = bool.Parse(cols[8]),
-                    affinityReward = int.Parse(cols[9], CultureInfo.InvariantCulture),
-                    goldReward = int.Parse(cols[10], CultureInfo.InvariantCulture),
-                    scaleMultiplier = float.Parse(cols[11], CultureInfo.InvariantCulture)
-                };
+                    entry = table.GetStat(mType);
+                    table.entries.Add(entry);
+                }
+
+                entry.displayName = cols[1];
+                entry.maxHp = float.Parse(cols[2], CultureInfo.InvariantCulture);
+                entry.moveSpeed = float.Parse(cols[3], CultureInfo.InvariantCulture);
+                entry.attackDamage = float.Parse(cols[4], CultureInfo.InvariantCulture);
+                entry.attackRange = float.Parse(cols[5], CultureInfo.InvariantCulture);
+                entry.attackCooldown = float.Parse(cols[6], CultureInfo.InvariantCulture);
+                entry.separationRadius = float.Parse(cols[7], CultureInfo.InvariantCulture);
+                entry.dropsBossKey = bool.Parse(cols[8]);
+                entry.affinityReward = int.Parse(cols[9], CultureInfo.InvariantCulture);
+                entry.goldReward = int.Parse(cols[10], CultureInfo.InvariantCulture);
+                entry.scaleMultiplier = float.Parse(cols[11], CultureInfo.InvariantCulture);
 
                 if (ColorUtility.TryParseHtmlString(cols[12], out var col))
                 {
                     entry.tintColor = col;
                 }
-                else
-                {
-                    entry.tintColor = Color.white;
-                }
-
-                table.entries.Add(entry);
             }
 
             EditorUtility.SetDirty(table);

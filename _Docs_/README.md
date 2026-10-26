@@ -18,6 +18,8 @@
    * 유니티 에디터 실행 방법, 조작키 일람, HUD 안내, F1 원클릭 개발/테스트 제어판, 샘플 ScriptableObject 에셋 생성 메뉴
 6. [06. 프리팹 및 데이터 테이블(시트) 아키텍처](file:///c:/__Works__/_MythOfGuotaji_/_Docs_/06_Prefab_and_Data_Table_Architecture.md)
    * 완전 프리팹 파이프라인, 6종 ScriptableObject 테이블(Player, Weapon, Monster, DungeonConfig, DungeonFog, HelperData), 외부 CSV 시트 입출력 관리 도구
+7. [중간체크_1024.md (프로젝트 종합 평가 및 개선 로드맵)](file:///c:/__Works__/_MythOfGuotaji_/_Docs_/중간체크_1024.md)
+   * 기획 컨셉, 데이터 관리, 코딩된 내용 검토, 버그 체크리스트 및 우선순위 개발 로드맵 보고서
 
 ---
 

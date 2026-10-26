@@ -210,8 +210,8 @@ namespace MythOfGuotaji.Dungeon
                     // 벽이거나 잠긴 배리어인 경우 시야 차단
                     if (socket.CurrentState != DoorState.Open) continue;
 
-                    // 자동문이 설치되어 있고 닫혀있는 경우 시야 차단
-                    var autoDoor = socket.GetComponentInChildren<DungeonAutoDoor>();
+                    // 자동문이 설치되어 있고 닫혀있는 경우 시야 차단 (양방향 소켓 공유 AutoDoor 참조)
+                    var autoDoor = socket.AutoDoor;
                     if (autoDoor != null && autoDoor.IsClosed) continue;
 
                     Vector3 socketPos = socket.transform.position;

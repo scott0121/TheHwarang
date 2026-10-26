@@ -33,8 +33,11 @@ namespace MythOfGuotaji.Combat
         private Material _borderMat;
         private bool _hasLanded = false;
 
+        private float _reflectedDamageMultiplier = 1.5f;
+
         public bool IsFromPlayer => _isReflected;
         public Vector3 Position => transform.position;
+        public ProjectileParryType ParryType { get; set; } = ProjectileParryType.Normal;
 
         private void Awake()
         {
@@ -142,11 +145,12 @@ namespace MythOfGuotaji.Combat
 
         public static Material CreateTelegraphMaterial(Color col)
         {
-            Shader s = Shader.Find("Universal Render Pipeline/Unlit") 
-                    ?? Shader.Find("Sprites/Default") 
+            Shader s = Shader.Find("Sprites/Default") 
+                    ?? Shader.Find("Universal Render Pipeline/Unlit") 
                     ?? Shader.Find("Unlit/Color");
             Material m = new Material(s);
             m.color = col;
+            if (m.HasProperty("_Color")) m.SetColor("_Color", col);
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", col);
             if (m.HasProperty("_Surface")) m.SetFloat("_Surface", 1); // Transparent
             if (m.HasProperty("_Blend")) m.SetFloat("_Blend", 0);     // Alpha
@@ -163,38 +167,69 @@ namespace MythOfGuotaji.Combat
         {
             if (_telegraphObj != null) Destroy(_telegraphObj);
 
-            _telegraphObj = new GameObject("[Zhu_CircleTelegraph]");
-            _telegraphObj.transform.position = new Vector3(_targetPos.x, 0.05f, _targetPos.z);
+            GameObject circlePrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                circlePrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.circleTelegraphPrefab, "Prefabs/Telegraph_Circle");
+            }
+            else
+            {
+                circlePrefab = Resources.Load<GameObject>("Prefabs/Telegraph_Circle");
+            }
 
-            // 1. 내부 반투명 원판 (PrimitiveType.Cylinder로 Z-fighting 및 백페이스 컬링 원천 차단)
-            var fillObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            fillObj.name = "TelegraphFill";
-            fillObj.transform.SetParent(_telegraphObj.transform, false);
-            fillObj.transform.localPosition = Vector3.zero;
-            fillObj.transform.localScale = new Vector3(_aoeRadius * 2f, 0.005f, _aoeRadius * 2f);
-            var col = fillObj.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            if (circlePrefab != null)
+            {
+                _telegraphObj = Instantiate(circlePrefab, new Vector3(_targetPos.x, 0.08f, _targetPos.z), Quaternion.identity);
+                _telegraphObj.name = "[Zhu_CircleTelegraph]";
+            }
+            else
+            {
+                _telegraphObj = new GameObject("[Zhu_CircleTelegraph]");
+                _telegraphObj.transform.position = new Vector3(_targetPos.x, 0.08f, _targetPos.z);
+            }
+
+            // 1. 내부 반투명 원판 (프리팹 내 TelegraphFill 재활용 또는 생성)
+            var existingFill = _telegraphObj.transform.Find("TelegraphFill");
+            GameObject fillObj;
+            if (existingFill != null)
+            {
+                fillObj = existingFill.gameObject;
+            }
+            else
+            {
+                fillObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                fillObj.name = "TelegraphFill";
+                fillObj.transform.SetParent(_telegraphObj.transform, false);
+                fillObj.transform.localPosition = Vector3.zero;
+                var col = fillObj.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+            }
+            fillObj.transform.localScale = new Vector3(_aoeRadius * 2f, 0.01f, _aoeRadius * 2f);
 
             var mr = fillObj.GetComponent<MeshRenderer>();
             if (mr != null)
             {
-                Color fillCol = _isReflected ? new Color(0.15f, 0.85f, 1f, 0.35f) : new Color(0.95f, 0.15f, 0.25f, 0.35f);
+                mr.sortingOrder = 60;
+                Color fillCol = _isReflected ? new Color(0.15f, 0.85f, 1f, 0.40f) : new Color(0.95f, 0.15f, 0.25f, 0.40f);
                 _telegraphMat = CreateTelegraphMaterial(fillCol);
                 mr.material = _telegraphMat;
             }
 
             // 2. 외곽선 테두리 링 생성 (선명한 빨간/주황 경계선)
-            CreateOuterRing(_telegraphObj.transform, _aoeRadius, _aoeRadius - 0.12f);
+            var existingRing = _telegraphObj.transform.Find("TelegraphRingBorder");
+            if (existingRing != null) Destroy(existingRing.gameObject);
+            CreateOuterRing(_telegraphObj.transform, _aoeRadius, Mathf.Max(0.1f, _aoeRadius - 0.15f));
         }
 
         private void CreateOuterRing(Transform parent, float outerR, float innerR)
         {
             GameObject ring = new GameObject("TelegraphRingBorder");
             ring.transform.SetParent(parent, false);
-            ring.transform.localPosition = new Vector3(0f, 0.01f, 0f);
+            ring.transform.localPosition = new Vector3(0f, 0.02f, 0f);
 
             var mf = ring.AddComponent<MeshFilter>();
             var mr = ring.AddComponent<MeshRenderer>();
+            mr.sortingOrder = 65;
 
             Mesh mesh = new Mesh();
             int segments = 40;
@@ -280,6 +315,7 @@ namespace MythOfGuotaji.Combat
                     ? new Color(0.15f, 0.85f, 1f, 0.35f + pulse) 
                     : new Color(0.95f, 0.15f, 0.25f, 0.30f + pulse);
                 _telegraphMat.color = baseC;
+                if (_telegraphMat.HasProperty("_Color")) _telegraphMat.SetColor("_Color", baseC);
                 if (_telegraphMat.HasProperty("_BaseColor")) _telegraphMat.SetColor("_BaseColor", baseC);
             }
             if (_borderMat != null)
@@ -289,6 +325,7 @@ namespace MythOfGuotaji.Combat
                     ? new Color(0.35f, 0.95f, 1f, 0.8f + borderPulse) 
                     : new Color(1f, 0.35f, 0.15f, 0.85f + borderPulse);
                 _borderMat.color = bCol;
+                if (_borderMat.HasProperty("_Color")) _borderMat.SetColor("_Color", bCol);
                 if (_borderMat.HasProperty("_BaseColor")) _borderMat.SetColor("_BaseColor", bCol);
             }
 
@@ -337,7 +374,7 @@ namespace MythOfGuotaji.Combat
             }
             else
             {
-                // 반사된 경우: 착지 지점 주변 몬스터들에게 1.5배 피해!
+                // 반사된 경우: 착지 지점 주변 몬스터들에게 배율 피해!
                 Collider[] hits = Physics.OverlapSphere(_targetPos, _aoeRadius + 0.5f);
                 foreach (var col in hits)
                 {
@@ -346,11 +383,11 @@ namespace MythOfGuotaji.Combat
                     {
                         Vector3 mPos = monster.transform.position;
                         mPos.y = 0f;
-                        DamageInfo info = new DamageInfo(_damage * 1.5f, true, _targetPos, (mPos - _targetPos).normalized, 7.0f, ElementType.Fire, PlayerController.Instance != null ? PlayerController.Instance.gameObject : null);
+                        DamageInfo info = new DamageInfo(_damage * _reflectedDamageMultiplier, true, _targetPos, (mPos - _targetPos).normalized, 7.0f, ElementType.Fire, PlayerController.Instance != null ? PlayerController.Instance.gameObject : null);
                         monster.TakeDamage(info);
                     }
                 }
-                Debug.Log($"<color=cyan><b>[반사된 주(鴸) 투사체 폭발!]</b> 몬스터들에게 {_damage * 1.5f} 광역 피해 적중!</color>");
+                Debug.Log($"<color=cyan><b>[반사된 주(鴸) 투사체 폭발!]</b> 몬스터들에게 {_damage * _reflectedDamageMultiplier} 광역 피해 적중!</color>");
             }
 
             Destroy(gameObject);
@@ -360,11 +397,13 @@ namespace MythOfGuotaji.Combat
         /// 단검 패링으로 투사체를 쳐냈을 때 호출
         /// - 날아오던 각도로 몬스터(발사자)에게 역포물선으로 반사!
         /// </summary>
-        public void Reflect(GameObject newAttacker, Vector3? customDirection = null)
+        public void Reflect(GameObject newAttacker, Vector3? customDirection = null, float damageMultiplier = 1.5f, float speedMultiplier = 1.8f)
         {
             if (_hasLanded) return;
 
             _isReflected = true;
+            _reflectedDamageMultiplier = damageMultiplier;
+            _flightDuration = Mathf.Max(0.5f, _flightDuration / speedMultiplier);
             _startPos = transform.position;
 
             // 발사자(주) 위치로 반사, 발사자가 없으면 역방향

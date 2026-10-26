@@ -200,6 +200,175 @@ namespace MythOfGuotaji.Data
                     soundCue = "Boss_Roar"
                 },
 
+                MonsterType.Dokkaebi_Fire => new MonsterSkillVFXEntry
+                {
+                    monsterType = MonsterType.Dokkaebi_Fire,
+                    monsterName = "도깨비 화염술사 (Dokkaebi_Fire)",
+                    skillName = "3연발 화염 탄막",
+                    skillDescription = "캐릭터를 조준하여 3연발 화염 투사체 발사. 단검 패링 가능",
+                    attackRange = 12.0f,
+                    attackDamage = 10.0f,
+                    cooldown = 2.0f,
+                    telegraphDuration = 0.25f,
+                    aoeRadius = 0.8f,
+                    knockbackDistance = 1.0f,
+                    projectileSpeed = 9.0f,
+                    castOrMuzzleVFX = "HCFX_Fire_01",
+                    projectileOrTrailVFX = "HCFX_ElementOrb_01",
+                    impactOrExplosionVFX = "HCFX_Explosion_01",
+                    soundCue = "Fireball_Cast"
+                },
+
+                MonsterType.Boar_Charger => new MonsterSkillVFXEntry
+                {
+                    monsterType = MonsterType.Boar_Charger,
+                    monsterName = "저돌맹진 멧돼지 (Boar_Charger)",
+                    skillName = "초고속 저돌맹진",
+                    skillDescription = "0.5초 예고 후 전방 14m 초고속 돌진. 벽 충돌 시 2초간 기절",
+                    attackRange = 14.0f,
+                    attackDamage = 14.0f,
+                    cooldown = 4.0f,
+                    telegraphDuration = 0.5f,
+                    aoeRadius = 1.5f,
+                    knockbackDistance = 6.0f,
+                    projectileSpeed = 16.0f,
+                    telegraphVFX = "Telegraph_Rect_14x1.2",
+                    castOrMuzzleVFX = "HCFX_Dust_Dash_01",
+                    projectileOrTrailVFX = "HCFX_Dust_Dash_01_Air",
+                    impactOrExplosionVFX = "HCFX_Explosion_01",
+                    soundCue = "Boar_Charge"
+                },
+
+                MonsterType.Spider_Tether => new MonsterSkillVFXEntry
+                {
+                    monsterType = MonsterType.Spider_Tether,
+                    monsterName = "요선 거미 (Spider_Tether)",
+                    skillName = "요선 포박 & 인력 끌어당김",
+                    skillDescription = "12m 사거리 거미줄 발사. 적중 시 몬스터 앞으로 끌어당김 + 0.5초 스턴",
+                    attackRange = 12.0f,
+                    attackDamage = 5.0f,
+                    cooldown = 4.5f,
+                    telegraphDuration = 0.3f,
+                    aoeRadius = 0.6f,
+                    knockbackDistance = -8.0f,
+                    projectileSpeed = 12.0f,
+                    castOrMuzzleVFX = "HCFX_Web_Shoot",
+                    projectileOrTrailVFX = "HCFX_Energy_01",
+                    impactOrExplosionVFX = "HCFX_Hit_02",
+                    soundCue = "Spider_Tether"
+                },
+
+                MonsterType.Mud_Slime => new MonsterSkillVFXEntry
+                {
+                    monsterType = MonsterType.Mud_Slime,
+                    monsterName = "진흙 슬라임 (Mud_Slime)",
+                    skillName = "진흙 수렁 장판 생성",
+                    skillDescription = "캐릭터 발밑에 직경 3m 진흙 수렁 생성. 4초간 이동속도 50% 감속",
+                    attackRange = 9.0f,
+                    attackDamage = 6.0f,
+                    cooldown = 5.0f,
+                    telegraphDuration = 0.5f,
+                    aoeRadius = 3.0f,
+                    knockbackDistance = 0f,
+                    telegraphVFX = "Telegraph_Circle_3m",
+                    castOrMuzzleVFX = "HCFX_Buff_Down",
+                    impactOrExplosionVFX = "HCFX_Poison_02",
+                    soundCue = "Mud_Splash"
+                },
+
+                MonsterType.Phantom_Fox => new MonsterSkillVFXEntry
+                {
+                    monsterType = MonsterType.Phantom_Fox,
+                    monsterName = "환영 여우 (Phantom_Fox)",
+                    skillName = "환영 분신 & 잔상 점멸",
+                    skillDescription = "피격 시 2마리 환영 분신 생성 및 캐릭터 사각으로 점멸",
+                    attackRange = 6.0f,
+                    attackDamage = 8.0f,
+                    cooldown = 2.0f,
+                    telegraphDuration = 0.2f,
+                    aoeRadius = 1.0f,
+                    knockbackDistance = 1.5f,
+                    castOrMuzzleVFX = "HCFX_Shine_01",
+                    projectileOrTrailVFX = "HCFX_Charging_01_Step2",
+                    impactOrExplosionVFX = "HCFX_Hit_04",
+                    soundCue = "Fox_Blink"
+                },
+
+                MonsterType.Iron_Shield => new MonsterSkillVFXEntry
+                {
+                    monsterType = MonsterType.Iron_Shield,
+                    monsterName = "철갑 방패 도깨비 (Iron_Shield)",
+                    skillName = "철옹성 금강 가드",
+                    skillDescription = "전방 180도 일반 화살/단검 피해 0. 풀차징 화살이나 배후 공격으로만 피해 가능",
+                    attackRange = 3.5f,
+                    attackDamage = 12.0f,
+                    cooldown = 2.0f,
+                    telegraphDuration = 0.3f,
+                    aoeRadius = 1.5f,
+                    knockbackDistance = 3.0f,
+                    telegraphVFX = "Telegraph_Sector_180",
+                    castOrMuzzleVFX = "HCFX_Shield_Guard",
+                    impactOrExplosionVFX = "HCFX_Hit_06",
+                    soundCue = "Shield_Clang"
+                },
+
+                MonsterType.Energy_Absorber => new MonsterSkillVFXEntry
+                {
+                    monsterType = MonsterType.Energy_Absorber,
+                    monsterName = "마력 흡수충 (Energy_Absorber)",
+                    skillName = "마력 흡수 & 체력 재생",
+                    skillDescription = "차징 화살 피격 시 데미지 무효화 및 체력 회복. 일반 화살 및 단검으로만 처치 가능",
+                    attackRange = 3.0f,
+                    attackDamage = 7.0f,
+                    cooldown = 1.5f,
+                    telegraphDuration = 0.2f,
+                    aoeRadius = 1.2f,
+                    knockbackDistance = 1.0f,
+                    castOrMuzzleVFX = "HCFX_Aura_Absorption",
+                    projectileOrTrailVFX = "HCFX_Buff_Up",
+                    impactOrExplosionVFX = "HCFX_Hit_05",
+                    soundCue = "Energy_Absorb"
+                },
+
+                MonsterType.Bomb_Sparrow => new MonsterSkillVFXEntry
+                {
+                    monsterType = MonsterType.Bomb_Sparrow,
+                    monsterName = "자폭 맹금참새 (Bomb_Sparrow)",
+                    skillName = "비행 급강하 자폭 공격",
+                    skillDescription = "초고속(12m/s) 이동 후 2m 반경 자폭 폭발 (25 피해). 체력 10으로 낮아 접근 전 처치 필요",
+                    attackRange = 8.0f,
+                    attackDamage = 25.0f,
+                    cooldown = 1.0f,
+                    telegraphDuration = 0.35f,
+                    aoeRadius = 2.0f,
+                    knockbackDistance = 4.0f,
+                    projectileSpeed = 12.0f,
+                    telegraphVFX = "Telegraph_Circle_2m",
+                    castOrMuzzleVFX = "HCFX_Energy_02",
+                    projectileOrTrailVFX = "HCFX_Dust_Dash_01_Air",
+                    impactOrExplosionVFX = "HCFX_Explosion_02",
+                    soundCue = "Sparrow_Explode"
+                },
+
+                MonsterType.Totem_Turret => new MonsterSkillVFXEntry
+                {
+                    monsterType = MonsterType.Totem_Turret,
+                    monsterName = "사방신 토템 (Totem_Turret)",
+                    skillName = "사방신 토템 고정 포대 탄막",
+                    skillDescription = "일반 공격 면역. 패링된 탄환으로만 피해. 사거리 접근 후 제자리 고정 4방향 회전 탄막 난사",
+                    attackRange = 16.0f,
+                    attackDamage = 8.0f,
+                    cooldown = 1.0f,
+                    telegraphDuration = 0.2f,
+                    aoeRadius = 1.0f,
+                    knockbackDistance = 1.0f,
+                    projectileSpeed = 6.0f,
+                    castOrMuzzleVFX = "HCFX_MagicCircle_02",
+                    projectileOrTrailVFX = "HCFX_Energy_03",
+                    impactOrExplosionVFX = "HCFX_Hit_03",
+                    soundCue = "Totem_Fire"
+                },
+
                 _ => new MonsterSkillVFXEntry { monsterType = type, monsterName = type.ToString() }
             };
         }

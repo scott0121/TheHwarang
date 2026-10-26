@@ -16,8 +16,11 @@ namespace MythOfGuotaji.Data
         [SerializeField] private PlayerStatsTableSO _playerStatsTable;
         [SerializeField] private WeaponStatsTableSO _weaponStatsTable;
         [SerializeField] private MonsterStatsTableSO _monsterStatsTable;
+        [SerializeField] private MonsterSkillTableSO _monsterSkillTable;
         [SerializeField] private MonsterSkillVFXTableSO _monsterSkillVFXTable;
         [SerializeField] private DungeonConfigTableSO _dungeonConfigTable;
+        [SerializeField] private DungeonStageTableSO _dungeonStageTable;
+        [SerializeField] private MapSkinTableSO _mapSkinTable;
         [SerializeField] private HelperDataSO _helperData;
         [SerializeField] private InRunBoonTableSO _inRunBoonTable;
         [SerializeField] private BoonRarityTableSO _boonRarityTable;
@@ -26,8 +29,11 @@ namespace MythOfGuotaji.Data
         public PlayerStatsTableSO PlayerStats => _playerStatsTable;
         public WeaponStatsTableSO WeaponStats => _weaponStatsTable;
         public MonsterStatsTableSO MonsterStats => _monsterStatsTable;
+        public MonsterSkillTableSO MonsterSkills => _monsterSkillTable;
         public MonsterSkillVFXTableSO MonsterSkillVFX => _monsterSkillVFXTable;
         public DungeonConfigTableSO DungeonConfig => _dungeonConfigTable;
+        public DungeonStageTableSO DungeonStages => _dungeonStageTable;
+        public MapSkinTableSO MapSkinTable => _mapSkinTable;
         public HelperDataSO HelperData => _helperData;
         public InRunBoonTableSO InRunBoonTable => _inRunBoonTable;
         public BoonRarityTableSO BoonRarityTable => _boonRarityTable;
@@ -63,6 +69,10 @@ namespace MythOfGuotaji.Data
             {
                 _monsterStatsTable = Resources.Load<MonsterStatsTableSO>("Data/MonsterStatsTable");
             }
+            if (_monsterSkillTable == null)
+            {
+                _monsterSkillTable = Resources.Load<MonsterSkillTableSO>("Data/MonsterSkillTable");
+            }
             if (_monsterSkillVFXTable == null)
             {
                 _monsterSkillVFXTable = Resources.Load<MonsterSkillVFXTableSO>("Data/MonsterSkillVFXTable");
@@ -70,6 +80,14 @@ namespace MythOfGuotaji.Data
             if (_dungeonConfigTable == null)
             {
                 _dungeonConfigTable = Resources.Load<DungeonConfigTableSO>("Data/DungeonConfigTable");
+            }
+            if (_dungeonStageTable == null)
+            {
+                _dungeonStageTable = Resources.Load<DungeonStageTableSO>("Data/DungeonStageTable");
+            }
+            if (_mapSkinTable == null)
+            {
+                _mapSkinTable = Resources.Load<MapSkinTableSO>("Data/MapSkinTable");
             }
             if (_helperData == null)
             {

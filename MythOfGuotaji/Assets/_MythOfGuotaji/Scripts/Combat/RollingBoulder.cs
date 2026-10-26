@@ -1,5 +1,6 @@
 using System.Collections;
 using MythOfGuotaji.Actor;
+using MythOfGuotaji.Cameras;
 using MythOfGuotaji.Core;
 using UnityEngine;
 
@@ -9,10 +10,11 @@ namespace MythOfGuotaji.Combat
     /// 정예 요괴(Elite KeyKeeper)가 시전하는 굴러가는 거대 암석 투사체:
     /// - 폭 50cm, 길이 20m 가이드 박스 위를 2초간 등속 운동(10m/s)으로 20미터 굴러감
     /// - 부딪힌 플레이어에게 피해를 입힘
-    /// - 20미터 도달 전 플레이어 또는 벽(장애물)에 충돌 시 큰 소리를 내고 부숴져 사라짐
+    /// - 단검 패링(IReflectable)으로 쳐내면 1.8배속으로 적을 향해 반사되어 몬스터에게 45 피해 및 3초 기절!
+    /// - 20미터 도달 전 충돌 시 큰 소리를 내고 부숴져 사라짐
     /// - 바닥 가이드 박스도 돌덩이의 파괴와 함께 동시에 제거됨
     /// </summary>
-    public class RollingBoulder : MonoBehaviour
+    public class RollingBoulder : MonoBehaviour, IReflectable
     {
         private GameObject _caster;
         private Vector3 _moveDir;
@@ -24,10 +26,101 @@ namespace MythOfGuotaji.Combat
         private float _traveledDistance = 0f;
         private float _radius = 0.45f;
         private bool _isDestroyed = false;
+        private bool _isReflected = false;
         private LayerMask _collisionMask;
         private float _nextDustTime = 0f;
 
         private static AudioClip s_rockSmashClip;
+
+        public bool IsFromPlayer => _isReflected;
+        public Vector3 Position => transform.position;
+        public ProjectileParryType ParryType => ProjectileParryType.Normal;
+
+        private void OnEnable()
+        {
+            if (!Projectile.ActiveReflectables.Contains(this))
+            {
+                Projectile.ActiveReflectables.Add(this);
+            }
+        }
+
+        private void OnDisable()
+        {
+            Projectile.ActiveReflectables.Remove(this);
+        }
+
+        /// <summary>
+        /// 단검 패링으로 거대 암석을 쳐냈을 때 호출: 날아오던 반대 방향(또는 시전자 요괴)으로 역반사!
+        /// </summary>
+        public void Reflect(GameObject newAttacker, Vector3? customDirection = null, float damageMultiplier = 1.5f, float speedMultiplier = 1.8f)
+        {
+            if (_isDestroyed) return;
+
+            _isReflected = true;
+            _damage *= damageMultiplier;
+            _speed *= speedMultiplier;
+            _traveledDistance = 0f; // 반사된 시점부터 사거리 재계산
+
+            if (customDirection.HasValue && customDirection.Value.sqrMagnitude > 0.001f)
+            {
+                _moveDir = customDirection.Value.normalized;
+            }
+            else if (_caster != null && !_caster.GetComponent<IDamageable>().IsDead)
+            {
+                _moveDir = (_caster.transform.position - transform.position).normalized;
+                _moveDir.y = 0f;
+            }
+            else
+            {
+                _moveDir = -_moveDir;
+            }
+
+            if (_moveDir.sqrMagnitude < 0.001f) _moveDir = transform.forward;
+            transform.rotation = Quaternion.LookRotation(_moveDir);
+
+            // 반사 시 암석 표면을 신비로운 청록색/황금빛 룬 문양 비주얼로 변경
+            ApplyReflectedVisual();
+
+            // 가이드 박스가 남아있다면 반사 방향으로 회전 및 색상 청록색 변경
+            if (_guideBox != null)
+            {
+                _guideBox.transform.rotation = Quaternion.LookRotation(_moveDir);
+                var rends = _guideBox.GetComponentsInChildren<Renderer>();
+                Color friendlyTelegraph = new Color(0.2f, 0.95f, 1f, 0.45f);
+                foreach (var r in rends)
+                {
+                    if (r != null && r.material != null)
+                    {
+                        r.material.color = friendlyTelegraph;
+                        if (r.material.HasProperty("_BaseColor")) r.material.SetColor("_BaseColor", friendlyTelegraph);
+                    }
+                }
+            }
+
+            // 패링 스파크 연출
+            VFXManager.Instance?.SpawnDaggerParrySpark(transform.position);
+            QuarterViewCamera.Instance?.TriggerShake(0.4f, 0.25f);
+            Debug.Log($"<color=yellow><b>[정예 바위 단검 패링 성공!]</b> 굴러오던 암석을 {speedMultiplier:F1}배속으로 쳐내어 적 요괴를 향해 역반사했습니다!</color>");
+        }
+
+        private void ApplyReflectedVisual()
+        {
+            var rends = GetComponentsInChildren<Renderer>(true);
+            Color reflectedCol = new Color(0.2f, 0.95f, 1f);
+            foreach (var r in rends)
+            {
+                if (r != null && r.material != null)
+                {
+                    r.material.color = reflectedCol;
+                    if (r.material.HasProperty("_BaseColor")) r.material.SetColor("_BaseColor", reflectedCol);
+                    if (r.material.HasProperty("_EmissionColor"))
+                    {
+                        r.material.EnableKeyword("_EMISSION");
+                        r.material.SetColor("_EmissionColor", reflectedCol * 1.5f);
+                    }
+                }
+            }
+        }
 
         public void Initialize(GameObject caster, Vector3 startPos, Vector3 direction, float damage, GameObject guideBox)
         {
@@ -48,6 +141,8 @@ namespace MythOfGuotaji.Combat
 
         private void CreateVisual()
         {
+            if (transform.Find("BoulderModel") != null) return;
+
             // 구체 메시 렌더러 생성
             var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             sphere.name = "BoulderModel";
@@ -110,24 +205,43 @@ namespace MythOfGuotaji.Combat
                 }
                 else
                 {
-                    // 플레이어 충돌 검사
-                    var player = hit.collider.GetComponentInParent<PlayerController>();
-                    if (player != null)
+                    // 반사 여부에 따른 충돌 대상 판정
+                    if (!_isReflected)
                     {
-                        DamageInfo dmg = new DamageInfo(_damage, false, transform.position, _moveDir, 12f, ElementType.Physical, _caster);
-                        player.TakeDamage(dmg);
-                        Debug.Log($"<color=red><b>[정예 바위 돌덩이 직격!]</b> 플레이어에게 {_damage} 피해 부여!</color>");
-                        ShatterAndDestroy(hit.point);
-                        return;
+                        // [적 바위]: 플레이어 충돌 검사
+                        var player = hit.collider.GetComponentInParent<PlayerController>();
+                        if (player != null && !player.IsDead)
+                        {
+                            DamageInfo dmg = new DamageInfo(_damage, false, transform.position, _moveDir, 12f, ElementType.Physical, _caster);
+                            player.TakeDamage(dmg);
+                            Debug.Log($"<color=red><b>[정예 바위 돌덩이 직격!]</b> 플레이어에게 {_damage} 피해 부여!</color>");
+                            ShatterAndDestroy(hit.point);
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // [반사된 아군 바위]: 적 몬스터 충돌 검사
+                        var monster = hit.collider.GetComponentInParent<MonsterAI>();
+                        if (monster != null && !monster.IsDead)
+                        {
+                            DamageInfo dmg = new DamageInfo(_damage, true, transform.position, _moveDir, 16f, ElementType.Physical, null, isReflected: true);
+                            monster.TakeDamage(dmg);
+                            monster.ApplyStun(3.0f); // 3초간 그로기 기절!
+                            QuarterViewCamera.Instance?.TriggerShake(0.5f, 0.3f);
+                            Debug.Log($"<color=lime><b>[반사된 암석 몬스터 강타!]</b> {monster.name}에게 {_damage:F0} 피해를 입히고 3초간 기절시켰습니다!</color>");
+                            ShatterAndDestroy(hit.point);
+                            return;
+                        }
                     }
 
                     // 벽 / 장애물 충돌 검사
                     bool isWall = hit.collider.gameObject.name.Contains("Wall") ||
                                   hit.collider.gameObject.name.Contains("Pillar") ||
                                   hit.collider.gameObject.name.Contains("Door") ||
-                                  hit.collider.gameObject.CompareTag("Obstacle");
+                                  hit.collider.gameObject.name.Contains("Obstacle");
 
-                    if (isWall || hit.collider.GetComponentInParent<PlayerController>() == null && hit.collider.GetComponentInParent<MonsterAI>() == null)
+                    if (isWall || (hit.collider.GetComponentInParent<PlayerController>() == null && hit.collider.GetComponentInParent<MonsterAI>() == null))
                     {
                         Debug.Log("<color=orange>[정예 바위 충돌] 벽에 격돌하여 큰 소리를 내며 파괴되었습니다!</color>");
                         ShatterAndDestroy(hit.point);
@@ -136,19 +250,36 @@ namespace MythOfGuotaji.Combat
                 }
             }
 
-            // 플레이어 근접 오버랩 보조 판정
-            Collider[] overlaps = Physics.OverlapSphere(currentPos, _radius + 0.2f, _collisionMask, QueryTriggerInteraction.Ignore);
+            // 오버랩 보조 판정
+            Collider[] overlaps = Physics.OverlapSphere(currentPos, _radius + 0.25f, _collisionMask, QueryTriggerInteraction.Ignore);
             foreach (var col in overlaps)
             {
-                if (_caster != null && (col.gameObject == _caster || col.transform.IsChildOf(_caster.transform))) continue;
-                var player = col.GetComponentInParent<PlayerController>();
-                if (player != null)
+                if (!_isReflected)
                 {
-                    DamageInfo dmg = new DamageInfo(_damage, false, transform.position, _moveDir, 12f, ElementType.Physical, _caster);
-                    player.TakeDamage(dmg);
-                    Debug.Log($"<color=red><b>[정예 바위 돌덩이 오버랩 접촉!]</b> 플레이어에게 {_damage} 피해 부여!</color>");
-                    ShatterAndDestroy(currentPos);
-                    return;
+                    if (_caster != null && (col.gameObject == _caster || col.transform.IsChildOf(_caster.transform))) continue;
+                    var player = col.GetComponentInParent<PlayerController>();
+                    if (player != null && !player.IsDead)
+                    {
+                        DamageInfo dmg = new DamageInfo(_damage, false, transform.position, _moveDir, 12f, ElementType.Physical, _caster);
+                        player.TakeDamage(dmg);
+                        Debug.Log($"<color=red><b>[정예 바위 돌덩이 오버랩 접촉!]</b> 플레이어에게 {_damage} 피해 부여!</color>");
+                        ShatterAndDestroy(currentPos);
+                        return;
+                    }
+                }
+                else
+                {
+                    var monster = col.GetComponentInParent<MonsterAI>();
+                    if (monster != null && !monster.IsDead)
+                    {
+                        DamageInfo dmg = new DamageInfo(_damage, true, transform.position, _moveDir, 16f, ElementType.Physical, null, isReflected: true);
+                        monster.TakeDamage(dmg);
+                        monster.ApplyStun(3.0f);
+                        QuarterViewCamera.Instance?.TriggerShake(0.5f, 0.3f);
+                        Debug.Log($"<color=lime><b>[반사된 암석 몬스터 오버랩 강타!]</b> {monster.name}에게 {_damage:F0} 피해를 입히고 3초간 기절시켰습니다!</color>");
+                        ShatterAndDestroy(currentPos);
+                        return;
+                    }
                 }
             }
 
@@ -206,29 +337,51 @@ namespace MythOfGuotaji.Combat
             // 지면 충격파/먼지
             VFXManager.Instance?.SpawnBigMonGroundImpact(center, 1.5f);
 
+            GameObject shardPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                shardPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.rockShardPrefab, "Prefabs/RockShard");
+            }
+            else
+            {
+                shardPrefab = Resources.Load<GameObject>("Prefabs/RockShard");
+            }
+
             // 날아가는 암석 조각 파편 6~8개 생성
             int shardCount = Random.Range(6, 9);
             for (int i = 0; i < shardCount; i++)
             {
-                var shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                shard.name = "RockShard";
-                shard.transform.position = center + Random.insideUnitSphere * 0.3f + Vector3.up * 0.3f;
-                shard.transform.localScale = Vector3.one * Random.Range(0.18f, 0.32f);
-
-                var c = shard.GetComponent<Collider>();
-                if (c != null) Destroy(c);
-
-                var r = shard.GetComponent<Renderer>();
-                if (r != null)
+                Vector3 shardPos = center + Random.insideUnitSphere * 0.3f + Vector3.up * 0.3f;
+                GameObject shard;
+                if (shardPrefab != null)
                 {
-                    var mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-                    mat.color = new Color(0.32f, 0.28f, 0.25f);
-                    if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", new Color(0.32f, 0.28f, 0.25f));
-                    r.material = mat;
+                    shard = Instantiate(shardPrefab, shardPos, Random.rotation);
+                    shard.name = "RockShard";
+                    shard.transform.localScale = Vector3.one * Random.Range(0.18f, 0.32f);
+                }
+                else
+                {
+                    shard = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    shard.name = "RockShard";
+                    shard.transform.position = shardPos;
+                    shard.transform.localScale = Vector3.one * Random.Range(0.18f, 0.32f);
+
+                    var c = shard.GetComponent<Collider>();
+                    if (c != null) Destroy(c);
+
+                    var r = shard.GetComponent<Renderer>();
+                    if (r != null)
+                    {
+                        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+                        mat.color = new Color(0.32f, 0.28f, 0.25f);
+                        if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", new Color(0.32f, 0.28f, 0.25f));
+                        r.material = mat;
+                    }
                 }
 
-                // 물리 넉백 효과를 위한 임시 Rigidbody
-                var rb = shard.AddComponent<Rigidbody>();
+                // 물리 넉백 효과를 위한 Rigidbody
+                var rb = shard.GetComponent<Rigidbody>();
+                if (rb == null) rb = shard.AddComponent<Rigidbody>();
                 Vector3 burstDir = (Random.onUnitSphere + Vector3.up * 0.8f).normalized;
                 rb.linearVelocity = burstDir * Random.Range(4f, 8f);
                 rb.angularVelocity = Random.insideUnitSphere * 15f;

@@ -17,10 +17,13 @@ namespace MythOfGuotaji.Data
         public float dashSpeed = 16f;
 
         [Tooltip("대시 지속 시간 (초)")]
-        public float dashDuration = 0.2f;
+        public float dashDuration = 0.22f;
 
         [Tooltip("대시 재사용 대기 시간 (초)")]
-        public float dashCooldown = 1.0f;
+        public float dashCooldown = 2.0f;
+
+        [Tooltip("대시 발동 시 무적 지속 시간 (초)")]
+        public float dashInvincibleDuration = 0.5f;
 
         [Header("Global Cooldown (GCD)")]
         [Tooltip("동일 카테고리 무기 글로벌 쿨다운 (초)")]

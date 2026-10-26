@@ -5,9 +5,10 @@ namespace MythOfGuotaji.Progression
 {
     public enum BoonRarity
     {
-        Common,
-        Rare,
-        Legendary
+        Common = 0,     // 일반 (흰색) 40%
+        Rare = 1,       // 희귀 (파란색) 30%
+        Epic = 2,       // 영웅/에픽 (보라색) 20%
+        Legendary = 3   // 전설 (노란색) 10%
     }
 
     /// <summary>
@@ -18,8 +19,10 @@ namespace MythOfGuotaji.Progression
     {
         public string boonId;
         public string boonTitle;
+        public string category;
         [TextArea(2, 3)] public string description;
         public BoonRarity rarity = BoonRarity.Common;
+        public Color rarityColor = Color.white;
 
         [Header("Table Level & Cap Progression")]
         public int currentRank = 1;

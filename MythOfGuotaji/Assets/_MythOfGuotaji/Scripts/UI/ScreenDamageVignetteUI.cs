@@ -16,9 +16,24 @@ namespace MythOfGuotaji.UI
             {
                 if (_instance == null)
                 {
-                    var go = new GameObject("[ScreenDamageVignetteUI]");
-                    _instance = go.AddComponent<ScreenDamageVignetteUI>();
-                    DontDestroyOnLoad(go);
+                    _instance = FindAnyObjectByType<ScreenDamageVignetteUI>();
+                    if (_instance == null)
+                    {
+                        GameObject prefab = null;
+                        if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+                        {
+                            prefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.screenDamageVignetteUIPrefab, "Prefabs/GUI/ScreenDamageVignetteUI");
+                        }
+                        else
+                        {
+                            prefab = Resources.Load<GameObject>("Prefabs/GUI/ScreenDamageVignetteUI");
+                        }
+
+                        var go = prefab != null ? Instantiate(prefab) : new GameObject("[ScreenDamageVignetteUI]");
+                        go.name = "ScreenDamageVignetteUI";
+                        _instance = go.GetComponent<ScreenDamageVignetteUI>();
+                        if (_instance == null) _instance = go.AddComponent<ScreenDamageVignetteUI>();
+                    }
                 }
                 return _instance;
             }
@@ -39,13 +54,13 @@ namespace MythOfGuotaji.UI
                 return;
             }
             _instance = this;
-            DontDestroyOnLoad(gameObject);
 
             GenerateProceduralVignetteTexture();
         }
 
         private void OnDestroy()
         {
+            if (_instance == this) _instance = null;
             if (_vignetteTex != null)
             {
                 Destroy(_vignetteTex);

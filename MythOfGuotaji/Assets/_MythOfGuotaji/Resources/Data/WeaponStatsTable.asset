@@ -25,13 +25,13 @@ MonoBehaviour:
     projectileLifeTime: 2.5
     projectileHitRadius: 0.4
     chargeStartTime: 0.3
-    maxChargeTime: 3
+    maxChargeTime: 2
     chargeMinRange: 0
     chargeMaxRange: 25
     chargeDamageMultiplier: 2
     chargeProjectileSpeed: 36
     chargeKnockback: 12
-    chargeTelegraphWidth: 0.3
+    chargeTelegraphWidth: 0.5
     burstShotCount: 5
     burstTotalDuration: 1.5
     burstCooldown: 2
@@ -44,4 +44,4 @@ MonoBehaviour:
     knockback: 9
     canReflectProjectiles: 1
     reflectDamageMultiplier: 1.5
-    reflectSpeedMultiplier: 1.2
+    reflectSpeedMultiplier: 1.8

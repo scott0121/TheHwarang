@@ -29,11 +29,21 @@ namespace MythOfGuotaji.Combat
         private string _poolKey;
         private bool _isFromPlayer = true;
         private readonly HashSet<int> _hitInstanceIds = new();
+        [SerializeField] private ProjectileParryType _parryType = ProjectileParryType.Normal;
 
         public float MaxRange => _maxRange;
         public float Speed => _speed;
         public bool IsFromPlayer => _isFromPlayer;
         public Vector3 Position => transform.position;
+        public ProjectileParryType ParryType
+        {
+            get => _parryType;
+            set
+            {
+                _parryType = value;
+                ApplyParryTypeVisual();
+            }
+        }
 
         private void Awake()
         {
@@ -77,14 +87,18 @@ namespace MythOfGuotaji.Combat
         }
 
         /// <summary>
-        /// 단검 패링: 날아오던 각도로 반사하며 플레이어 발사체로 전환
+        /// 단검 패링: 날아오던 각도로 반사하며 플레이어 발사체로 전환 (1.8배속 반사)
         /// </summary>
-        public void Reflect(GameObject newAttacker, Vector3? customDirection = null)
+        public void Reflect(GameObject newAttacker, Vector3? customDirection = null, float damageMultiplier = 1.5f, float speedMultiplier = 1.8f)
         {
+            if (_parryType == ProjectileParryType.Unparryable) return;
+
             _isFromPlayer = true;
             _damageInfo.attacker = newAttacker;
-            _damageInfo.amount *= 1.5f; // 반사된 투사체 위력 강화
+            _damageInfo.amount *= damageMultiplier; // 반사된 투사체 위력 강화
             _damageInfo.isCritical = true;
+            _damageInfo.isReflected = true;
+            _speed *= speedMultiplier;
 
             // 날아오던 각도의 정반대 방향으로 반사
             Vector3 reflectDir = customDirection ?? -transform.forward;
@@ -106,10 +120,30 @@ namespace MythOfGuotaji.Combat
                 if (rend.material.HasProperty("_BaseColor")) rend.material.SetColor("_BaseColor", reflectCol);
             }
 
-            Debug.Log($"<color=yellow><b>[투사체 반사 성공!]</b> {gameObject.name}이(가) 날아오던 각도로 튕겨져 적을 향해 날아갑니다!</color>");
+            Debug.Log($"<color=yellow><b>[투사체 반사 성공!]</b> {gameObject.name}이(가) {speedMultiplier:F1}배속으로 튕겨져 적을 향해 날아갑니다!</color>");
         }
 
-        public void Initialize(DamageInfo damageInfo, int pierceCount, LayerMask targetLayer, string poolKey, float maxRange = 15f, bool unlimitedPierce = false, float speed = 24f)
+        public void ApplyParryTypeVisual()
+        {
+            var rends = GetComponentsInChildren<Renderer>(true);
+            Color typeColor = _parryType switch
+            {
+                ProjectileParryType.Enhanced => new Color(1.0f, 0.82f, 0.1f, 1f),      // 황금색 (강화 투사체)
+                ProjectileParryType.Unparryable => new Color(0.95f, 0.18f, 0.18f, 1f),  // 붉은색 (패링불가 투사체)
+                _ => new Color(0.2f, 0.95f, 0.35f, 1f)                                  // 푸른색 / 초록색 (기본 투사체)
+            };
+
+            foreach (var r in rends)
+            {
+                if (r != null && r.material != null)
+                {
+                    r.material.color = typeColor;
+                    if (r.material.HasProperty("_BaseColor")) r.material.SetColor("_BaseColor", typeColor);
+                }
+            }
+        }
+
+        public void Initialize(DamageInfo damageInfo, int pierceCount, LayerMask targetLayer, string poolKey, float maxRange = 15f, bool unlimitedPierce = false, float speed = 24f, ProjectileParryType parryType = ProjectileParryType.Normal)
         {
             _damageInfo = damageInfo;
             _pierceCount = pierceCount;
@@ -118,6 +152,7 @@ namespace MythOfGuotaji.Combat
             _maxRange = maxRange;
             _unlimitedPierce = unlimitedPierce;
             _speed = speed;
+            _parryType = parryType;
             _spawnTime = Time.time;
             _spawnPos = transform.position;
             _hitInstanceIds.Clear();
@@ -126,6 +161,11 @@ namespace MythOfGuotaji.Combat
                             (_damageInfo.attacker.CompareTag("Player") ||
                              _damageInfo.attacker.GetComponentInParent<Actor.PlayerController>() != null ||
                              _damageInfo.attacker.GetComponentInParent<Actor.CompanionAI>() != null);
+
+            if (!_isFromPlayer)
+            {
+                ApplyParryTypeVisual();
+            }
         }
 
         private void Update()

@@ -1,7 +1,7 @@
 fileFormatVersion: 2
 guid: fe016e689d230f74e9179be968c44347
 ModelImporter:
-  serializedVersion: 24200
+  serializedVersion: 24600
   internalIDToNameTable: []
   externalObjects: {}
   materials:
@@ -9,6 +9,7 @@ ModelImporter:
     materialName: 0
     materialSearch: 1
     materialLocation: 1
+    searchTexturesGlobally: 1
   animations:
     legacyGenerateAnimations: 4
     bakeSimulation: 0
@@ -52,25 +53,9 @@ ModelImporter:
       keepOriginalPositionXZ: 0
       heightFromFeet: 0
       mirror: 0
-      bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+      bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000u
       curves: []
-      events:
-      - time: 0.040145986
-        functionName: SetPlayerEmotion
-        data: 
-        objectReferenceParameter: {fileID: 11500000, guid: f009b5002990440b1a868a76d430da7b,
-          type: 3}
-        floatParameter: 0
-        intParameter: 8
-        messageOptions: 0
-      - time: 0.879562
-        functionName: SetPlayerEmotion
-        data: 
-        objectReferenceParameter: {fileID: 11500000, guid: f009b5002990440b1a868a76d430da7b,
-          type: 3}
-        floatParameter: 0
-        intParameter: 0
-        messageOptions: 0
+      events: []
       transformMask: []
       maskType: 3
       maskSource: {instanceID: 0}
@@ -83,6 +68,8 @@ ModelImporter:
     addColliders: 0
     useSRGBMaterialColor: 1
     sortHierarchyByName: 1
+    preBakeConvexCollisionMesh: 0
+    preBakeTriangleCollisionMesh: 0
     importPhysicalCameras: 1
     importVisibility: 1
     importBlendShapes: 1
@@ -104,6 +91,8 @@ ModelImporter:
     generateMeshLods: 0
     meshLodGenerationFlags: 0
     maximumMeshLod: -1
+    importUVs: -1
+    importVertexColors: 1
     meshOptimizationFlags: -1
     indexFormat: 0
     secondaryUVAngleDistortion: 8
@@ -123,6 +112,7 @@ ModelImporter:
     legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
     blendShapeNormalImportMode: 1
     normalSmoothingSource: 0
+    calculateBlendshapeNormalsDeltaFromImportedNormals: 1
   referencedClips: []
   importAnimation: 1
   humanDescription:
@@ -651,8 +641,7 @@ ModelImporter:
     - name: LeftHandMiddle3
       parentName: LeftHandMiddle2
       position: {x: -0.037132, y: 0, z: 0}
-      rotation: {x: 0.0000000034877468, y: -0.000000075358436, z: -0.000000049684182,
-        w: 1}
+      rotation: {x: 0.0000000034877468, y: -0.000000075358436, z: -0.000000049684182, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: LeftHandMiddle4
       parentName: LeftHandMiddle3
@@ -672,8 +661,7 @@ ModelImporter:
     - name: LeftHandIndex3
       parentName: LeftHandIndex2
       position: {x: -0.033910997, y: 0, z: 0}
-      rotation: {x: -0.00000013058454, y: -0.00000003752424, z: -0.000000040268738,
-        w: 1}
+      rotation: {x: -0.00000013058454, y: -0.00000003752424, z: -0.000000040268738, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: LeftHandIndex4
       parentName: LeftHandIndex3
@@ -693,8 +681,7 @@ ModelImporter:
     - name: LeftHandRing3
       parentName: LeftHandRing2
       position: {x: -0.037132, y: 0, z: 0}
-      rotation: {x: -0.000000032435324, y: -0.000000032424037, z: -0.000000014315763,
-        w: 1}
+      rotation: {x: -0.000000032435324, y: -0.000000032424037, z: -0.000000014315763, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: LeftHandRing4
       parentName: LeftHandRing3
@@ -714,8 +701,7 @@ ModelImporter:
     - name: LeftHandPinky3
       parentName: LeftHandPinky2
       position: {x: -0.028113, y: 0, z: 0}
-      rotation: {x: -0.00000006134687, y: 0.00000006120762, z: -0.000000016700513,
-        w: 1}
+      rotation: {x: -0.00000006134687, y: 0.00000006120762, z: -0.000000016700513, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: LeftHandPinky4
       parentName: LeftHandPinky3
@@ -775,8 +761,7 @@ ModelImporter:
     - name: RightHandIndex3
       parentName: RightHandIndex2
       position: {x: 0.033855, y: 0, z: 0}
-      rotation: {x: -0.000000025518254, y: -0.000000077031174, z: -0.000000038807034,
-        w: 1}
+      rotation: {x: -0.000000025518254, y: -0.000000077031174, z: -0.000000038807034, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: RightHandIndex4
       parentName: RightHandIndex3
@@ -796,8 +781,7 @@ ModelImporter:
     - name: RightHandMiddle3
       parentName: RightHandMiddle2
       position: {x: 0.037364, y: 0, z: 0}
-      rotation: {x: -0.000000047826312, y: -0.000000053890986, z: 0.00000005751754,
-        w: 1}
+      rotation: {x: -0.000000047826312, y: -0.000000053890986, z: 0.00000005751754, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: RightHandMiddle4
       parentName: RightHandMiddle3
@@ -837,8 +821,7 @@ ModelImporter:
     - name: RightHandPinky3
       parentName: RightHandPinky2
       position: {x: 0.02782, y: 0, z: 0}
-      rotation: {x: -0.00000002282593, y: 0.00000008020636, z: 0.000000108654724,
-        w: 1}
+      rotation: {x: -0.00000002282593, y: 0.00000008020636, z: 0.000000108654724, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: RightHandPinky4
       parentName: RightHandPinky3
@@ -863,8 +846,7 @@ ModelImporter:
     - name: LeftToeBase
       parentName: LeftFoot
       position: {x: 0.001833, y: -0.121930994, z: 0.082823}
-      rotation: {x: -0.00000041079502, y: 0.000000014744195, z: 0.000000052299352,
-        w: 1}
+      rotation: {x: -0.00000041079502, y: 0.000000014744195, z: 0.000000052299352, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: LeftFootToeBase_End
       parentName: LeftToeBase
@@ -889,8 +871,7 @@ ModelImporter:
     - name: RightToeBase
       parentName: RightFoot
       position: {x: 0.001833, y: -0.121930994, z: 0.082823}
-      rotation: {x: -0.00000036998807, y: 0.000000028715599, z: 0.00000005955515,
-        w: 1}
+      rotation: {x: -0.00000036998807, y: 0.000000028715599, z: 0.00000005955515, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: RightFootToeBase_End
       parentName: RightToeBase

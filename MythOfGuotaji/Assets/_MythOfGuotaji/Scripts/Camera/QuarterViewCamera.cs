@@ -96,6 +96,7 @@ namespace MythOfGuotaji.Cameras
         private void LateUpdate()
         {
             if (_target == null) return;
+            if (Time.timeScale <= 0f || MythOfGuotaji.UI.BoonSelectionUI.IsShowing) return; // UI 표시 중 카메라 Lookahead 이동 정지
 
             // 1. 마우스 조준 방향에 따른 Lookahead 오프셋 계산
             Vector3 targetLookahead = Vector3.zero;

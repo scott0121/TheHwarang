@@ -103,8 +103,8 @@ namespace MythOfGuotaji.Data
         [Tooltip("반사된 투사체 피해량 배율")]
         public float reflectDamageMultiplier = 1.5f;
 
-        [Tooltip("반사된 투사체 비행 속도 배율")]
-        public float reflectSpeedMultiplier = 1.2f;
+        [Tooltip("반사된 투사체 비행 속도 배율 (기본 1.8배속)")]
+        public float reflectSpeedMultiplier = 1.8f;
     }
 
     [CreateAssetMenu(fileName = "WeaponStatsTable", menuName = "MythOfGuotaji/Tables/WeaponStatsTable")]

@@ -15,8 +15,9 @@ MonoBehaviour:
   maxHp: 100
   moveSpeed: 7.5
   dashSpeed: 16
-  dashDuration: 0.2
-  dashCooldown: 1
+  dashDuration: 0.22
+  dashCooldown: 2
+  dashInvincibleDuration: 0.5
   sameCategoryGCD: 0.5
   diffCategoryGCD: 0.2
   heartHealAmount: 5

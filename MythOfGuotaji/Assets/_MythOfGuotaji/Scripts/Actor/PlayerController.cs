@@ -1,6 +1,8 @@
 using System.Collections;
+using System.Collections.Generic;
 using MythOfGuotaji.Combat;
 using MythOfGuotaji.Core;
+using MythOfGuotaji.Progression;
 using MythOfGuotaji.UI;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -31,7 +33,8 @@ namespace MythOfGuotaji.Actor
         [SerializeField] private float _moveSpeed = 7.5f;
         [SerializeField] private float _dashSpeed = 16f;
         [SerializeField] private float _dashDuration = 0.22f;
-        [SerializeField] private float _dashCooldown = 1.0f;
+        [SerializeField] private float _dashCooldown = 2.0f; // 슬라이딩 쿨타임 2초
+        [SerializeField] private float _dashInvincibleDuration = 0.5f; // 슬라이딩 중 0.5초간 데미지 완전 무효화 (i-frame)
 
         [Header("Health & Stats")]
         [SerializeField] private float _maxHp = 100f;
@@ -58,6 +61,7 @@ namespace MythOfGuotaji.Actor
         private float _dashTimer = 0f;
         private float _lastDashTime = -999f;
         private bool _isInvulnerable = false;
+        private float _invincibleTimer = 0f;
 
         private bool _isCharging = false;
         private float _chargeStartTime = 0f;
@@ -73,14 +77,25 @@ namespace MythOfGuotaji.Actor
         private static readonly int AnimHashMoveSpeed = Animator.StringToHash("MoveSpeed");
         private static readonly int AnimHashJump = Animator.StringToHash("Jump");
         private static readonly int AnimHashIsInteracting = Animator.StringToHash("IsInteracting");
-        private static readonly int AnimHashIsInterecting = Animator.StringToHash("IsInterecting");
         private static readonly int AnimHashDamage = Animator.StringToHash("Damage");
         private static readonly int AnimHashDeath = Animator.StringToHash("Death");
+        private static readonly int AnimHashRespawn = Animator.StringToHash("Respawn");
         private Coroutine _interactionAnimRoutine;
 
         public float CurrentHp => _currentHp;
         public float MaxHp => _maxHp;
         public bool IsDead => _currentHp <= 0f;
+        public bool IsDashing => _isDashing;
+        public bool IsInCombat => _isInCombat;
+        private bool _isInCombat = false;
+
+        public void SetInCombat(bool inCombat)
+        {
+            if (_isInCombat == inCombat) return;
+            _isInCombat = inCombat;
+            Debug.Log($"<color={(inCombat ? "red" : "lime")}>[PlayerController] 전투 상태 변경: {(inCombat ? "⚔️ 전투 중 (In Combat)" : "🕊️ 비전투 중 (Out of Combat)")}</color>");
+        }
+
         public Transform Transform => transform;
         public Vector3 AimDirection => _aimDirection;
         public bool IsCharging => _isCharging;
@@ -193,6 +208,7 @@ namespace MythOfGuotaji.Actor
                 _dashSpeed = table.dashSpeed;
                 _dashDuration = table.dashDuration;
                 _dashCooldown = table.dashCooldown;
+                _dashInvincibleDuration = table.dashInvincibleDuration > 0f ? table.dashInvincibleDuration : 0.5f;
                 _sameCategoryGCD = table.sameCategoryGCD;
                 _diffCategoryGCD = table.diffCategoryGCD;
             }
@@ -207,6 +223,7 @@ namespace MythOfGuotaji.Actor
         private void Update()
         {
             if (IsDead) return;
+            if (Time.timeScale <= 0f || BoonSelectionUI.IsShowing) return; // UI 표시 및 일시정지 중 마우스/조작 입력 및 회전 일체 차단
 
             if (_isInputLocked)
             {
@@ -260,6 +277,7 @@ namespace MythOfGuotaji.Actor
         /// </summary>
         private void HandleAiming()
         {
+            if (Time.timeScale <= 0f || BoonSelectionUI.IsShowing) return;
             if (_cam == null) _cam = Camera.main;
             if (_cam == null) return;
 
@@ -310,6 +328,16 @@ namespace MythOfGuotaji.Actor
         {
             Vector3 finalMove = Vector3.zero;
 
+            // 슬라이딩 무적(0.5초 데미지 무효화 i-frame) 타이머 관리
+            if (_invincibleTimer > 0f)
+            {
+                _invincibleTimer -= Time.deltaTime;
+                if (_invincibleTimer <= 0f)
+                {
+                    _isInvulnerable = false;
+                }
+            }
+
             if (_isDashing)
             {
                 _dashTimer -= Time.deltaTime;
@@ -319,7 +347,6 @@ namespace MythOfGuotaji.Actor
                 if (_dashTimer <= 0f)
                 {
                     _isDashing = false;
-                    _isInvulnerable = false;
                 }
             }
             else
@@ -351,18 +378,18 @@ namespace MythOfGuotaji.Actor
         private void StartDash()
         {
             _isDashing = true;
-            _isInvulnerable = true;
             _dashTimer = _dashDuration;
             _lastDashTime = Time.time;
+
+            // [기획 규칙]: 슬라이딩 발동 시 0.5초간 데미지 완전 무효화
+            _invincibleTimer = _dashInvincibleDuration > 0f ? _dashInvincibleDuration : 0.5f;
+            _isInvulnerable = true;
             _knockbackVelocity = Vector3.zero; // 대시로 넉백 캔슬 탈출 가능
 
             Vector3 dashDir = _moveInput.sqrMagnitude > 0.01f ? _moveInput.normalized : _aimDirection;
             Core.VFXManager.Instance?.SpawnPlayerDashDust(transform.position, dashDir);
 
-            if (_animator != null)
-            {
-                _animator.SetTrigger(AnimHashJump);
-            }
+            SetAnimatorTriggerSafe(AnimHashJump);
 
             if (_bow != null && _bow.IsBursting)
             {
@@ -484,14 +511,13 @@ namespace MythOfGuotaji.Actor
         }
 
         /// <summary>
-        /// 애니메이터 Upper Layer의 Attack1 0 스테이트 및 IsInteracting(IsInterecting) 파라미터 연동
+        /// 애니메이터 Upper Layer의 Attack1 0 스테이트 및 IsInteracting 파라미터 연동
         /// </summary>
         public void TriggerAttackAnimation()
         {
             if (_animator == null) return;
 
             SetAnimatorBoolSafe(AnimHashIsInteracting, true);
-            SetAnimatorBoolSafe(AnimHashIsInterecting, true);
 
             int upperLayerIndex = _animator.GetLayerIndex("Upper Layer");
             if (upperLayerIndex >= 0)
@@ -510,14 +536,38 @@ namespace MythOfGuotaji.Actor
             _interactionAnimRoutine = StartCoroutine(ResetInteractingRoutine(0.25f));
         }
 
+        private HashSet<int> _animParamHashes;
+
+        private bool HasParameter(int hash)
+        {
+            if (_animator == null) return false;
+            if (_animParamHashes == null)
+            {
+                _animParamHashes = new HashSet<int>();
+                foreach (var p in _animator.parameters)
+                {
+                    _animParamHashes.Add(p.nameHash);
+                }
+            }
+            return _animParamHashes.Contains(hash);
+        }
+
         private void SetAnimatorBoolSafe(int hash, bool value)
         {
-            if (_animator == null) return;
-            try
-            {
-                _animator.SetBool(hash, value);
-            }
-            catch { }
+            if (!HasParameter(hash)) return;
+            _animator.SetBool(hash, value);
+        }
+
+        private void SetAnimatorTriggerSafe(int hash)
+        {
+            if (!HasParameter(hash)) return;
+            _animator.SetTrigger(hash);
+        }
+
+        private void ResetAnimatorTriggerSafe(int hash)
+        {
+            if (!HasParameter(hash)) return;
+            _animator.ResetTrigger(hash);
         }
 
         private System.Collections.IEnumerator ResetInteractingRoutine(float delay)
@@ -526,14 +576,21 @@ namespace MythOfGuotaji.Actor
             if (_animator != null)
             {
                 SetAnimatorBoolSafe(AnimHashIsInteracting, false);
-                SetAnimatorBoolSafe(AnimHashIsInterecting, false);
             }
             _interactionAnimRoutine = null;
         }
 
         public void TakeDamage(DamageInfo info)
         {
-            if (IsDead || _isInvulnerable) return;
+            if (IsDead) return;
+
+            // [기획 규칙]: 슬라이딩 무적 (i-frame) 동안 데미지 완전 무효화
+            if (_isInvulnerable)
+            {
+                Debug.Log("<color=cyan><b>[회피 성공!]</b> 슬라이딩 무적(0.5초 i-frame)으로 공격을 흘려보냈습니다!</color>");
+                Core.VFXManager.Instance?.Spawn("HCFX_Shine_01", transform.position + Vector3.up * 0.8f, Quaternion.identity, scale: 0.9f, autoDestroyTime: 0.6f);
+                return;
+            }
 
             _currentHp -= info.amount;
             Debug.Log($"<color=red>[거타지 피격!] 남은 체력: {_currentHp:F0}/{_maxHp}</color>");
@@ -547,10 +604,7 @@ namespace MythOfGuotaji.Actor
                 Cameras.QuarterViewCamera.Instance.TriggerShake(0.35f, 0.20f);
             }
 
-            if (_animator != null)
-            {
-                _animator.SetTrigger(AnimHashDamage);
-            }
+            SetAnimatorTriggerSafe(AnimHashDamage);
 
             // 넉백 적용 (예: 거북이 휩쓸기 등)
             if (info.knockbackForce > 0.1f)
@@ -620,14 +674,116 @@ namespace MythOfGuotaji.Actor
         private void Die()
         {
             Debug.LogError("<color=red>[거타지 사망] 스테이지 공략 실패...</color>");
-            if (_animator != null)
+            SetInCombat(false);
+            SetInputLock(true);
+            _isCharging = false;
+            _hasFullCharged = false;
+            _currentChargeStep = 0;
+            if (_chargingAuraInstance != null)
             {
-                _animator.SetTrigger(AnimHashDeath);
+                Destroy(_chargingAuraInstance);
+                _chargingAuraInstance = null;
             }
+
+            SetAnimatorTriggerSafe(AnimHashDeath);
             if (GameManager.Instance != null)
             {
-                GameManager.Instance.SetState(GameState.StageFailed);
+                GameManager.Instance.FailStage();
             }
+        }
+
+        /// <summary>
+        /// 사망 또는 스테이지 재시작 시 플레이어 생명력, 상태 및 애니메이션 완전 복구
+        /// </summary>
+        public void Respawn()
+        {
+            _currentHp = _maxHp;
+            _isDashing = false;
+            _isInvulnerable = false;
+            _dashTimer = 0f;
+            _isCharging = false;
+            _hasFullCharged = false;
+            _currentChargeStep = 0;
+            _knockbackVelocity = Vector3.zero;
+            _moveInput = Vector3.zero;
+            SetInCombat(false); // 부활 시 반드시 비전투 상태로 리셋!
+            SetInputLock(false);
+
+            if (_chargingAuraInstance != null)
+            {
+                Destroy(_chargingAuraInstance);
+                _chargingAuraInstance = null;
+            }
+
+            if (_stunCoroutine != null)
+            {
+                StopCoroutine(_stunCoroutine);
+                _stunCoroutine = null;
+            }
+
+            if (_interactionAnimRoutine != null)
+            {
+                StopCoroutine(_interactionAnimRoutine);
+                _interactionAnimRoutine = null;
+            }
+
+            ResetAnimation();
+
+            Debug.Log("<color=green>[PlayerController] 플레이어가 정상 부활하고 애니메이션이 리셋되었습니다.</color>");
+        }
+
+        /// <summary>
+        /// 사망/피격 등 애니메이터 상태를 기본 대기/이동(Move) 상태로 강제 복구
+        /// </summary>
+        public void ResetAnimation()
+        {
+            if (_animator == null) return;
+
+            // 1. 트리거 소거
+            ResetAnimatorTriggerSafe(AnimHashDeath);
+            ResetAnimatorTriggerSafe(AnimHashDamage);
+            ResetAnimatorTriggerSafe(AnimHashJump);
+            SetAnimatorBoolSafe(AnimHashIsInteracting, false);
+            _animator.SetFloat(AnimHashMoveSpeed, 0f);
+
+            // 2. AnyState의 Respawn 트리거 발동
+            SetAnimatorTriggerSafe(AnimHashRespawn);
+
+            // 3. 확실한 상태 머신 리셋 (Rebind 및 Move 기본 상태 보장)
+            _animator.Rebind();
+            _animator.Update(0f);
+
+            int baseLayerIndex = _animator.GetLayerIndex("Base Layer");
+            _animator.Play("Move", baseLayerIndex >= 0 ? baseLayerIndex : 0, 0f);
+
+            int upperLayerIndex = _animator.GetLayerIndex("Upper Layer");
+            if (upperLayerIndex >= 0)
+            {
+                _animator.Play("New State", upperLayerIndex, 0f);
+            }
+        }
+
+        public void ResetRunStats()
+        {
+            ApplyStatsFromTable();
+            _currentHp = _maxHp;
+
+            if (_bow != null)
+            {
+                _bow.ApplyStatsFromTable();
+            }
+
+            if (_dagger != null)
+            {
+                _dagger.ApplyStatsFromTable();
+            }
+
+            // 캐릭터 트리의 영구 스탯 보너스를 재적용
+            CharacterTreeManager.Instance?.ApplySkillsToPlayer();
+
+            ResetAnimation();
+
+            Debug.Log("<color=cyan>[PlayerController] 런 스탯이 초기화되었습니다.</color>");
         }
 
         public void ApplyBoon(Progression.InRunBoonSO boon)
@@ -667,6 +823,11 @@ namespace MythOfGuotaji.Actor
                 if (boon.bonusAttackRate > 0f) _bow.AddAttackRate(boon.bonusAttackRate);
                 if (boon.bonusChargeDamageMultiplier > 0f) _bow.AddChargeDamageMultiplier(boon.bonusChargeDamageMultiplier);
                 if (boon.bonusChargeRange > 0f) _bow.AddChargeMaxRange(boon.bonusChargeRange);
+                if (boon.chargeSpeedBonus > 0f)
+                {
+                    _bow.ReduceChargeDuration(boon.chargeSpeedBonus);
+                    _maxChargeTime = _bow.MaxChargeTime;
+                }
             }
 
             // 단검 강화
@@ -680,15 +841,34 @@ namespace MythOfGuotaji.Actor
             Debug.Log($"<color=yellow><b>[축복 적용 완료]</b> {boon.boonTitle} ({boon.description})</color>");
         }
 
+        private float _appliedTreeHp = 0f;
+        private float _appliedTreeSpeed = 0f;
+        private int _appliedTreeArrows = 0;
+        private int _appliedTreePierce = 0;
+
         public void ApplyStatBonus(float bonusHp, float bonusMoveSpeed, int extraArrows, int extraPierce)
         {
-            _maxHp += bonusHp;
-            _currentHp = Mathf.Min(_currentHp + bonusHp, _maxHp);
-            _moveSpeed += bonusMoveSpeed;
+            // 기존 누적치 차감 후 갱신
+            _maxHp -= _appliedTreeHp;
+            _moveSpeed -= _appliedTreeSpeed;
             if (_bow != null)
             {
-                _bow.arrowCount += extraArrows;
-                _bow.pierceCount += extraPierce;
+                _bow.arrowCount -= _appliedTreeArrows;
+                _bow.pierceCount -= _appliedTreePierce;
+            }
+
+            _appliedTreeHp = bonusHp;
+            _appliedTreeSpeed = bonusMoveSpeed;
+            _appliedTreeArrows = extraArrows;
+            _appliedTreePierce = extraPierce;
+
+            _maxHp += _appliedTreeHp;
+            _currentHp = Mathf.Min(_currentHp + _appliedTreeHp, _maxHp);
+            _moveSpeed += _appliedTreeSpeed;
+            if (_bow != null)
+            {
+                _bow.arrowCount += _appliedTreeArrows;
+                _bow.pierceCount += _appliedTreePierce;
             }
         }
 

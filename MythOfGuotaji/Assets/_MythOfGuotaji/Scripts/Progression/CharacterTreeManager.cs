@@ -30,6 +30,15 @@ namespace MythOfGuotaji.Progression
             DontDestroyOnLoad(gameObject);
         }
 
+        private void Start()
+        {
+            if (_currentTree == null)
+            {
+                _currentTree = Resources.Load<CharacterSkillTreeSO>("Data/CharacterSkillTree_Archer");
+            }
+            ApplySkillsToPlayer();
+        }
+
         public int GetSkillLevel(string skillId)
         {
             var save = GameManager.Instance.SaveData;

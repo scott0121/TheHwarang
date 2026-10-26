@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a84f32e917d04e578c2e64b4c73f1a01, type: 3}
+  m_Name: MapSkinTable
+  m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Data.MapSkinTableSO
+  categories:
+  - categoryName: Base
+    roomPrefabs:
+    - {fileID: 5804676793993055354, guid: fe4b9fc8fcac998499e611d457199596, type: 3}
+    - {fileID: 5804676793993055354, guid: d01912aa1bacf7246a9ba61b406763e3, type: 3}
+    - {fileID: 5804676793993055354, guid: 0fd018264adf3e849b66393b470de159, type: 3}
+    - {fileID: 5804676793993055354, guid: 924c3eeefff9fc04690126ac93ed0cfc, type: 3}
+    - {fileID: 5804676793993055354, guid: c0593a62aabccfb4e9ea3472b815e842, type: 3}
+    - {fileID: 5804676793993055354, guid: 947da2235a2928849b8901f2fe224113, type: 3}
+    - {fileID: 5804676793993055354, guid: 196d771e1931dc34cab307c9cfa1ccf2, type: 3}
+    - {fileID: 5804676793993055354, guid: 92c00893d7819b6418b47ce4dcc7e55b, type: 3}
+    - {fileID: 5804676793993055354, guid: 9309a55e39f2aea468b5389c058f93c5, type: 3}
+    - {fileID: 5804676793993055354, guid: 81a7574b991051e458c07dfe49731cb3, type: 3}
+    - {fileID: 5804676793993055354, guid: 8183643ffd9afca47b8c18cff9569b64, type: 3}
+    - {fileID: 5804676793993055354, guid: 48887b37c13ab274494b612c58d3d987, type: 3}
+    - {fileID: 5804676793993055354, guid: 8bb891d8c66eae640b7ce9d2ae1fe5b1, type: 3}

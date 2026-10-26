@@ -16,7 +16,7 @@ namespace MythOfGuotaji.Core
 
         private void Awake()
         {
-            if (Instance != null && Instance != null)
+            if (Instance != null && Instance != this)
             {
                 Destroy(gameObject);
                 return;

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using MythOfGuotaji.Cameras;
 using MythOfGuotaji.Combat;
 using MythOfGuotaji.Core;
 using MythOfGuotaji.Dungeon;
@@ -14,8 +15,17 @@ namespace MythOfGuotaji.Actor
         Elite = 1,          // 정예 요괴 (열쇠 수문장)
         FoxBoss = 2,        // 여우 요괴 (던전 최종 보스)
         Minion_Archer = 3,  // 맹독충 (원거리 투사체 발사형: 사거리 15m, 쿨 0.7s, 속도 6m/s)
-        Minion_BigMon = 4,  // 거북이 (느린 탱커형: 전방 90도 0.5초 전조 후 휩쓸기 3m 넉백)
-        Minion_Zhu = 5      // 주(鴸: 사거리 20m, 쿨 3초, 5m 원형 장판, 2초 고정 포물선 폭발 투사체)
+        Minion_BigMon = 4,  // 거북이 (중장갑 20m 가속 돌진 & 3m 충격파)
+        Minion_Zhu = 5,     // 주(鴸: 사거리 20m, 쿨 3초, 5m 원형 장판, 2초 고정 포물선 폭발 투사체)
+        Dokkaebi_Fire = 6,  // 도깨비 화염술사 (패링 핑퐁 역카운터 & 보호막 분쇄)
+        Boar_Charger = 7,   // 저돌맹진 멧돼지 요괴 (돌진 카운터 패링 / 벽 충돌 기절)
+        Spider_Tether = 8,  // 요선 거미 (영혼 사슬 견인 / 슬라이딩 무적 절단 탈출)
+        Mud_Slime = 9,      // 진흙 이괴 (슬로우 늪지 장판 & 카이팅 봉쇄)
+        Phantom_Fox = 10,   // 환영 여우귀 (피격 시 3방향 분신술 교란)
+        Iron_Shield = 11,   // 흑철 방패병 (풀차징 관통 화살로만 방패 파괴)
+        Energy_Absorber = 12,// 영력 흡수 괴물 (차징 금지, 일반 속사 전용)
+        Bomb_Sparrow = 13,  // 자폭 참새 떼 (12m/s 초고속 / 화살 1방에 사망)
+        Totem_Turret = 14   // 사방신 토템 (고정 포대 사방 회전 탄막 / 패링 반사)
     }
 
     /// <summary>
@@ -36,6 +46,7 @@ namespace MythOfGuotaji.Actor
         [SerializeField] private float _separationRadius = 0.9f;
 
         [Header("Attack Pattern Settings (Synced with MonsterStatsTable)")]
+        [SerializeField] private Combat.ProjectileParryType _projectileParryType = Combat.ProjectileParryType.Normal;
         [SerializeField] private float _projectileSpeed = 6.0f;
         [SerializeField] private float _kiteDistance = 0.0f;
         [SerializeField] private float _knockbackPower = 2.0f;
@@ -96,6 +107,12 @@ namespace MythOfGuotaji.Actor
         private bool _dashHitWallObstacle = false;
         private bool _dashHitPlayer = false;
 
+        // 신규 9종 몬스터 기믹 변수
+        private bool _hasSplitPhantoms = false;
+        private bool _isPhantomClone = false;
+        private float _totemRotationAngle = 0f;
+        private bool _hasTotemFiredOnce = false;
+
         // 애니메이터 연동
         private Animator _animator;
         private string _currentAnimState = "";
@@ -108,6 +125,23 @@ namespace MythOfGuotaji.Actor
         public float CurrentHp => _currentHp;
         public float MaxHp => _maxHp;
         public int Level => _level;
+        public bool DropsBossKeyOnDeath => _dropsBossKeyOnDeath;
+        public Combat.ProjectileParryType ProjectileParryType => _projectileParryType;
+
+        private Dungeon.RoomController _cachedRoom;
+        public Dungeon.RoomController OwningRoom
+        {
+            get
+            {
+                if (_cachedRoom == null && Dungeon.MazeGenerator.Instance != null)
+                {
+                    Vector2Int roomCoord = Dungeon.MazeGenerator.Instance.GetRoomCoordsAtWorldPos(transform.position);
+                    _cachedRoom = Dungeon.MazeGenerator.Instance.GetRoomAt(roomCoord);
+                }
+                return _cachedRoom;
+            }
+            set => _cachedRoom = value;
+        }
 
         private int _level = 0;
 
@@ -133,6 +167,7 @@ namespace MythOfGuotaji.Actor
                 ActiveMonsters.Add(this);
             }
             if (_animator == null) _animator = GetComponentInChildren<Animator>();
+            _animParameters = null;
             _currentAnimState = "";
             _currentHp = _maxHp;
             if (_cc != null) _cc.enabled = true;
@@ -185,6 +220,7 @@ namespace MythOfGuotaji.Actor
 
             _isAggroed = false;
             _isSweeping = false;
+            _hasTotemFiredOnce = false;
             _lastEliteSkillTime = -99f;
             _lastBossSkill1Time = -99f;
             _lastBossSkill2Time = -99f;
@@ -225,7 +261,120 @@ namespace MythOfGuotaji.Actor
                 _dashDistance = stat.dashDistance > 0f ? stat.dashDistance : 5.0f;
                 _dashWidth = stat.dashWidth > 0f ? stat.dashWidth : 0.5f;
                 _dashDuration = stat.dashDuration > 0f ? stat.dashDuration : 0.3f;
+                _projectileParryType = stat.projectileParryType;
             }
+
+            // 사방신 토템은 황금색 강화 투사체 고정 보장
+            if (_type == MonsterType.Totem_Turret)
+            {
+                _projectileParryType = Combat.ProjectileParryType.Enhanced;
+            }
+
+            // [기획 규칙] 몬스터 타입별 핵심 교전/스킬 발동 사거리 및 패턴 파라미터 안전 보장
+            switch (_type)
+            {
+                case MonsterType.Minion:
+                    _attackRange = 5.0f;
+                    _dashDistance = 5.0f;
+                    _dashDuration = 0.3f;
+                    _dashWidth = 0.5f;
+                    _telegraphDuration = 0.3f;
+                    break;
+                case MonsterType.Minion_Archer:
+                    _attackRange = 15.0f;
+                    _attackCooldown = 0.7f;
+                    _projectileSpeed = 6.0f;
+                    _kiteDistance = 6.0f;
+                    break;
+                case MonsterType.Minion_BigMon:
+                    _attackRange = 20.0f;
+                    _attackCooldown = 3.5f;
+                    _dashDistance = 20.0f;
+                    _dashDuration = 3.0f;
+                    _dashWidth = 1.5f;
+                    _specialAttackRadius = 3.0f;
+                    _telegraphDuration = 0.4f;
+                    break;
+                case MonsterType.Minion_Zhu:
+                    _attackRange = 20.0f;
+                    _attackCooldown = 3.0f;
+                    _flightDuration = 2.0f;
+                    _arcHeight = 6.0f;
+                    _specialAttackRadius = 2.5f;
+                    _postAttackDelay = 0.3f;
+                    break;
+                case MonsterType.Elite:
+                    _attackRange = 3.0f;
+                    _attackCooldown = 1.8f;
+                    break;
+                case MonsterType.FoxBoss:
+                    _attackRange = 3.5f;
+                    _attackCooldown = 1.2f;
+                    break;
+                case MonsterType.Dokkaebi_Fire:
+                    _attackRange = 14.0f;
+                    _attackCooldown = 2.5f;
+                    _projectileSpeed = 5.0f;
+                    _kiteDistance = 5.0f;
+                    break;
+                case MonsterType.Boar_Charger:
+                    _attackRange = 15.0f;
+                    _attackCooldown = 3.0f;
+                    _dashDistance = 15.0f;
+                    _dashDuration = 1.1f;
+                    _dashWidth = 1.2f;
+                    _specialAttackRadius = 1.5f;
+                    _telegraphDuration = 0.35f;
+                    break;
+                case MonsterType.Spider_Tether:
+                    _attackRange = 12.0f;
+                    _attackCooldown = 4.5f;
+                    _telegraphDuration = 0.3f;
+                    break;
+                case MonsterType.Mud_Slime:
+                    _attackRange = 9.0f;
+                    _attackCooldown = 5.0f;
+                    _specialAttackRadius = 3.0f;
+                    _telegraphDuration = 0.5f;
+                    break;
+                case MonsterType.Phantom_Fox:
+                    _attackRange = 6.0f;
+                    _attackCooldown = 2.0f;
+                    break;
+                case MonsterType.Iron_Shield:
+                    _attackRange = 3.5f;
+                    _attackCooldown = 2.0f;
+                    break;
+                case MonsterType.Energy_Absorber:
+                    _attackRange = 3.0f;
+                    _attackCooldown = 1.5f;
+                    break;
+                case MonsterType.Bomb_Sparrow:
+                    _attackRange = 8.0f;
+                    _attackCooldown = 1.0f;
+                    _dashDistance = 8.0f;
+                    _dashDuration = 0.6f;
+                    _dashWidth = 0.8f;
+                    _specialAttackRadius = 2.0f;
+                    break;
+                case MonsterType.Totem_Turret:
+                    _attackRange = 25.0f;
+                    _attackCooldown = 1.0f;
+                    _moveSpeed = 2.4f; // 첫 대포 발사 전까지는 사거리까지 걸어서 이동!
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 신규 공통 몬스터 스킬 테이블에서 지정된 skillId의 스킬 데이터 반환
+        /// </summary>
+        public Data.MonsterSkillEntry GetMonsterSkillData(string skillId)
+        {
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.MonsterSkills != null)
+            {
+                return Data.GameDataManager.Instance.MonsterSkills.GetSkill(skillId);
+            }
+            return null;
         }
 
         private void FindPlayerTarget()
@@ -251,6 +400,29 @@ namespace MythOfGuotaji.Actor
         private void Update()
         {
             if (IsDead) return;
+
+            // 맵 바닥 낙하 방지 안전장치: 바닥 아래로 추락 시 즉시 사망 처리하여 웨이브 막힘 원천 방지
+            if (transform.position.y < -5f)
+            {
+                Die();
+                return;
+            }
+
+            // 공중 부유 방지 안전장치: 스폰 충돌이나 넉백으로 공중에 높게 뜬 몬스터를 바닥(y=0)으로 강제 착지
+            if (transform.position.y > 0.8f)
+            {
+                Vector3 rayOrigin = new Vector3(transform.position.x, 8f, transform.position.z);
+                if (Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit groundHit, 16f, _obstacleLayerMask, QueryTriggerInteraction.Ignore))
+                {
+                    float groundY = groundHit.point.y;
+                    if (transform.position.y > groundY + 0.15f)
+                    {
+                        Vector3 pos = transform.position;
+                        pos.y = Mathf.MoveTowards(pos.y, groundY, Time.deltaTime * 20f);
+                        transform.position = pos;
+                    }
+                }
+            }
 
             // 추가 웨이브 스폰 연출 대기
             if (_spawnDelayTimer > 0f)
@@ -312,11 +484,37 @@ namespace MythOfGuotaji.Actor
             toPlayer.y = 0f;
             float distToPlayer = toPlayer.magnitude;
 
+            // 사방신 토템 (MonsterType.Totem_Turret): 첫 대포 발사 전까지는 사거리까지 걸어서 접근, 첫 발사 후 그 자리 고정 포대
+            if (_type == MonsterType.Totem_Turret)
+            {
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toPlayer.normalized), Time.deltaTime * 6f);
+                if (distToPlayer <= _attackRange)
+                {
+                    TryAttackPlayer();
+                    PlayIdleAnimation();
+                    return;
+                }
+                else if (!_hasTotemFiredOnce)
+                {
+                    // 아직 첫 대포를 쏘지 않았으면 캐릭터의 범위 안까지 걸어서 이동!
+                    NavigateTowardsTarget(distToPlayer);
+                    PlayMoveAnimation();
+                    return;
+                }
+                else
+                {
+                    // 이미 대포를 발사한 토템은 그 자리에 완전히 멈춰서 포탄 난사 대기
+                    TryAttackPlayer();
+                    PlayIdleAnimation();
+                    return;
+                }
+            }
+
             // 정예 요괴 (MonsterType.Elite) 전용 스킬 & 자동 근접 공격
             if (_type == MonsterType.Elite)
             {
                 // 특수스킬: 플레이어가 5m 이상 20m 이내에 위치 시 바닥에 폭 50cm 길이 20m 박스 생성 후 돌덩이 굴림 (쿨 2초)
-                if (distToPlayer >= 5.0f && distToPlayer <= 20.0f && Time.time >= _lastEliteSkillTime + 2.0f)
+                if (distToPlayer >= 5.0f && distToPlayer <= 20.0f && Time.time >= _lastEliteSkillTime + 2.0f && HasLineOfSightToPlayer())
                 {
                     StartCoroutine(EliteBoulderSkillRoutine());
                     return;
@@ -325,6 +523,13 @@ namespace MythOfGuotaji.Actor
                 // 캐릭터 근접 시 자동 근접 공격 실행
                 if (distToPlayer <= _attackRange)
                 {
+                    if (!HasLineOfSightToPlayer())
+                    {
+                        NavigateTowardsTarget(distToPlayer);
+                        PlayMoveAnimation();
+                        return;
+                    }
+
                     transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toPlayer.normalized), Time.deltaTime * 10f);
                     TryAttackPlayer();
                     PlayIdleAnimation();
@@ -379,6 +584,13 @@ namespace MythOfGuotaji.Actor
                 // 캐릭터 근접 시 자동 근접 공격 실행
                 if (distToPlayer <= _attackRange)
                 {
+                    if (!HasLineOfSightToPlayer())
+                    {
+                        NavigateTowardsTarget(distToPlayer);
+                        PlayMoveAnimation();
+                        return;
+                    }
+
                     transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toPlayer.normalized), Time.deltaTime * 10f);
                     TryAttackPlayer();
                     PlayIdleAnimation();
@@ -394,8 +606,8 @@ namespace MythOfGuotaji.Actor
             // 공격 사거리 내 도달 시 공격
             if (distToPlayer <= _attackRange)
             {
-                // 거북이(BigMon): 벽 뒤에 있는 플레이어에게는 돌진할 수 없으므로 시선/돌진 경로가 막혀있으면 우회 추격 지속
-                if (_type == MonsterType.Minion_BigMon && !HasClearChargePathToPlayer())
+                // 벽이나 장애물 너머에 있어서 플레이어를 직접 타격할 수 없는 경우, 멈춰 서 있지 않고 문/통로를 향해 우회 이동!
+                if (!HasLineOfSightToPlayer())
                 {
                     NavigateTowardsTarget(distToPlayer);
                     PlayMoveAnimation();
@@ -427,8 +639,93 @@ namespace MythOfGuotaji.Actor
         }
 
         /// <summary>
+        /// 몬스터와 플레이어 사이에 벽이나 장애물이 없는 직시선(Line of Sight)이 확보되어 있는지 검사
+        /// - 문도 없는 벽 너머에서 플레이어를 공격하는 것을 100% 원천 차단
+        /// - 문이 열려있거나 같은 방에 있는 경우, 벽체 장애물에 가로막히지 않았는지 정밀 판정
+        /// </summary>
+        public bool HasLineOfSightToPlayer()
+        {
+            if (_targetPlayer == null) return false;
+
+            // 1. 방 단위 검사: 서로 다른 방에 위치한 경우 두 방 사이에 열린 문이 없으면 시야/공격 완전 차단
+            if (Dungeon.MazeGenerator.Instance != null)
+            {
+                Vector2Int myRoom = Dungeon.MazeGenerator.Instance.GetRoomCoordsAtWorldPos(transform.position);
+                Vector2Int playerRoom = Dungeon.MazeGenerator.Instance.GetRoomCoordsAtWorldPos(_targetPlayer.position);
+
+                if (myRoom != playerRoom)
+                {
+                    int manhattanDist = Mathf.Abs(myRoom.x - playerRoom.x) + Mathf.Abs(myRoom.y - playerRoom.y);
+                    if (manhattanDist != 1) return false; // 인접 방이 아니면 공격/인식 불가
+
+                    Dungeon.Direction dirToPlayer = Dungeon.MazeGrid.GetOffsetDirection(playerRoom - myRoom);
+                    var currentCell = Dungeon.MazeGenerator.Instance.Grid?.GetCell(myRoom);
+                    if (currentCell == null || !currentCell.IsOpen(dirToPlayer)) return false; // 문이 없는 벽이면 절대 불가!
+
+                    if (Dungeon.MazeGenerator.Instance.InstantiatedRooms.TryGetValue(myRoom, out var myRoomCtrl) &&
+                        Dungeon.MazeGenerator.Instance.InstantiatedRooms.TryGetValue(playerRoom, out var playerRoomCtrl))
+                    {
+                        var mySocket = myRoomCtrl.GetSocket(dirToPlayer);
+                        var oppSocket = playerRoomCtrl.GetSocket(Dungeon.MazeGrid.GetOpposite(dirToPlayer));
+                        if (mySocket != null && oppSocket != null)
+                        {
+                            // 벽이거나 잠긴 상태(전투 봉인, 보스 봉인 등)면 차단
+                            if (mySocket.CurrentState == Dungeon.DoorState.CombatLock || mySocket.CurrentState == Dungeon.DoorState.BossLock ||
+                                oppSocket.CurrentState == Dungeon.DoorState.CombatLock || oppSocket.CurrentState == Dungeon.DoorState.BossLock)
+                            {
+                                return false;
+                            }
+                        }
+
+                        var autoDoor = mySocket?.AutoDoor ?? oppSocket?.AutoDoor;
+                        if (autoDoor != null && !autoDoor.IsOpen) return false; // 문이 닫혀있으면 차단!
+                    }
+                }
+            }
+
+            // 2. 물리 레이캐스트 검사: 벽체나 기둥 장애물이 가로막고 있는지 정밀 검사
+            Vector3 eye = transform.position + Vector3.up * 1.0f;
+            Vector3 playerEye = _targetPlayer.position + Vector3.up * 1.0f;
+            Vector3 diff = playerEye - eye;
+            float dist = diff.magnitude;
+
+            if (dist > 35f) return false;
+            if (dist < 0.3f) return true;
+
+            RaycastHit[] hits = Physics.RaycastAll(eye, diff.normalized, dist, _obstacleLayerMask, QueryTriggerInteraction.Ignore);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            foreach (var hit in hits)
+            {
+                if (hit.collider == null || hit.collider.gameObject == gameObject) continue;
+
+                // 같은 편 몬스터는 시선을 차단하지 않음
+                if (hit.collider.CompareTag("Monster") || hit.collider.GetComponentInParent<MonsterAI>() != null) continue;
+
+                // 플레이어에 먼저 닿았으면 직시선 확보 완료!
+                if (hit.collider.CompareTag("Player") || hit.collider.GetComponentInParent<PlayerController>() != null || hit.collider.gameObject == _targetPlayer.gameObject)
+                {
+                    return true;
+                }
+
+                // 열린 자동문 부속품은 통과 허용
+                if (hit.collider.GetComponentInParent<Dungeon.DungeonAutoDoor>() != null)
+                {
+                    var ad = hit.collider.GetComponentInParent<Dungeon.DungeonAutoDoor>();
+                    if (ad.IsOpen) continue;
+                }
+
+                // 벽, 기둥, 장애물에 가로막힘!
+                return false;
+            }
+
+            // 장애물에 걸리지 않고 플레이어 방향 시선이 완전히 뚫려있음
+            return true;
+        }
+
+        /// <summary>
         /// 방 경계면 및 직시선(Line of Sight) 기반 플레이어 발견 검사
-        /// - 같은 방에 플레이어가 진입했을 때
+        /// - 같은 방에 플레이어가 진입했을 때 (단, 벽에 완전히 가려지지 않은 경우)
         /// - 인접 방에서 열린 통로를 통해 직시선이 확보되었을 때
         /// </summary>
         private bool CheckPlayerInSight()
@@ -438,71 +735,17 @@ namespace MythOfGuotaji.Actor
             Vector2Int myRoom = Dungeon.MazeGenerator.Instance.GetRoomCoordsAtWorldPos(transform.position);
             Vector2Int playerRoom = Dungeon.MazeGenerator.Instance.GetRoomCoordsAtWorldPos(_targetPlayer.position);
 
-            // 조건 1: 같은 방에 플레이어 진입 -> 즉시 발견 (단, 시작방(0,0)은 요괴가 존재하지 않는 안전 구역이므로 제외)
+            // 같은 방에 진입한 경우: 벽/기둥에 가로막히지 않았는지 확인
             if (myRoom == playerRoom)
             {
-                if (playerRoom == Vector2Int.zero)
-                {
-                    return false;
-                }
-                return true;
+                return HasLineOfSightToPlayer();
             }
 
-            // 조건 2: 인접 방에 위치하고 방 경계 통로가 열려 있으며 시야가 확보된 경우
+            // 인접 방에 위치한 경우: 열린 통로 및 직시선 검사
             int manhattanDist = Mathf.Abs(myRoom.x - playerRoom.x) + Mathf.Abs(myRoom.y - playerRoom.y);
             if (manhattanDist == 1)
             {
-                Dungeon.Direction dirToPlayer = Dungeon.MazeGrid.GetOffsetDirection(playerRoom - myRoom);
-                var currentCell = Dungeon.MazeGenerator.Instance.Grid?.GetCell(myRoom);
-                if (currentCell != null && currentCell.IsOpen(dirToPlayer))
-                {
-                    // 양쪽 방의 소켓 및 통로 문 개방 상태 엄격 검사
-                    if (Dungeon.MazeGenerator.Instance.InstantiatedRooms.TryGetValue(myRoom, out var myRoomCtrl) &&
-                        Dungeon.MazeGenerator.Instance.InstantiatedRooms.TryGetValue(playerRoom, out var playerRoomCtrl))
-                    {
-                        var mySocket = myRoomCtrl.GetSocket(dirToPlayer);
-                        var oppSocket = playerRoomCtrl.GetSocket(Dungeon.MazeGrid.GetOpposite(dirToPlayer));
-
-                        if (mySocket == null || oppSocket == null) return false;
-
-                        // 벽이거나 잠긴 상태(전투 봉인, 보스 봉인 등)면 시야 완전 차단
-                        if (mySocket.CurrentState != Dungeon.DoorState.Open || oppSocket.CurrentState != Dungeon.DoorState.Open)
-                        {
-                            return false;
-                        }
-
-                        // 자동문(AutoDoor) 개폐 상태 검사 (양쪽 소켓 중 설치된 문짝 확인)
-                        var autoDoor = mySocket.GetComponentInChildren<Dungeon.DungeonAutoDoor>() ?? oppSocket.GetComponentInChildren<Dungeon.DungeonAutoDoor>();
-                        if (autoDoor != null && !autoDoor.IsOpen)
-                        {
-                            return false; // 문이 닫혀있으면 절대 발견 불가
-                        }
-                    }
-                    else
-                    {
-                        return false;
-                    }
-
-                    // 직시선(Line of Sight) 레이캐스트 검사 (최대 24m)
-                    Vector3 eye = transform.position + Vector3.up * 1.0f;
-                    Vector3 playerEye = _targetPlayer.position + Vector3.up * 1.0f;
-                    Vector3 diff = playerEye - eye;
-
-                    if (diff.magnitude <= 24f)
-                    {
-                        if (Physics.Raycast(eye, diff.normalized, out RaycastHit hit, diff.magnitude, _obstacleLayerMask, QueryTriggerInteraction.Ignore))
-                        {
-                            if (hit.collider.gameObject == _targetPlayer.gameObject || hit.collider.GetComponentInParent<PlayerController>() != null)
-                            {
-                                return true;
-                            }
-                        }
-                        else
-                        {
-                            return true;
-                        }
-                    }
-                }
+                return HasLineOfSightToPlayer();
             }
 
             return false;
@@ -512,6 +755,14 @@ namespace MythOfGuotaji.Actor
         {
             if (_isAggroed) return;
             _isAggroed = true;
+
+            PlayerController.Instance?.SetInCombat(true);
+
+            // 소속 방 전투 인카운터 및 웨이브 루틴 즉시 시작 (옆방/옆옆방 원거리 공격 시에도 2, 3차 웨이브 정상 발동 보장)
+            if (OwningRoom != null && !OwningRoom.IsEncounterActive && !OwningRoom.IsCleared && OwningRoom.RoomType != Dungeon.RoomType.Start)
+            {
+                OwningRoom.StartCombatEncounter();
+            }
 
             if (_type == MonsterType.FoxBoss && HasAnimState("Roar"))
             {
@@ -611,7 +862,7 @@ namespace MythOfGuotaji.Actor
             Vector3 finalMoveDir = (steeredDir + separationVector * 0.6f).normalized;
             Vector3 finalMove = finalMoveDir * _moveSpeed;
             finalMove += _knockbackVelocity;
-            finalMove.y = -9.81f; // 중력
+            finalMove.y = -18f; // 강력한 접지 중력 (공중 부유 방지)
 
             if (finalMoveDir.sqrMagnitude > 0.01f)
             {
@@ -742,6 +993,7 @@ namespace MythOfGuotaji.Actor
         {
             if (_isSweeping) return;
             if (Time.time < _lastAttackTime + _attackCooldown) return;
+            if (_type != MonsterType.Totem_Turret && !HasLineOfSightToPlayer()) return; // 벽 너머 공격 절대 금지! (단, 4방향 회전 탄막 토템은 예외)
 
             if (_type == MonsterType.Minion)
             {
@@ -753,21 +1005,6 @@ namespace MythOfGuotaji.Actor
                 // 맹독충(Minion_archer): 사거리 15m 내 플레이어에게 투사체 발사 (쿨 0.7초, 피해 7, 탄속 6m/s)
                 Vector3 toPlayer = _targetPlayer.position - transform.position;
                 toPlayer.y = 0f;
-                float dist = toPlayer.magnitude;
-
-                // 벽 차단 검사 (직시선이 벽에 막혀있으면 사각으로 우회 이동)
-                Vector3 eye = transform.position + Vector3.up * 1.0f;
-                Vector3 playerEye = _targetPlayer.position + Vector3.up * 1.0f;
-                Vector3 diff = playerEye - eye;
-
-                if (Physics.Raycast(eye, diff.normalized, out RaycastHit hit, diff.magnitude, _obstacleLayerMask, QueryTriggerInteraction.Ignore))
-                {
-                    if (hit.collider.gameObject != _targetPlayer.gameObject && hit.collider.GetComponentInParent<PlayerController>() == null)
-                    {
-                        NavigateTowardsTarget(dist);
-                        return;
-                    }
-                }
 
                 _lastAttackTime = Time.time;
                 ShootVenomProjectile(toPlayer.normalized);
@@ -821,9 +1058,49 @@ namespace MythOfGuotaji.Actor
                 // 여우 보스: 콤보 및 스매시 공격 모션 시전
                 StartCoroutine(BossMeleeAttackRoutine());
             }
+            else if (_type == MonsterType.Dokkaebi_Fire)
+            {
+                // 도깨비 화염술사: 패링 핑퐁 투사체 발사 (단검 패링 시 2배속 반사 & 그로기 기절)
+                _lastAttackTime = Time.time;
+                PlayAttackAnimation();
+                Vector3 toPlayer = (_targetPlayer.position - transform.position).normalized;
+                toPlayer.y = 0f;
+                ShootDokkaebiFireball(toPlayer);
+            }
+            else if (_type == MonsterType.Boar_Charger)
+            {
+                // 저돌맹진 멧돼지 요괴: 14m/s 15m 돌진 (돌진 중 단검 패링 혹은 슬라이딩 0.5초 무적 회피)
+                StartCoroutine(BoarChargeAttackRoutine());
+            }
+            else if (_type == MonsterType.Spider_Tether)
+            {
+                // 요선 거미: 영혼 사슬 견인 (슬라이딩 무적 대시로 즉시 절단 탈출)
+                _lastAttackTime = Time.time;
+                PlayAttackAnimation();
+                ShootSpiderTether();
+            }
+            else if (_type == MonsterType.Mud_Slime)
+            {
+                // 진흙 이괴: 3m 늪지 장판 소환 (4초간 60% 슬로우)
+                _lastAttackTime = Time.time;
+                PlayAttackAnimation();
+                SpawnMudPuddle();
+            }
+            else if (_type == MonsterType.Bomb_Sparrow)
+            {
+                // 자폭 참새 떼: 12m/s 초고속 자폭 돌진
+                StartCoroutine(SparrowKamikazeRoutine());
+            }
+            else if (_type == MonsterType.Totem_Turret)
+            {
+                // 사방신 토템: 4방향 회전 탄막 (모든 탄환 단검 패링 가능)
+                _lastAttackTime = Time.time;
+                PlayAttackAnimation();
+                FireTotemBarrage();
+            }
             else
             {
-                // 기타 기본 근접 공격
+                // 기타 기본 근접 공격 (환영 여우귀, 흑철 방패병, 영력 흡수 괴물 등)
                 _lastAttackTime = Time.time;
                 PlayAttackAnimation();
                 if (_targetPlayer.TryGetComponent<IDamageable>(out var damageable))
@@ -994,54 +1271,18 @@ namespace MythOfGuotaji.Actor
         private GameObject CreateDashTelegraph(Vector3 startPos, Vector3 dashDir, float length, float width)
         {
             CleanupTelegraph();
-            GameObject telegraph = new GameObject("[Minion_DashTelegraph]");
-            _activeTelegraph = telegraph;
-            telegraph.transform.position = startPos + dashDir * (length * 0.5f) + Vector3.up * 0.05f;
-            telegraph.transform.rotation = Quaternion.LookRotation(dashDir);
-
-            // 1. 바닥 면 (Semi-transparent inner fill)
-            var fillObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            fillObj.name = "Fill";
-            fillObj.transform.SetParent(telegraph.transform, false);
-            fillObj.transform.localPosition = Vector3.zero;
-            fillObj.transform.localScale = new Vector3(width, 0.005f, length);
-            var col = fillObj.GetComponent<Collider>();
-            if (col != null) Destroy(col);
-
-            var mr = fillObj.GetComponent<MeshRenderer>();
-            if (mr != null)
-            {
-                mr.material = ZhuParabolicProjectile.CreateTelegraphMaterial(new Color(1f, 0.25f, 0.1f, 0.35f));
-            }
-
-            // 2. 외곽선 테두리 (좌, 우, 전방)
-            CreateBorderLine(fillObj.transform, new Vector3(-0.48f, 0.5f, 0f), new Vector3(0.06f, 1.2f, 1f));
-            CreateBorderLine(fillObj.transform, new Vector3(0.48f, 0.5f, 0f), new Vector3(0.06f, 1.2f, 1f));
-            CreateBorderLine(fillObj.transform, new Vector3(0f, 0.5f, 0.5f), new Vector3(1f, 1.2f, 0.04f));
-
-            return telegraph;
+            _activeTelegraph = CreateFloorGuideBox(startPos, dashDir, length, width, new Color(1f, 0.25f, 0.1f, 0.35f));
+            _activeTelegraph.name = "[Minion_DashTelegraph]";
+            return _activeTelegraph;
         }
 
         private void CreateBorderLine(Transform parent, Vector3 localPos, Vector3 localScale)
         {
-            var line = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            line.name = "BorderLine";
-            line.transform.SetParent(parent, false);
-            line.transform.localPosition = localPos;
-            line.transform.localScale = localScale;
-
-            var c = line.GetComponent<Collider>();
-            if (c != null) Destroy(c);
-
-            var r = line.GetComponent<Renderer>();
-            if (r != null)
-            {
-                r.material = ZhuParabolicProjectile.CreateTelegraphMaterial(new Color(1f, 0.4f, 0.15f, 0.85f));
-            }
+            CreateTelegraphBorderLine(parent, localPos, localScale, new Color(1f, 0.4f, 0.15f, 0.85f));
         }
 
         /// <summary>
-        /// 맹독충 전용 원거리 투사체 발사 (HCFX_ElementOrb_04 프리팹 적용)
+        /// 맹독충 전용 원거리 투사체 발사 (Projectile_Venom 프리팹 적용)
         /// </summary>
         private void ShootVenomProjectile(Vector3 dir)
         {
@@ -1049,28 +1290,35 @@ namespace MythOfGuotaji.Actor
             Vector3 spawnPos = transform.position + Vector3.up * 1.0f + dir * 1.1f;
             Core.VFXManager.Instance?.SpawnVenomMuzzle(spawnPos, dir);
 
-            GameObject orb = null;
-            var orbPrefab = Core.VFXManager.Instance?.GetVFXPrefab("HCFX_ElementOrb_04");
-            if (orbPrefab != null)
+            GameObject venomPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
             {
-                orb = Instantiate(orbPrefab, spawnPos, Quaternion.LookRotation(dir));
-                orb.transform.localScale = Vector3.one * 0.75f;
+                venomPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.venomProjectilePrefab, "Prefabs/Projectile_Venom");
             }
             else
             {
-                orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                orb.transform.position = spawnPos;
-                orb.transform.rotation = Quaternion.LookRotation(dir);
-                orb.transform.localScale = Vector3.one * 0.45f;
+                venomPrefab = Resources.Load<GameObject>("Prefabs/Projectile_Venom");
+            }
 
-                var rend = orb.GetComponent<Renderer>();
-                if (rend != null)
+            GameObject orb = null;
+            if (venomPrefab != null)
+            {
+                orb = Instantiate(venomPrefab, spawnPos, Quaternion.LookRotation(dir));
+            }
+            else
+            {
+                var orbPrefab = Core.VFXManager.Instance?.GetVFXPrefab("HCFX_ElementOrb_04");
+                if (orbPrefab != null)
                 {
-                    var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
-                    Color venomColor = new Color(0.2f, 0.95f, 0.25f);
-                    mat.color = venomColor;
-                    if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", venomColor);
-                    rend.material = mat;
+                    orb = Instantiate(orbPrefab, spawnPos, Quaternion.LookRotation(dir));
+                    orb.transform.localScale = Vector3.one * 0.75f;
+                }
+                else
+                {
+                    orb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    orb.transform.position = spawnPos;
+                    orb.transform.rotation = Quaternion.LookRotation(dir);
+                    orb.transform.localScale = Vector3.one * 0.45f;
                 }
             }
 
@@ -1086,14 +1334,15 @@ namespace MythOfGuotaji.Actor
             rb.isKinematic = true;
             rb.useGravity = false;
 
-            var proj = orb.AddComponent<Projectile>();
+            var proj = orb.GetComponent<Projectile>();
+            if (proj == null) proj = orb.AddComponent<Projectile>();
             DamageInfo dmg = new DamageInfo(_attackDamage, false, spawnPos, dir, _knockbackPower, ElementType.Poison, gameObject);
-            proj.Initialize(dmg, pierceCount: 0, ~LayerMask.GetMask("Ignore Raycast"), poolKey: "", maxRange: _attackRange, unlimitedPierce: false, speed: _projectileSpeed);
+            proj.Initialize(dmg, pierceCount: 0, ~LayerMask.GetMask("Ignore Raycast"), poolKey: "", maxRange: _attackRange, unlimitedPierce: false, speed: _projectileSpeed, parryType: _projectileParryType);
             proj.ApplyTopDepthPriority();
         }
 
         /// <summary>
-        /// 주(鴸) 전용 공격 코루틴 (HCFX_ElementOrb_01 프리팹 적용)
+        /// 주(鴸) 전용 공격 코루틴 (Projectile_ZhuParabolic 프리팹 적용)
         /// </summary>
         private IEnumerator ZhuAttackRoutine()
         {
@@ -1105,18 +1354,35 @@ namespace MythOfGuotaji.Actor
             Vector3 targetFloorPos = _targetPlayer != null ? _targetPlayer.position : transform.position + transform.forward * 10f;
             targetFloorPos.y = 0.05f;
 
-            GameObject zhuProjObj = null;
-            var zhuPrefab = Core.VFXManager.Instance?.GetVFXPrefab("HCFX_ElementOrb_01");
-            if (zhuPrefab != null)
+            GameObject zhuProjPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
             {
-                zhuProjObj = Instantiate(zhuPrefab, spawnPos, Quaternion.identity);
-                zhuProjObj.transform.localScale = Vector3.one * 0.85f;
+                zhuProjPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.zhuParabolicProjectilePrefab, "Prefabs/Projectile_ZhuParabolic");
             }
             else
             {
-                zhuProjObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                zhuProjObj.transform.position = spawnPos;
-                zhuProjObj.transform.localScale = Vector3.one * 0.65f;
+                zhuProjPrefab = Resources.Load<GameObject>("Prefabs/Projectile_ZhuParabolic");
+            }
+
+            GameObject zhuProjObj = null;
+            if (zhuProjPrefab != null)
+            {
+                zhuProjObj = Instantiate(zhuProjPrefab, spawnPos, Quaternion.identity);
+            }
+            else
+            {
+                var zhuPrefab = Core.VFXManager.Instance?.GetVFXPrefab("HCFX_ElementOrb_01");
+                if (zhuPrefab != null)
+                {
+                    zhuProjObj = Instantiate(zhuPrefab, spawnPos, Quaternion.identity);
+                    zhuProjObj.transform.localScale = Vector3.one * 0.85f;
+                }
+                else
+                {
+                    zhuProjObj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    zhuProjObj.transform.position = spawnPos;
+                    zhuProjObj.transform.localScale = Vector3.one * 0.65f;
+                }
             }
 
             zhuProjObj.name = "ZhuParabolicProjectile";
@@ -1131,8 +1397,10 @@ namespace MythOfGuotaji.Actor
             rb.isKinematic = true;
             rb.useGravity = false;
 
-            var script = zhuProjObj.AddComponent<ZhuParabolicProjectile>();
+            var script = zhuProjObj.GetComponent<ZhuParabolicProjectile>();
+            if (script == null) script = zhuProjObj.AddComponent<ZhuParabolicProjectile>();
             script.Initialize(gameObject, spawnPos, targetFloorPos, _attackDamage, _flightDuration, _arcHeight, _specialAttackRadius);
+            script.ParryType = _projectileParryType;
             script.ApplyTopDepthPriority();
 
             // 몬스터는 투사체를 발사 후 설정된 후딜레이 뒤 바로 이동 가능
@@ -1538,15 +1806,35 @@ namespace MythOfGuotaji.Actor
 
         private void SpawnShockwaveVisualEffect(Vector3 center, float radius)
         {
-            var fxObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            fxObj.name = "BigMon_Shockwave";
-            fxObj.transform.position = center + Vector3.up * 0.05f;
-            fxObj.transform.localScale = new Vector3(radius * 2f, 0.02f, radius * 2f);
+            GameObject ringPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                ringPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.shockwaveRingPrefab, "Prefabs/VFX_ShockwaveRing");
+            }
+            else
+            {
+                ringPrefab = Resources.Load<GameObject>("Prefabs/VFX_ShockwaveRing");
+            }
 
-            var col = fxObj.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            GameObject fxObj;
+            if (ringPrefab != null)
+            {
+                fxObj = Instantiate(ringPrefab, center + Vector3.up * 0.05f, Quaternion.identity);
+                fxObj.name = "BigMon_Shockwave";
+                fxObj.transform.localScale = new Vector3(radius * 2f, 0.02f, radius * 2f);
+            }
+            else
+            {
+                fxObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                fxObj.name = "BigMon_Shockwave";
+                fxObj.transform.position = center + Vector3.up * 0.05f;
+                fxObj.transform.localScale = new Vector3(radius * 2f, 0.02f, radius * 2f);
 
-            var rend = fxObj.GetComponent<Renderer>();
+                var col = fxObj.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+            }
+
+            var rend = fxObj.GetComponentInChildren<Renderer>();
             if (rend != null)
             {
                 var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
@@ -1663,14 +1951,37 @@ namespace MythOfGuotaji.Actor
         private GameObject CreateSweepTelegraph(float radius, float arcAngle)
         {
             CleanupTelegraph();
-            GameObject obj = new GameObject("SweepTelegraph");
+
+            GameObject sectorPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                sectorPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.sectorTelegraphPrefab, "Prefabs/Telegraph_Sector");
+            }
+            else
+            {
+                sectorPrefab = Resources.Load<GameObject>("Prefabs/Telegraph_Sector");
+            }
+
+            GameObject obj;
+            if (sectorPrefab != null)
+            {
+                obj = Instantiate(sectorPrefab, transform, false);
+                obj.name = "SweepTelegraph";
+            }
+            else
+            {
+                obj = new GameObject("SweepTelegraph");
+                obj.transform.SetParent(transform, false);
+            }
+
             _activeTelegraph = obj;
-            obj.transform.SetParent(transform, false);
             obj.transform.localPosition = new Vector3(0f, 0.06f, 0f);
             obj.transform.localRotation = Quaternion.identity;
 
-            MeshFilter mf = obj.AddComponent<MeshFilter>();
-            MeshRenderer mr = obj.AddComponent<MeshRenderer>();
+            MeshFilter mf = obj.GetComponent<MeshFilter>();
+            if (mf == null) mf = obj.AddComponent<MeshFilter>();
+            MeshRenderer mr = obj.GetComponent<MeshRenderer>();
+            if (mr == null) mr = obj.AddComponent<MeshRenderer>();
 
             Mesh mesh = new Mesh();
             int segments = 16;
@@ -1709,16 +2020,36 @@ namespace MythOfGuotaji.Actor
 
         private void SpawnSweepVisualEffect(Vector3 center, Vector3 forward, float radius)
         {
-            var fxObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            fxObj.name = "SweepHitWave";
-            fxObj.transform.position = center + forward * (radius * 0.5f) + Vector3.up * 0.1f;
-            fxObj.transform.rotation = Quaternion.LookRotation(forward);
-            fxObj.transform.localScale = new Vector3(radius * 1.6f, 0.05f, radius * 0.8f);
+            GameObject sweepPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                sweepPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.sweepWavePrefab, "Prefabs/VFX_SweepWave");
+            }
+            else
+            {
+                sweepPrefab = Resources.Load<GameObject>("Prefabs/VFX_SweepWave");
+            }
 
-            var col = fxObj.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            GameObject fxObj;
+            if (sweepPrefab != null)
+            {
+                fxObj = Instantiate(sweepPrefab, center + forward * (radius * 0.5f) + Vector3.up * 0.1f, Quaternion.LookRotation(forward));
+                fxObj.name = "SweepHitWave";
+                fxObj.transform.localScale = new Vector3(radius * 1.6f, 0.05f, radius * 0.8f);
+            }
+            else
+            {
+                fxObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                fxObj.name = "SweepHitWave";
+                fxObj.transform.position = center + forward * (radius * 0.5f) + Vector3.up * 0.1f;
+                fxObj.transform.rotation = Quaternion.LookRotation(forward);
+                fxObj.transform.localScale = new Vector3(radius * 1.6f, 0.05f, radius * 0.8f);
 
-            var rend = fxObj.GetComponent<Renderer>();
+                var col = fxObj.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+            }
+
+            var rend = fxObj.GetComponentInChildren<Renderer>();
             if (rend != null)
             {
                 var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
@@ -1811,9 +2142,30 @@ namespace MythOfGuotaji.Actor
                 yield break;
             }
 
-            // 2. 박스 위로 등속(10m/s) 20m 돌덩이 굴려보냄
-            GameObject boulderObj = new GameObject("RollingBoulder_Elite");
-            var boulder = boulderObj.AddComponent<RollingBoulder>();
+            // 2. 박스 위로 등속(10m/s) 20m 돌덩이 굴려보냄 (RollingBoulder.prefab 사용)
+            GameObject boulderPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                boulderPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.rollingBoulderPrefab, "Prefabs/RollingBoulder");
+            }
+            else
+            {
+                boulderPrefab = Resources.Load<GameObject>("Prefabs/RollingBoulder");
+            }
+
+            GameObject boulderObj;
+            if (boulderPrefab != null)
+            {
+                boulderObj = Instantiate(boulderPrefab);
+                boulderObj.name = "RollingBoulder_Elite";
+            }
+            else
+            {
+                boulderObj = new GameObject("RollingBoulder_Elite");
+            }
+
+            var boulder = boulderObj.GetComponent<RollingBoulder>();
+            if (boulder == null) boulder = boulderObj.AddComponent<RollingBoulder>();
             float boulderDamage = _attackDamage * 1.5f;
             boulder.Initialize(gameObject, startPos + throwDir * 0.8f, throwDir, boulderDamage, guideBox);
 
@@ -2018,13 +2370,36 @@ namespace MythOfGuotaji.Actor
         private GameObject CreateWorldSectorTelegraph(Vector3 center, Vector3 forward, float radius, float arcAngle, Color color)
         {
             CleanupTelegraph();
-            GameObject obj = new GameObject("[SectorTelegraph]");
-            _activeTelegraph = obj;
-            obj.transform.position = center + Vector3.up * 0.04f;
-            obj.transform.rotation = Quaternion.LookRotation(forward);
 
-            MeshFilter mf = obj.AddComponent<MeshFilter>();
-            MeshRenderer mr = obj.AddComponent<MeshRenderer>();
+            GameObject sectorPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                sectorPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.sectorTelegraphPrefab, "Prefabs/Telegraph_Sector");
+            }
+            else
+            {
+                sectorPrefab = Resources.Load<GameObject>("Prefabs/Telegraph_Sector");
+            }
+
+            GameObject obj;
+            if (sectorPrefab != null)
+            {
+                obj = Instantiate(sectorPrefab, center + Vector3.up * 0.04f, Quaternion.LookRotation(forward));
+                obj.name = "[SectorTelegraph]";
+            }
+            else
+            {
+                obj = new GameObject("[SectorTelegraph]");
+                obj.transform.position = center + Vector3.up * 0.04f;
+                obj.transform.rotation = Quaternion.LookRotation(forward);
+            }
+
+            _activeTelegraph = obj;
+
+            MeshFilter mf = obj.GetComponent<MeshFilter>();
+            if (mf == null) mf = obj.AddComponent<MeshFilter>();
+            MeshRenderer mr = obj.GetComponent<MeshRenderer>();
+            if (mr == null) mr = obj.AddComponent<MeshRenderer>();
 
             Mesh mesh = new Mesh();
             int segments = 32;
@@ -2060,29 +2435,66 @@ namespace MythOfGuotaji.Actor
 
         public static GameObject CreateFloorGuideBox(Vector3 startPos, Vector3 dir, float length, float width, Color color)
         {
-            GameObject telegraph = new GameObject("[GuideBox]");
-            telegraph.transform.position = startPos + dir * (length * 0.5f) + Vector3.up * 0.04f;
-            telegraph.transform.rotation = Quaternion.LookRotation(dir);
+            GameObject boxPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                boxPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.boxTelegraphPrefab, "Prefabs/Telegraph_Box");
+            }
+            else
+            {
+                boxPrefab = Resources.Load<GameObject>("Prefabs/Telegraph_Box");
+            }
+
+            GameObject telegraph;
+            if (boxPrefab != null)
+            {
+                telegraph = Instantiate(boxPrefab, startPos + dir * (length * 0.5f) + Vector3.up * 0.04f, Quaternion.LookRotation(dir));
+                telegraph.name = "[GuideBox]";
+            }
+            else
+            {
+                telegraph = new GameObject("[GuideBox]");
+                telegraph.transform.position = startPos + dir * (length * 0.5f) + Vector3.up * 0.04f;
+                telegraph.transform.rotation = Quaternion.LookRotation(dir);
+            }
 
             // 1. Fill
-            var fillObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            fillObj.name = "Fill";
-            fillObj.transform.SetParent(telegraph.transform, false);
-            fillObj.transform.localPosition = Vector3.zero;
-            fillObj.transform.localScale = new Vector3(width, 0.005f, length);
-            var col = fillObj.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            var existingFill = telegraph.transform.Find("Fill");
+            GameObject fillObj;
+            if (existingFill != null)
+            {
+                fillObj = existingFill.gameObject;
+            }
+            else
+            {
+                fillObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                fillObj.name = "Fill";
+                fillObj.transform.SetParent(telegraph.transform, false);
+                fillObj.transform.localPosition = Vector3.zero;
+                var col = fillObj.GetComponent<Collider>();
+                if (col != null) Destroy(col);
 
+                CreateTelegraphBorderLine(fillObj.transform, new Vector3(-0.48f, 0.5f, 0f), new Vector3(0.06f, 1.2f, 1f), new Color(color.r, color.g, color.b, Mathf.Min(1f, color.a * 2.2f)));
+                CreateTelegraphBorderLine(fillObj.transform, new Vector3(0.48f, 0.5f, 0f), new Vector3(0.06f, 1.2f, 1f), new Color(color.r, color.g, color.b, Mathf.Min(1f, color.a * 2.2f)));
+                CreateTelegraphBorderLine(fillObj.transform, new Vector3(0f, 0.5f, 0.5f), new Vector3(1f, 1.2f, 0.04f), new Color(color.r, color.g, color.b, Mathf.Min(1f, color.a * 2.2f)));
+            }
+
+            fillObj.transform.localScale = new Vector3(width, 0.005f, length);
             var mr = fillObj.GetComponent<MeshRenderer>();
             if (mr != null)
             {
                 mr.material = ZhuParabolicProjectile.CreateTelegraphMaterial(color);
             }
 
-            // 2. Borders
-            CreateTelegraphBorderLine(fillObj.transform, new Vector3(-0.48f, 0.5f, 0f), new Vector3(0.06f, 1.2f, 1f), new Color(color.r, color.g, color.b, Mathf.Min(1f, color.a * 2.2f)));
-            CreateTelegraphBorderLine(fillObj.transform, new Vector3(0.48f, 0.5f, 0f), new Vector3(0.06f, 1.2f, 1f), new Color(color.r, color.g, color.b, Mathf.Min(1f, color.a * 2.2f)));
-            CreateTelegraphBorderLine(fillObj.transform, new Vector3(0f, 0.5f, 0.5f), new Vector3(1f, 1.2f, 0.04f), new Color(color.r, color.g, color.b, Mathf.Min(1f, color.a * 2.2f)));
+            Color borderCol = new Color(color.r, color.g, color.b, Mathf.Min(1f, color.a * 2.2f));
+            for (int i = 0; i < fillObj.transform.childCount; i++)
+            {
+                var childRend = fillObj.transform.GetChild(i).GetComponent<Renderer>();
+                if (childRend != null)
+                {
+                    childRend.material = ZhuParabolicProjectile.CreateTelegraphMaterial(borderCol);
+                }
+            }
 
             return telegraph;
         }
@@ -2107,16 +2519,36 @@ namespace MythOfGuotaji.Actor
 
         private void SpawnVacuumPullEffect(Vector3 center, Vector3 forward, float radius)
         {
-            var fxObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            fxObj.name = "VacuumPullWave";
-            fxObj.transform.position = center + forward * (radius * 0.4f) + Vector3.up * 0.08f;
-            fxObj.transform.rotation = Quaternion.LookRotation(forward);
-            fxObj.transform.localScale = new Vector3(radius * 0.8f, 0.02f, radius);
+            GameObject vacPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                vacPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.vacuumWavePrefab, "Prefabs/VFX_VacuumWave");
+            }
+            else
+            {
+                vacPrefab = Resources.Load<GameObject>("Prefabs/VFX_VacuumWave");
+            }
 
-            var col = fxObj.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            GameObject fxObj;
+            if (vacPrefab != null)
+            {
+                fxObj = Instantiate(vacPrefab, center + forward * (radius * 0.4f) + Vector3.up * 0.08f, Quaternion.LookRotation(forward));
+                fxObj.name = "VacuumPullWave";
+                fxObj.transform.localScale = new Vector3(radius * 0.8f, 0.02f, radius);
+            }
+            else
+            {
+                fxObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                fxObj.name = "VacuumPullWave";
+                fxObj.transform.position = center + forward * (radius * 0.4f) + Vector3.up * 0.08f;
+                fxObj.transform.rotation = Quaternion.LookRotation(forward);
+                fxObj.transform.localScale = new Vector3(radius * 0.8f, 0.02f, radius);
 
-            var rend = fxObj.GetComponent<Renderer>();
+                var col = fxObj.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+            }
+
+            var rend = fxObj.GetComponentInChildren<Renderer>();
             if (rend != null)
             {
                 var mat = ZhuParabolicProjectile.CreateTelegraphMaterial(new Color(0.7f, 0.1f, 0.9f, 0.7f));
@@ -2125,11 +2557,342 @@ namespace MythOfGuotaji.Actor
             Destroy(fxObj, 0.25f);
         }
 
+        #region New 9 Gimmick Monster Patterns
+
+        private void ShootDokkaebiFireball(Vector3 dir)
+        {
+            GameObject fbPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                fbPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.dokkaebiFireballPrefab, "Prefabs/Projectile_DokkaebiFireball");
+            }
+            else
+            {
+                fbPrefab = Resources.Load<GameObject>("Prefabs/Projectile_DokkaebiFireball");
+            }
+
+            GameObject go;
+            if (fbPrefab != null)
+            {
+                go = Instantiate(fbPrefab, transform.position + Vector3.up * 1f, Quaternion.LookRotation(dir));
+                go.name = "Dokkaebi_Fireball";
+            }
+            else
+            {
+                go = new GameObject("Dokkaebi_Fireball");
+                var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                sphere.transform.SetParent(go.transform, false);
+                sphere.transform.localScale = Vector3.one * 0.7f;
+                var col = sphere.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+                var mr = sphere.GetComponent<MeshRenderer>();
+                if (mr != null)
+                {
+                    mr.material = new Material(Shader.Find("Sprites/Default")) { color = new Color(1f, 0.45f, 0.1f, 0.9f) };
+                }
+            }
+
+            var fb = go.GetComponent<DokkaebiFireball>();
+            if (fb == null) fb = go.AddComponent<DokkaebiFireball>();
+            fb.Initialize(gameObject, transform.position + Vector3.up * 1f, dir, _attackDamage, 5.0f);
+            fb.ParryType = _projectileParryType;
+
+            VFXManager.Instance?.Spawn("HCFX_Flame_01", go.transform.position, Quaternion.identity);
+        }
+
+        private IEnumerator BoarChargeAttackRoutine()
+        {
+            _isSweeping = true;
+            _lastAttackTime = Time.time;
+
+            if (_targetPlayer == null)
+            {
+                _isSweeping = false;
+                yield break;
+            }
+
+            Vector3 startPos = transform.position;
+            Vector3 targetPos = _targetPlayer.position;
+            targetPos.y = startPos.y;
+            Vector3 chargeDir = (targetPos - startPos).normalized;
+            if (chargeDir.sqrMagnitude < 0.001f) chargeDir = transform.forward;
+
+            transform.rotation = Quaternion.LookRotation(chargeDir);
+
+            // 0.4초간 붉은 돌진 텔레그래프 가이드라인 (15m x 1.5m)
+            CreateDashTelegraph(startPos, chargeDir, 15f, 1.5f);
+            yield return new WaitForSeconds(0.4f);
+            CleanupTelegraph();
+
+            if (IsDead) { _isSweeping = false; yield break; }
+
+            PlayAttackAnimation();
+            float chargeSpeed = 14.0f;
+            float chargeDist = 15.0f;
+            float traveled = 0f;
+            bool hitPlayer = false;
+
+            while (traveled < chargeDist)
+            {
+                if (IsDead) { _isSweeping = false; yield break; }
+
+                float step = chargeSpeed * Time.deltaTime;
+                Vector3 moveVec = chargeDir * step;
+
+                // 벽 충돌 검사
+                if (Physics.Raycast(transform.position + Vector3.up * 0.5f, chargeDir, out RaycastHit wallHit, step + 0.6f, _obstacleLayerMask, QueryTriggerInteraction.Ignore))
+                {
+                    ApplyStun(2.0f);
+                    VFXManager.Instance?.Spawn("HCFX_Explosion_01", transform.position, Quaternion.identity);
+                    QuarterViewCamera.Instance?.TriggerShake(0.35f, 0.2f);
+                    Debug.Log("<color=orange>[멧돼지 벽 격돌!] 돌진 중 벽에 부딪혀 2초간 기절했습니다!</color>");
+                    break;
+                }
+
+                if (_cc != null && _cc.enabled) _cc.Move(moveVec);
+                else transform.position += moveVec;
+                traveled += step;
+
+                // 플레이어 충돌 검사
+                if (!hitPlayer && _targetPlayer != null)
+                {
+                    float dist = Vector3.Distance(transform.position, _targetPlayer.position);
+                    if (dist <= 1.5f)
+                    {
+                        hitPlayer = true;
+                        if (_targetPlayer.TryGetComponent<PlayerController>(out var pc) && !pc.IsDead)
+                        {
+                            pc.TakeDamage(new DamageInfo(_attackDamage, false, transform.position, chargeDir, 6.0f, ElementType.Physical, gameObject));
+                        }
+                    }
+                }
+
+                yield return null;
+            }
+
+            _isSweeping = false;
+        }
+
+        private void ShootSpiderTether()
+        {
+            if (_targetPlayer == null) return;
+            var pc = _targetPlayer.GetComponent<PlayerController>();
+            if (pc != null && !pc.IsDead)
+            {
+                GameObject tetherPrefab = null;
+                if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+                {
+                    tetherPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.spiderWebTetherPrefab, "Prefabs/Skill_SpiderWebTether");
+                }
+                else
+                {
+                    tetherPrefab = Resources.Load<GameObject>("Prefabs/Skill_SpiderWebTether");
+                }
+
+                GameObject tetherGo = tetherPrefab != null ? Instantiate(tetherPrefab) : new GameObject("SpiderWebTether");
+                tetherGo.name = "SpiderWebTether";
+                var tether = tetherGo.GetComponent<SpiderWebTether>();
+                if (tether == null) tether = tetherGo.AddComponent<SpiderWebTether>();
+                tether.Attach(this, pc, duration: 2.5f, speed: 4.0f);
+            }
+        }
+
+        private void SpawnMudPuddle()
+        {
+            if (_targetPlayer == null) return;
+
+            GameObject mudPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                mudPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.mudPuddleZonePrefab, "Prefabs/Skill_MudPuddleZone");
+            }
+            else
+            {
+                mudPrefab = Resources.Load<GameObject>("Prefabs/Skill_MudPuddleZone");
+            }
+
+            GameObject mudGo = mudPrefab != null ? Instantiate(mudPrefab) : new GameObject("MudPuddleZone");
+            mudGo.name = "MudPuddleZone";
+            var mud = mudGo.GetComponent<MudPuddleZone>();
+            if (mud == null) mud = mudGo.AddComponent<MudPuddleZone>();
+            mud.Initialize(_targetPlayer.position, radius: 3.0f, duration: 4.0f);
+        }
+
+        private IEnumerator SparrowKamikazeRoutine()
+        {
+            _isSweeping = true;
+            _lastAttackTime = Time.time;
+
+            PlayAttackAnimation();
+            float speed = 12.0f;
+            float duration = 2.0f;
+            float elapsed = 0f;
+
+            while (elapsed < duration)
+            {
+                if (IsDead) { _isSweeping = false; yield break; }
+                if (_targetPlayer == null) break;
+
+                Vector3 toPlayer = (_targetPlayer.position - transform.position);
+                toPlayer.y = 0f;
+                float dist = toPlayer.magnitude;
+                Vector3 dir = toPlayer.normalized;
+
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 15f);
+
+                if (dist <= 1.2f)
+                {
+                    VFXManager.Instance?.Spawn("HCFX_Explosion_02", transform.position, Quaternion.identity);
+                    QuarterViewCamera.Instance?.TriggerShake(0.3f, 0.2f);
+
+                    Collider[] hits = Physics.OverlapSphere(transform.position, 2.5f);
+                    foreach (var hit in hits)
+                    {
+                        var pc = hit.GetComponentInParent<PlayerController>();
+                        if (pc != null && !pc.IsDead)
+                        {
+                            pc.TakeDamage(new DamageInfo(_attackDamage, false, transform.position, dir, 5.0f, ElementType.Fire, gameObject));
+                        }
+                    }
+                    _isSweeping = false;
+                    Die();
+                    yield break;
+                }
+
+                if (_cc != null && _cc.enabled) _cc.Move(dir * (speed * Time.deltaTime));
+                else transform.position += dir * (speed * Time.deltaTime);
+
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            _isSweeping = false;
+        }
+
+        private void FireTotemBarrage()
+        {
+            _hasTotemFiredOnce = true;
+            _moveSpeed = 0f; // 한번 대포를 발사한 토템은 그 자리에 멈춰 더이상 움직이지 않고 포탄 난사
+            _totemRotationAngle += 45f;
+
+            GameObject totemOrbPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                totemOrbPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.totemEnergyOrbPrefab, "Prefabs/Projectile_TotemOrb");
+            }
+            else
+            {
+                totemOrbPrefab = Resources.Load<GameObject>("Prefabs/Projectile_TotemOrb");
+            }
+
+            for (int i = 0; i < 4; i++)
+            {
+                float angle = _totemRotationAngle + (i * 90f);
+                Vector3 dir = Quaternion.Euler(0f, angle, 0f) * Vector3.forward;
+
+                GameObject go;
+                if (totemOrbPrefab != null)
+                {
+                    go = Instantiate(totemOrbPrefab, transform.position + Vector3.up * 1f, Quaternion.LookRotation(dir));
+                    go.name = "TotemEnergyOrb";
+
+                    // 잘못 부착된 Projectile 컴포넌트가 있을 경우 즉시 제거 (1프레임 소멸 방지)
+                    var oldProj = go.GetComponent<Projectile>();
+                    if (oldProj != null) DestroyImmediate(oldProj);
+                }
+                else
+                {
+                    go = new GameObject("TotemEnergyOrb");
+                    var sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                    sphere.transform.SetParent(go.transform, false);
+                    sphere.transform.localScale = Vector3.one * 0.5f;
+                    var col = sphere.GetComponent<Collider>();
+                    if (col != null) Destroy(col);
+                    var mr = sphere.GetComponent<MeshRenderer>();
+                    if (mr != null)
+                    {
+                        Color goldenColor = new Color(1.0f, 0.82f, 0.1f, 0.95f);
+                        mr.material = new Material(Shader.Find("Sprites/Default")) { color = goldenColor };
+                    }
+                }
+
+                var orb = go.GetComponent<TotemEnergyOrb>();
+                if (orb == null) orb = go.AddComponent<TotemEnergyOrb>();
+                orb.Initialize(gameObject, transform.position + Vector3.up * 1f, dir, _attackDamage, 6.0f);
+                orb.ParryType = Combat.ProjectileParryType.Enhanced;
+            }
+            VFXManager.Instance?.Spawn("HCFX_Flash_01", transform.position, Quaternion.identity);
+        }
+
+        private void SpawnFoxPhantoms()
+        {
+            Debug.Log($"<color=magenta><b>[환영 분신술!]</b> {name}이 피격되어 2마리의 분신을 생성하고 3방향으로 흩어집니다!</color>");
+            VFXManager.Instance?.Spawn("HCFX_Smoke_01", transform.position, Quaternion.identity);
+
+            for (int i = 0; i < 2; i++)
+            {
+                float angle = (i == 0 ? -45f : 45f);
+                Vector3 offset = Quaternion.Euler(0f, angle, 0f) * (transform.forward * 2.0f);
+                Vector3 spawnPos = transform.position + offset;
+
+                GameObject cloneGo = Instantiate(gameObject, spawnPos, transform.rotation);
+                cloneGo.name = $"{name}_Phantom_{i + 1}";
+                var cloneAi = cloneGo.GetComponent<MonsterAI>();
+                if (cloneAi != null)
+                {
+                    cloneAi._isPhantomClone = true;
+                    cloneAi._hasSplitPhantoms = true;
+                    cloneAi._currentHp = 1f;
+                    cloneAi._maxHp = 1f;
+                    cloneAi._attackDamage = 3f;
+                    cloneAi.SetRendererColor(new Color(1f, 1f, 1f, 0.5f));
+                }
+            }
+        }
+
+        #endregion
+
         #endregion
 
         public void TakeDamage(DamageInfo info)
         {
             if (IsDead) return;
+
+            // [사방신 토템 기믹]: 주인공의 일반 공격에는 피해 0, 오직 패링된 탄환(info.isReflected)으로만 데미지를 입음!
+            if (_type == MonsterType.Totem_Turret && !info.isReflected)
+            {
+                VFXManager.Instance?.Spawn("HCFX_Sparks_01", transform.position + Vector3.up * 1f, Quaternion.identity);
+                QuarterViewCamera.Instance?.TriggerShake(0.12f, 0.08f);
+                Debug.Log($"<color=cyan><b>[사방신 토템 일반공격 면역!]</b></color> {name}은 주인공의 일반 공격에 면역입니다! 패링된 탄환으로만 공략하세요.");
+                return;
+            }
+
+            // [흑철 방패병 기믹]: 풀차징 관통 화살(info.isCharged)만 방패를 뚫음. 일반 투사체는 전면 도탄!
+            if (_type == MonsterType.Iron_Shield && !info.isCharged)
+            {
+                VFXManager.Instance?.Spawn("HCFX_Sparks_01", transform.position + Vector3.up * 1f, Quaternion.identity);
+                QuarterViewCamera.Instance?.TriggerShake(0.15f, 0.1f);
+                Debug.Log($"<color=cyan><b>[흑철 방패 도탄!]</b> {name}의 강철 방패에 막혀 일반 화살이 튕겨나갔습니다! (차징 화살로만 방패 파괴 가능)</color>");
+                return;
+            }
+
+            // [영력 흡수 괴물 기믹]: 차징 화살 피격 시 데미지 대신 에너지를 흡수하여 치유 및 거대화 폭주!
+            if (_type == MonsterType.Energy_Absorber && info.isCharged)
+            {
+                _currentHp = Mathf.Min(_maxHp * 1.5f, _currentHp + info.amount);
+                transform.localScale *= 1.15f;
+                _attackDamage *= 1.2f;
+                VFXManager.Instance?.Spawn("HCFX_DarkAura_01", transform.position, Quaternion.identity);
+                Debug.Log($"<color=magenta><b>[영력 흡수 폭주!]</b> {name}이 차징 공격을 흡수하여 체력을 회복하고 거대화되었습니다! (일반 연사/단검으로 공략하세요)</color>");
+                return;
+            }
+
+            // [환영 여우귀 기믹]: 피격 시 1회 한정으로 2마리의 분신을 생성하여 3방향으로 교란
+            if (_type == MonsterType.Phantom_Fox && !_hasSplitPhantoms && !_isPhantomClone)
+            {
+                _hasSplitPhantoms = true;
+                SpawnFoxPhantoms();
+            }
 
             TriggerAggro(); // 피격 시 즉시 영구 어그로 발동!
 
@@ -2203,7 +2966,7 @@ namespace MythOfGuotaji.Actor
             }
         }
 
-        private void Die()
+        public void Die()
         {
             CleanupTelegraph();
             Debug.Log($"<color=red><b>[요괴 처치 완료!]</b> {_type} '{name}' 사망! (누적 킬수 +1)</color>");
@@ -2231,9 +2994,54 @@ namespace MythOfGuotaji.Actor
                     GameManager.Instance.AcquireBossKey();
                 }
 
+                // [신규 몬스터 테이블 연동] 특수 드롭 테이블(specialDrops) 처리
+                var stat = Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.MonsterStats != null
+                    ? Data.GameDataManager.Instance.MonsterStats.GetStat(_type)
+                    : null;
+                if (stat != null && stat.specialDrops != null)
+                {
+                    foreach (var sDrop in stat.specialDrops)
+                    {
+                        if (sDrop != null && UnityEngine.Random.value <= sDrop.dropChance)
+                        {
+                            if (sDrop.itemId == "BossKey" || sDrop.itemId == "boss_key")
+                            {
+                                GameManager.Instance.AcquireBossKey();
+                            }
+                        }
+                    }
+                }
+
                 if (_type == MonsterType.FoxBoss)
                 {
-                    GameManager.Instance.CompleteStage(affinityReward: 5, goldReward: 100);
+                    UI.BossHealthBarUI.Instance?.Hide();
+                    if (OwningRoom != null)
+                    {
+                        // [요구사항 2]: 보스를 처치하더라도 남은 모든 잔당 몬스터를 처리하여 전투가 끝난 뒤 클리어 판정!
+                        OwningRoom.OnBossDefeated();
+                    }
+                    else
+                    {
+                        GameManager.Instance.CompleteStage(affinityReward: 5, goldReward: 100);
+                    }
+                }
+                else if (_dropsBossKeyOnDeath)
+                {
+                    if (OwningRoom != null)
+                    {
+                        OwningRoom.OnKeyEliteDefeated();
+                    }
+                    else if (Dungeon.MazeGenerator.Instance != null)
+                    {
+                        foreach (var room in Dungeon.MazeGenerator.Instance.InstantiatedRooms.Values)
+                        {
+                            if (room != null && room.RoomType == Dungeon.RoomType.KeyRoom)
+                            {
+                                room.OnKeyEliteDefeated();
+                                break;
+                            }
+                        }
+                    }
                 }
             }
 
@@ -2287,14 +3095,15 @@ namespace MythOfGuotaji.Actor
         public void PlayMoveAnimation()
         {
             if ((_isSweeping && _type != MonsterType.Minion_BigMon) || IsDead) return;
-            if (HasAnimState("Run")) PlayAnimation("Run");
+            if (_type == MonsterType.Minion_Zhu && HasAnimState("Fly")) PlayAnimation("Fly");
+            else if (HasAnimState("Run")) PlayAnimation("Run");
             else if (HasAnimState("WalkForward")) PlayAnimation("WalkForward");
             else if (HasAnimState("Walk")) PlayAnimation("Walk");
             else if (HasAnimState("WalkForward_RM")) PlayAnimation("WalkForward_RM");
             else if (HasAnimState("Run_RM")) PlayAnimation("Run_RM");
             else if (HasAnimState("Fly")) PlayAnimation("Fly");
             else if (HasAnimState("CrawlForward")) PlayAnimation("CrawlForward");
-            SetTriggerSafe("walk");
+            else SetTriggerSafe("walk");
         }
 
         public void PlayIdleAnimation()
@@ -2303,7 +3112,7 @@ namespace MythOfGuotaji.Actor
             if (HasAnimState("Idle")) PlayAnimation("Idle");
             else if (HasAnimState("IdleBreathe")) PlayAnimation("IdleBreathe");
             else if (HasAnimState("IdleLookAround")) PlayAnimation("IdleLookAround");
-            SetTriggerSafe("idle");
+            else SetTriggerSafe("idle");
         }
 
         public void PlayAttackAnimation()
@@ -2314,29 +3123,33 @@ namespace MythOfGuotaji.Actor
                 if (HasAnimState("BiteAttackForward")) PlayAnimation("BiteAttackForward", 0.05f);
                 else if (HasAnimState("JumpBiteAttack")) PlayAnimation("JumpBiteAttack", 0.05f);
                 else if (HasAnimState("BiteAttack")) PlayAnimation("BiteAttack", 0.05f);
+                else SetTriggerSafe("attack");
             }
             else if (_type == MonsterType.Minion_BigMon)
             {
                 if (HasAnimState("SmashAttackForwardLeft")) PlayAnimation("SmashAttackForwardLeft", 0.05f);
                 else if (HasAnimState("SmashAttackLeft")) PlayAnimation("SmashAttackLeft", 0.05f);
                 else if (HasAnimState("SpittersAttack")) PlayAnimation("SpittersAttack", 0.05f);
+                else SetTriggerSafe("attack");
             }
             else if (_type == MonsterType.Minion_Archer)
             {
                 if (HasAnimState("Spit")) PlayAnimation("Spit", 0.05f);
                 else if (HasAnimState("SpitAttack")) PlayAnimation("SpitAttack", 0.05f);
+                else SetTriggerSafe("attack");
             }
             else if (_type == MonsterType.Minion_Zhu)
             {
                 if (HasAnimState("FlySpitAttack")) PlayAnimation("FlySpitAttack", 0.05f);
                 else if (HasAnimState("JumpBiteAttack")) PlayAnimation("JumpBiteAttack", 0.05f);
+                else SetTriggerSafe("attack");
             }
             else if (_type == MonsterType.Elite)
             {
                 if (HasAnimState("Bite")) PlayAnimation("Bite", 0.05f);
                 else if (HasAnimState("Attack")) PlayAnimation("Attack", 0.05f);
                 else if (HasAnimState("Attack01")) PlayAnimation("Attack01", 0.05f);
-                SetTriggerSafe("attack");
+                else SetTriggerSafe("attack");
             }
             else if (_type == MonsterType.FoxBoss)
             {
@@ -2346,7 +3159,7 @@ namespace MythOfGuotaji.Actor
                 else if (HasAnimState("JumpSmashAttack")) PlayAnimation("JumpSmashAttack", 0.05f);
                 else if (HasAnimState("SmashAttackForward")) PlayAnimation("SmashAttackForward", 0.05f);
                 else if (HasAnimState("Attack")) PlayAnimation("Attack", 0.05f);
-                SetTriggerSafe("attack");
+                else SetTriggerSafe("attack");
             }
             else
             {
@@ -2354,7 +3167,7 @@ namespace MythOfGuotaji.Actor
                 else if (HasAnimState("BiteAttack")) PlayAnimation("BiteAttack", 0.05f);
                 else if (HasAnimState("Bite")) PlayAnimation("Bite", 0.05f);
                 else if (HasAnimState("Attack")) PlayAnimation("Attack", 0.05f);
-                SetTriggerSafe("attack");
+                else SetTriggerSafe("attack");
             }
         }
 
@@ -2367,23 +3180,38 @@ namespace MythOfGuotaji.Actor
             else if (HasAnimState("GetHitRight")) PlayAnimation("GetHitRight", 0.05f);
             else if (HasAnimState("GetHit2")) PlayAnimation("GetHit2", 0.05f);
             else if (HasAnimState("Stun")) PlayAnimation("Stun", 0.05f);
-            SetTriggerSafe("stun");
+            else SetTriggerSafe("stun");
         }
 
         public void PlayDeathAnimation()
         {
             if (HasAnimState("Death")) PlayAnimation("Death", 0.05f);
-            SetTriggerSafe("dead");
+            else SetTriggerSafe("dead");
+        }
+
+        private HashSet<string> _animParameters;
+
+        private void CacheAnimParameters()
+        {
+            if (_animator == null) return;
+            _animParameters = new HashSet<string>();
+            foreach (var p in _animator.parameters)
+            {
+                _animParameters.Add(p.name);
+            }
+        }
+
+        private bool HasParameter(string paramName)
+        {
+            if (_animator == null || string.IsNullOrEmpty(paramName)) return false;
+            if (_animParameters == null) CacheAnimParameters();
+            return _animParameters != null && _animParameters.Contains(paramName);
         }
 
         private void SetTriggerSafe(string paramName)
         {
-            if (_animator == null || string.IsNullOrEmpty(paramName)) return;
-            try
-            {
-                _animator.SetTrigger(paramName);
-            }
-            catch { }
+            if (!HasParameter(paramName)) return;
+            _animator.SetTrigger(paramName);
         }
 
         public bool HasAnimState(string stateName)

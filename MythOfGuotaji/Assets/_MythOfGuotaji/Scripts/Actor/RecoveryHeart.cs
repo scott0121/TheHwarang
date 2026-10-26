@@ -163,17 +163,40 @@ namespace MythOfGuotaji.Actor
             Vector3 spawnPos = center + Vector3.up * 0.5f;
             Vector3 vel = new Vector3(Random.Range(-1.0f, 1.0f), Random.Range(3.2f, 4.8f), Random.Range(-1.0f, 1.0f));
 
-            var heartObj = new GameObject("RecoveryHeart");
-            heartObj.transform.position = spawnPos;
-            var heart = heartObj.AddComponent<RecoveryHeart>();
+            GameObject heartPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                heartPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.recoveryHeartPrefab, "Prefabs/RecoveryHeart");
+            }
+            else
+            {
+                heartPrefab = Resources.Load<GameObject>("Prefabs/RecoveryHeart");
+            }
+
+            GameObject heartObj;
+            if (heartPrefab != null)
+            {
+                heartObj = Instantiate(heartPrefab, spawnPos, Quaternion.identity);
+                heartObj.name = "RecoveryHeart";
+            }
+            else
+            {
+                heartObj = new GameObject("RecoveryHeart");
+                heartObj.transform.position = spawnPos;
+            }
+
+            var heart = heartObj.GetComponent<RecoveryHeart>();
+            if (heart == null) heart = heartObj.AddComponent<RecoveryHeart>();
             heart.Initialize(healAmount, vel, floorY);
         }
 
         /// <summary>
-        /// 루비빛으로 반짝이는 3D 하트 비주얼 빌드
+        /// 루비빛으로 반짝이는 3D 하트 비주얼 빌드 (프리팹에 이미 존재하면 스킵)
         /// </summary>
         private void BuildHeartVisual()
         {
+            if (transform.Find("HeartVisual") != null) return;
+
             var heartRoot = new GameObject("HeartVisual");
             heartRoot.transform.SetParent(transform, false);
             heartRoot.transform.localPosition = Vector3.zero;

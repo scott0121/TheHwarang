@@ -30,6 +30,14 @@ namespace MythOfGuotaji.Progression
             DontDestroyOnLoad(gameObject);
         }
 
+        private void Start()
+        {
+            if (_treeData == null)
+            {
+                _treeData = Resources.Load<ScenarioTreeSO>("Data/MainScenarioTree");
+            }
+        }
+
         public bool IsNodeUnlocked(string nodeId)
         {
             if (GameManager.Instance == null || GameManager.Instance.SaveData == null) return false;

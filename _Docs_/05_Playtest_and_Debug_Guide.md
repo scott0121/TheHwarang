@@ -12,7 +12,7 @@
 4. [`DungeonBootstrapper.cs`](file:///c:/__Works__/_MythOfGuotaji_/MythOfGuotaji/Assets/_MythOfGuotaji/Scripts/Core/DungeonBootstrapper.cs)의 `[RuntimeInitializeOnLoadMethod]`가 작동하여:
    * 쿼터뷰 카메라 자동 생성 및 각도/Lookahead 세팅
    * 거타지 플레이어 캐릭터 자동 스폰 (활 및 단검 장착)
-   * $4 \times 4$ 절차적 미로 던전 (시작방, 일반방, 열쇠방, 보스방) 자동 생성
+   * $6 \times 6$ 절차적 미로 던전 (시작방, 일반방, 열쇠방, 보스방) 자동 생성
    * 인게임 HUD 및 F1 디버그 패널이 즉시 활성화됩니다.
 
 ---
@@ -47,7 +47,7 @@
 ## 4. F1 개발 & 테스트 제어판 ([ProgressionDebugUI.cs](file:///c:/__Works__/_MythOfGuotaji_/MythOfGuotaji/Assets/_MythOfGuotaji/Scripts/UI/ProgressionDebugUI.cs))
 
 화면 우측 상단에 표시되는 개발 패널을 통해 다음 기능을 원클릭으로 테스트할 수 있습니다:
-* **🎲 미로 던전 즉시 재배치**: 새로운 무작위 시드로 $4 \times 4$ 미로 던전을 실시간 재구축.
+* **🎲 미로 던전 즉시 재배치**: 새로운 무작위 시드로 $6 \times 6$ 미로 던전을 실시간 재구축.
 * **🔑 보스방 열쇠 즉시 획득 (Cheat)**: 열쇠방을 거치지 않고 보스방 문을 즉시 개방.
 * **잡몹 10마리 소환**: 현재 플레이어 주변에 산해경 미니언 10마리 즉시 스폰 (Flocking 군집 테스트).
 * **정예 열쇠 수문장 소환**: 처치 시 보스방 열쇠를 드롭하는 엘리트 요괴 스폰.

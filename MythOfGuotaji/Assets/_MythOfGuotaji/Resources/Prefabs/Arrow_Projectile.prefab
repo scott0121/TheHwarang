@@ -101,6 +101,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   _hitRadius: 0.4
+  _maxRange: 15
+  _parryType: 0
 --- !u!1 &8423758361877635113
 GameObject:
   m_ObjectHideFlags: 0
@@ -167,7 +169,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 0}
+  - {fileID: 2100000, guid: d2af067648c527d4b80726a7ee335219, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

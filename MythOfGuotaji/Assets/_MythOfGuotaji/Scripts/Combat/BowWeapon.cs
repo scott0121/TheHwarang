@@ -265,7 +265,9 @@ namespace MythOfGuotaji.Combat
                 rot * Vector3.forward,
                 _chargedKnockback,
                 element,
-                owner
+                owner,
+                volleyId: 0,
+                isCharged: true
             );
 
             if (arrowObj.TryGetComponent<Projectile>(out var proj))
@@ -369,5 +371,11 @@ namespace MythOfGuotaji.Combat
         public void AddBaseDamage(float add) => _baseDamage += add;
         public void AddChargeDamageMultiplier(float add) => _chargedDamageMultiplier += add;
         public void AddChargeMaxRange(float add) { _chargeMaxRange += add; _chargedRange += add; }
+        public void ReduceChargeDuration(float percent)
+        {
+            float span = _maxChargeTime - _chargeStartTime;
+            float reduction = span * percent;
+            _maxChargeTime = Mathf.Max(_chargeStartTime + 0.5f, _maxChargeTime - reduction);
+        }
     }
 }

@@ -441,6 +441,18 @@ namespace MythOfGuotaji.Actor
 
         private void SetupVisualModel()
         {
+            var existingOrb = transform.Find("SkillOrbVisual");
+            if (existingOrb != null)
+            {
+                _skillOrbVisual = existingOrb.gameObject;
+                _skillOrbVisual.SetActive(false);
+            }
+
+            if (transform.Find("HelperBody") != null)
+            {
+                return;
+            }
+
             // 1. 헬퍼 본체: 귀여운 영물(달빛 토끼/도깨비 영혼) 외형
             var body = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             body.name = "HelperBody";
@@ -469,22 +481,25 @@ namespace MythOfGuotaji.Actor
             CreateEye(body.transform, new Vector3(0.16f, 0.05f, 0.32f));
 
             // 4. 스킬 제시 시 머리 위에 떠오르는 황금 비술 구체 (Skill Orb)
-            _skillOrbVisual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            _skillOrbVisual.name = "SkillOrbVisual";
-            _skillOrbVisual.transform.SetParent(transform, false);
-            _skillOrbVisual.transform.localPosition = new Vector3(0f, 0.95f, 0f);
-            _skillOrbVisual.transform.localScale = Vector3.one * 0.45f;
-            var orbCol = _skillOrbVisual.GetComponent<Collider>();
-            if (orbCol != null) Destroy(orbCol);
-
-            var orbRend = _skillOrbVisual.GetComponent<Renderer>();
-            if (orbRend != null)
+            if (_skillOrbVisual == null)
             {
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
-                mat.color = new Color(1f, 0.85f, 0.2f, 0.95f); // 찬란한 황금빛
-                orbRend.material = mat;
+                _skillOrbVisual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                _skillOrbVisual.name = "SkillOrbVisual";
+                _skillOrbVisual.transform.SetParent(transform, false);
+                _skillOrbVisual.transform.localPosition = new Vector3(0f, 0.95f, 0f);
+                _skillOrbVisual.transform.localScale = Vector3.one * 0.45f;
+                var orbCol = _skillOrbVisual.GetComponent<Collider>();
+                if (orbCol != null) Destroy(orbCol);
+
+                var orbRend = _skillOrbVisual.GetComponent<Renderer>();
+                if (orbRend != null)
+                {
+                    var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
+                    mat.color = new Color(1f, 0.85f, 0.2f, 0.95f); // 찬란한 황금빛
+                    orbRend.material = mat;
+                }
+                _skillOrbVisual.SetActive(false);
             }
-            _skillOrbVisual.SetActive(false);
         }
 
         private void CreateEar(Transform parent, Vector3 localPos, Vector3 localScale)
@@ -526,8 +541,21 @@ namespace MythOfGuotaji.Actor
 
         private void SetupVacuumRingVisual()
         {
+            var existingRing = transform.Find("VacuumAuraRing_3m");
+            if (existingRing != null)
+            {
+                _vacuumRingObj = existingRing.gameObject;
+                var existingMf = _vacuumRingObj.GetComponent<MeshFilter>();
+                if (existingMf != null && existingMf.sharedMesh == null)
+                {
+                    existingMf.sharedMesh = CreateFlatRingMesh(_vacuumRadius - 0.1f, _vacuumRadius, 36);
+                }
+                return;
+            }
+
             // 바닥에 표시되는 3m 진공 흡수 오라 원
             _vacuumRingObj = new GameObject("VacuumAuraRing_3m");
+            _vacuumRingObj.transform.SetParent(transform, false);
             _vacuumRingObj.transform.position = new Vector3(transform.position.x, 0.08f, transform.position.z);
 
             var mf = _vacuumRingObj.AddComponent<MeshFilter>();

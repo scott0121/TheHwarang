@@ -62,15 +62,36 @@ namespace MythOfGuotaji.Core
             }
 
             var player = FindAnyObjectByType<PlayerController>();
-            Vector3 spawnPos = player != null
-                ? player.transform.position - player.transform.forward * 2f + Vector3.up * 0.8f
-                : new Vector3(0f, 0.8f, -2f);
+            if (player == null) return null; // 인게임 플레이어가 없는 아웃게임 씬에서는 자동 스폰하지 않음
 
-            var helperObj = new GameObject("[HelperCompanion]");
-            helperObj.transform.position = spawnPos;
-            _currentHelper = helperObj.AddComponent<HelperCompanion>();
+            Vector3 spawnPos = player.transform.position - player.transform.forward * 2f + Vector3.up * 0.8f;
 
-            Debug.Log("<color=cyan><b>[HelperManager]</b> 동료 헬퍼가 플레이어 곁에 소환되었습니다.</color>");
+            GameObject helperPrefab = null;
+            if (GameDataManager.Instance != null && GameDataManager.Instance.Prefabs != null)
+            {
+                helperPrefab = PrefabDatabaseSO.ResolvePrefab(ref GameDataManager.Instance.Prefabs.helperCompanionPrefab, "Prefabs/Helper_SpiritRabbit");
+            }
+            else
+            {
+                helperPrefab = Resources.Load<GameObject>("Prefabs/Helper_SpiritRabbit");
+            }
+
+            GameObject helperObj;
+            if (helperPrefab != null)
+            {
+                helperObj = Instantiate(helperPrefab, spawnPos, Quaternion.identity);
+                helperObj.name = "Helper_SpiritRabbit";
+            }
+            else
+            {
+                helperObj = new GameObject("[HelperCompanion]");
+                helperObj.transform.position = spawnPos;
+            }
+
+            _currentHelper = helperObj.GetComponent<HelperCompanion>();
+            if (_currentHelper == null) _currentHelper = helperObj.AddComponent<HelperCompanion>();
+
+            Debug.Log("<color=cyan><b>[HelperManager]</b> 동료 헬퍼 프리팹이 플레이어 곁에 소환되었습니다.</color>");
             return _currentHelper;
         }
 

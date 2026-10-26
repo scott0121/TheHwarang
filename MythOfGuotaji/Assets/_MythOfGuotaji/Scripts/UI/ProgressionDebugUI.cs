@@ -25,8 +25,12 @@ namespace MythOfGuotaji.UI
             {
                 InRunProgressionManager.Instance.OnBoonSelectionRequested += boons =>
                 {
-                    _pendingBoonChoices = boons;
-                    Time.timeScale = 0f; // 축복 선택 중 일시 정지
+                    // UGUI 기반 BoonSelectionUI가 없을 때만 OnGUI 모달 fallback 활성화
+                    if (BoonSelectionUI.Instance == null)
+                    {
+                        _pendingBoonChoices = boons;
+                        Time.timeScale = 0f;
+                    }
                 };
             }
         }
@@ -136,15 +140,27 @@ namespace MythOfGuotaji.UI
         private void DrawDebugControls()
         {
             float w = 310;
-            GUI.Box(new Rect(Screen.width - w - 15, 15, w, 440), "<b>🛠️ 개발 & 테스트 제어판 (F1 토글)</b>");
+            GUI.Box(new Rect(Screen.width - w - 15, 15, w, 485), "<b>🛠️ 개발 & 테스트 제어판 (F1 토글)</b>");
 
-            GUILayout.BeginArea(new Rect(Screen.width - w - 5, 45, w - 20, 400));
+            GUILayout.BeginArea(new Rect(Screen.width - w - 5, 45, w - 20, 445));
 
             var save = GameManager.Instance?.SaveData;
             if (save != null)
             {
-                GUILayout.Label($"<b>인연 포인트:</b> {save.affinityPoints} pt  |  <b>스킬 포인트:</b> {save.characterSkillPoints} pt");
-                GUILayout.Label($"<b>직업:</b> {save.currentProfession} | <b>동료:</b> {save.unlockedCompanionIds.Count}명");
+                GUILayout.Label($"<b>출격 스테이지:</b> Ch.{save.currentChapter} ({save.selectedStageCode}) | <b>기억 조각:</b> {save.memoryShards}개");
+                GUILayout.Label($"<b>인연 포인트:</b> {save.affinityPoints} pt  |  <b>재도전 가호:</b> {save.retryBlessingStacks}중첩");
+            }
+
+            if (GUILayout.Button("⛩️ 곡도 사당 거점으로 귀환 (Intro 씬)", GUILayout.Height(28)))
+            {
+                if (GameManager.Instance != null)
+                {
+                    GameManager.Instance.ReturnToIntroHub();
+                }
+                else
+                {
+                    UnityEngine.SceneManagement.SceneManager.LoadScene("Intro");
+                }
             }
 
             GUILayout.Space(8);

@@ -17,6 +17,7 @@ namespace MythOfGuotaji.UI
         public static StageClearUI Instance { get; private set; }
 
         private bool _isShowing = false;
+        private bool _isSuccess = true;
         private float _stateTimer = 0f;
         private bool _canAcceptInput = false;
         private Texture2D _whiteTex;
@@ -53,17 +54,27 @@ namespace MythOfGuotaji.UI
         {
             if (newState == GameState.StageSuccess)
             {
-                TriggerStageClear();
+                TriggerStageResult(true);
+            }
+            else if (newState == GameState.StageFailed)
+            {
+                TriggerStageResult(false);
             }
         }
 
         public void TriggerStageClear()
         {
+            TriggerStageResult(true);
+        }
+
+        public void TriggerStageResult(bool isSuccess)
+        {
+            _isSuccess = isSuccess;
             _isShowing = true;
             _stateTimer = 0f;
             _canAcceptInput = false;
 
-            // 1초간 플레이어 입력 잠금
+            // 플레이어 입력 잠금
             var player = FindAnyObjectByType<PlayerController>();
             if (player != null)
             {
@@ -85,10 +96,33 @@ namespace MythOfGuotaji.UI
 
             if (_canAcceptInput)
             {
-                if (CheckAnyKeyPressed())
+                var kb = Keyboard.current;
+                if (kb != null && (kb.hKey.wasPressedThisFrame || kb.escapeKey.wasPressedThisFrame))
+                {
+                    ReturnToShrineHub();
+                    return;
+                }
+                if (kb != null && (kb.rKey.wasPressedThisFrame || kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame))
                 {
                     ExecuteStageRestart();
+                    return;
                 }
+            }
+        }
+
+        private void ReturnToShrineHub()
+        {
+            _isShowing = false;
+            _canAcceptInput = false;
+            BossHealthBarUI.Instance?.Hide();
+
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.ReturnToIntroHub();
+            }
+            else
+            {
+                UnityEngine.SceneManagement.SceneManager.LoadScene(GameManager.IntroSceneName);
             }
         }
 
@@ -110,8 +144,6 @@ namespace MythOfGuotaji.UI
                     return true;
                 }
             }
-
-            if (Input.anyKeyDown) return true;
 
             return false;
         }
@@ -151,16 +183,17 @@ namespace MythOfGuotaji.UI
             GUI.color = new Color(0f, 0f, 0f, 0.72f);
             GUI.DrawTexture(new Rect(0, 0, screenW, screenH), _whiteTex);
 
-            // 2. STAGE CLEAR 메인 배너 박스
-            float boxW = Mathf.Clamp(screenW * 0.55f, 480f, 850f);
-            float boxH = 260f * scale;
+            // 2. STAGE RESULT 메인 배너 박스
+            float boxW = Mathf.Clamp(screenW * 0.58f, 520f, 880f);
+            float boxH = 310f * scale;
             float boxX = (screenW - boxW) * 0.5f;
             float boxY = (screenH - boxH) * 0.42f;
 
             GUI.color = new Color(0.06f, 0.08f, 0.12f, 0.94f);
             GUI.DrawTexture(new Rect(boxX, boxY, boxW, boxH), _whiteTex);
 
-            GUI.color = new Color(0.85f, 0.7f, 0.25f, 0.9f);
+            Color borderColor = _isSuccess ? new Color(0.85f, 0.7f, 0.25f, 0.9f) : new Color(0.9f, 0.25f, 0.25f, 0.9f);
+            GUI.color = borderColor;
             DrawRectBorder(new Rect(boxX - 2, boxY - 2, boxW + 4, boxH + 4), 2f);
 
             // 3. 타이틀 텍스트
@@ -170,8 +203,9 @@ namespace MythOfGuotaji.UI
                 fontSize = Mathf.RoundToInt(34f * scale),
                 fontStyle = FontStyle.Bold
             };
-            titleStyle.normal.textColor = new Color(1f, 0.88f, 0.3f);
-            GUI.Label(new Rect(boxX, boxY + 25f * scale, boxW, 45f * scale), "★ STAGE CLEAR ★", titleStyle);
+            titleStyle.normal.textColor = _isSuccess ? new Color(1f, 0.88f, 0.3f) : new Color(1f, 0.35f, 0.35f);
+            string titleText = _isSuccess ? "★ STAGE CLEAR — 기억의 핵 정화 완료 ★" : "☠ STAGE FAILED — 보옥의 결계 발동 ☠";
+            GUI.Label(new Rect(boxX, boxY + 22f * scale, boxW, 45f * scale), titleText, titleStyle);
 
             // 4. 서브 설명 텍스트
             GUIStyle subStyle = new GUIStyle(GUI.skin.label)
@@ -181,23 +215,62 @@ namespace MythOfGuotaji.UI
                 fontStyle = FontStyle.Normal
             };
             subStyle.normal.textColor = new Color(0.9f, 0.95f, 1f, 0.9f);
-            GUI.Label(new Rect(boxX, boxY + 80f * scale, boxW, 30f * scale), "산해경의 요괴를 모두 토벌하고 영기를 정화하였습니다!", subStyle);
 
-            int kills = GameManager.Instance != null ? GameManager.Instance.CurrentKills : 0;
-            GUI.Label(new Rect(boxX, boxY + 115f * scale, boxW, 25f * scale), $"토벌한 요괴 수: {kills}마리  |  획득 인연 포인트: +5  |  골드: +100", subStyle);
+            if (_isSuccess)
+            {
+                GUI.Label(new Rect(boxX, boxY + 78f * scale, boxW, 30f * scale), "산해경의 요괴를 토벌하고 진성여왕의 왜곡된 기억의 조각을 회수하였습니다!", subStyle);
+                int kills = GameManager.Instance != null ? GameManager.Instance.CurrentKills : 0;
+                int shards = GameManager.Instance != null && GameManager.Instance.SaveData != null ? GameManager.Instance.SaveData.memoryShards : 1;
+                GUI.Label(new Rect(boxX, boxY + 112f * scale, boxW, 25f * scale), $"토벌한 요괴: {kills}마리  |  기억의 조각 +1 (보유: {shards}개)  |  인연 포인트 +5", subStyle);
+            }
+            else
+            {
+                GUI.Label(new Rect(boxX, boxY + 78f * scale, boxW, 30f * scale), "거타지가 쓰러지는 순간, 보옥(보석 토끼)이 빛을 발하며 시간을 되감습니다...", subStyle);
+                int kills = GameManager.Instance != null ? GameManager.Instance.CurrentKills : 0;
+                int blessing = GameManager.Instance != null && GameManager.Instance.SaveData != null ? GameManager.Instance.SaveData.retryBlessingStacks : 1;
+                GUI.Label(new Rect(boxX, boxY + 112f * scale, boxW, 25f * scale), $"쓰러뜨린 요괴: {kills}마리  |  재도전 가호 {blessing}중첩 (피해 감면 +{blessing * 3}%, 보호막 +{blessing * 5}%)", subStyle);
+            }
 
-            // 5. 1초 경과 후 깜빡이는 PRESS ANY KEY
+            // 5. 1초 경과 후 액션 버튼 2종 (곡도 사당 거점 귀환 / 즉시 재출격)
             if (_canAcceptInput)
             {
-                float blinkAlpha = Mathf.PingPong(Time.unscaledTime * 3.5f, 0.7f) + 0.3f;
+                Cursor.visible = true;
+                Cursor.lockState = CursorLockMode.None;
+
+                float btnW = 240f * scale;
+                float btnH = 48f * scale;
+                float gap = 24f * scale;
+                float startX = boxX + (boxW - (btnW * 2f + gap)) * 0.5f;
+                float btnY = boxY + 175f * scale;
+
+                GUIStyle btnStyle = new GUIStyle(GUI.skin.button)
+                {
+                    fontSize = Mathf.RoundToInt(17f * scale),
+                    fontStyle = FontStyle.Bold
+                };
+
+                GUI.color = new Color(0.2f, 0.75f, 0.95f, 1f);
+                if (GUI.Button(new Rect(startX, btnY, btnW, btnH), "⛩️ 곡도 사당 귀환 [H / Esc]", btnStyle))
+                {
+                    ReturnToShrineHub();
+                }
+
+                GUI.color = _isSuccess ? new Color(0.25f, 0.9f, 0.55f, 1f) : new Color(1f, 0.75f, 0.25f, 1f);
+                string retryLabel = _isSuccess ? "🏹 다음 미궁 진군 [R / Space]" : "🔄 즉시 재도전 [R / Space]";
+                if (GUI.Button(new Rect(startX + btnW + gap, btnY, btnW, btnH), retryLabel, btnStyle))
+                {
+                    ExecuteStageRestart();
+                }
+
+                float blinkAlpha = Mathf.PingPong(Time.unscaledTime * 3.5f, 0.6f) + 0.4f;
                 GUIStyle promptStyle = new GUIStyle(GUI.skin.label)
                 {
                     alignment = TextAnchor.MiddleCenter,
-                    fontSize = Mathf.RoundToInt(20f * scale),
+                    fontSize = Mathf.RoundToInt(15f * scale),
                     fontStyle = FontStyle.Bold
                 };
-                promptStyle.normal.textColor = new Color(0.3f, 1f, 0.7f, blinkAlpha);
-                GUI.Label(new Rect(boxX, boxY + 185f * scale, boxW, 35f * scale), "▶ PRESS ANY KEY TO RESTART ◀", promptStyle);
+                promptStyle.normal.textColor = new Color(0.8f, 0.9f, 1f, blinkAlpha);
+                GUI.Label(new Rect(boxX, boxY + 245f * scale, boxW, 30f * scale), "키보드 [H] 곡도 사당 거점(Intro 씬) 이동   |   [R / Space] 미궁 즉시 재출발", promptStyle);
             }
             else
             {
@@ -208,7 +281,7 @@ namespace MythOfGuotaji.UI
                     fontStyle = FontStyle.Italic
                 };
                 waitStyle.normal.textColor = new Color(0.7f, 0.7f, 0.7f, 0.7f);
-                GUI.Label(new Rect(boxX, boxY + 185f * scale, boxW, 35f * scale), "결과 정리 중...", waitStyle);
+                GUI.Label(new Rect(boxX, boxY + 195f * scale, boxW, 35f * scale), "기억의 파편을 갈무리하는 중...", waitStyle);
             }
 
             GUI.color = prevColor;

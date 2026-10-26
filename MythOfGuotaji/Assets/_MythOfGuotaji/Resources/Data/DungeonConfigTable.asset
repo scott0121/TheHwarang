@@ -21,7 +21,7 @@ MonoBehaviour:
   normalRoomMinionCount: 6
   trapRoomMinionCount: 10
   keyRoomMinionCount: 5
-  waveInterval: 30
+  waveInterval: 20
   roomCenterOpenRadius: 10
   doorApproachDistance: 7
   waveSpawnPauseDuration: 0.3

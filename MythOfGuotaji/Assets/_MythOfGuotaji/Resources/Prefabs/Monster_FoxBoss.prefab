@@ -96,21 +96,29 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Actor.MonsterAI
   _type: 2
-  _maxHp: 350
+  _maxHp: 800
   _moveSpeed: 4.8
   _attackDamage: 20
   _attackRange: 2.5
   _attackCooldown: 1.5
   _separationRadius: 1.5
+  _projectileParryType: 0
   _projectileSpeed: 6
   _kiteDistance: 0
   _knockbackPower: 4
   _telegraphDuration: 0.5
-  _specialAttackRadius: 3.0
+  _specialAttackRadius: 3
   _specialAttackAngle: 90
   _flightDuration: 2
   _arcHeight: 6
   _postAttackDelay: 0.2
+  _gemDropCount: 1
+  _expPerGem: 1
+  _heartDropChance: 0.25
+  _heartHealAmount: 25
+  _dashDistance: 5
+  _dashWidth: 0.5
+  _dashDuration: 0.3
   _dropsBossKeyOnDeath: 0
   _isAggroed: 0
 --- !u!1001 &6117011177725599279

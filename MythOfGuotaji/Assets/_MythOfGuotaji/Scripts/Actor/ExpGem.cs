@@ -152,16 +152,32 @@ namespace MythOfGuotaji.Actor
                 return;
             }
 
-            // 수집 시 반짝이는 스파크 파티클 / 플래시
-            var fx = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            fx.name = "GemCollectFx";
-            fx.transform.position = pos;
-            fx.transform.localScale = Vector3.one * 0.35f;
+            GameObject collectPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                collectPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.gemCollectVfxPrefab, "Prefabs/VFX_GemCollect");
+            }
+            else
+            {
+                collectPrefab = Resources.Load<GameObject>("Prefabs/VFX_GemCollect");
+            }
 
-            var col = fx.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            GameObject fx;
+            if (collectPrefab != null)
+            {
+                fx = Instantiate(collectPrefab, pos, Quaternion.identity);
+            }
+            else
+            {
+                fx = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                fx.name = "GemCollectFx";
+                fx.transform.position = pos;
+                fx.transform.localScale = Vector3.one * 0.35f;
+                var col = fx.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+            }
 
-            var r = fx.GetComponent<Renderer>();
+            var r = fx.GetComponentInChildren<Renderer>();
             if (r != null)
             {
                 var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
@@ -175,6 +191,16 @@ namespace MythOfGuotaji.Actor
         public static void SpawnGems(Vector3 center, int count, int expPerGem, float floorY = 0.45f)
         {
             if (count <= 0) return;
+
+            GameObject gemPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                gemPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.expGemPrefab, "Prefabs/ExpGem");
+            }
+            else
+            {
+                gemPrefab = Resources.Load<GameObject>("Prefabs/ExpGem");
+            }
 
             for (int i = 0; i < count; i++)
             {
@@ -192,26 +218,53 @@ namespace MythOfGuotaji.Actor
                     vel = new Vector3(Mathf.Cos(angle) * spreadSpeed, Random.Range(3.2f, 5.2f), Mathf.Sin(angle) * spreadSpeed);
                 }
 
-                var gemObj = new GameObject($"ExpGem_v{expPerGem}");
-                gemObj.transform.position = spawnPos;
-                var gem = gemObj.AddComponent<ExpGem>();
+                GameObject gemObj;
+                if (gemPrefab != null)
+                {
+                    gemObj = Instantiate(gemPrefab, spawnPos, Quaternion.identity);
+                    gemObj.name = $"ExpGem_v{expPerGem}";
+                }
+                else
+                {
+                    gemObj = new GameObject($"ExpGem_v{expPerGem}");
+                    gemObj.transform.position = spawnPos;
+                }
+
+                var gem = gemObj.GetComponent<ExpGem>();
+                if (gem == null) gem = gemObj.AddComponent<ExpGem>();
                 gem.Initialize(expPerGem, vel, floorY);
             }
         }
 
         private void SetupVisualIfMissing()
         {
-            _renderer = GetComponent<Renderer>();
+            _renderer = GetComponentInChildren<Renderer>();
             if (_renderer == null)
             {
-                var filter = gameObject.AddComponent<MeshFilter>();
-                if (_diamondMesh == null)
+                var filter = gameObject.GetComponent<MeshFilter>();
+                if (filter == null) filter = gameObject.AddComponent<MeshFilter>();
+                if (filter.sharedMesh == null)
                 {
-                    _diamondMesh = CreateOctahedronDiamondMesh();
+                    if (_diamondMesh == null)
+                    {
+                        _diamondMesh = CreateOctahedronDiamondMesh();
+                    }
+                    filter.sharedMesh = _diamondMesh;
                 }
-                filter.sharedMesh = _diamondMesh;
 
                 _renderer = gameObject.AddComponent<MeshRenderer>();
+            }
+            else
+            {
+                var filter = _renderer.GetComponent<MeshFilter>();
+                if (filter != null && filter.sharedMesh == null)
+                {
+                    if (_diamondMesh == null)
+                    {
+                        _diamondMesh = CreateOctahedronDiamondMesh();
+                    }
+                    filter.sharedMesh = _diamondMesh;
+                }
             }
 
             // 물리 콜라이더 (플레이어 충돌 수집 방지: 트리거이나 캐릭터가 밟아도 줍지 않음)

@@ -11,36 +11,25 @@ using UnityEngine;
 namespace MythOfGuotaji.Core
 {
     /// <summary>
-    /// 씬 진입 시 핵심 시스템, 플레이어, 카메라, 미로 생성기를 자동으로 조립/초기화하는 부트스트래퍼
+    /// [레거시 호환용] 
+    /// 현재 프로젝트는 Outgame(Intro.scene) <-> Ingame(PlayMain.scene) 전환을 위해
+    /// RuntimeInitializeOnLoadMethod 기반 자동 생성을 비활성화하고, PlayMainSceneController를 통한
+    /// Scene 기반 프리팹 로딩 아키텍처로 전환되었습니다.
     /// </summary>
     public class DungeonBootstrapper : MonoBehaviour
     {
-        [Header("Auto Setup on Awake")]
-        [SerializeField] private bool _autoSetupScene = true;
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        private static void AutoInitializeOnSceneLoad()
-        {
-            if (FindAnyObjectByType<DungeonBootstrapper>() == null)
-            {
-                var bootstrapperObj = new GameObject("[DungeonBootstrapper]");
-                bootstrapperObj.AddComponent<DungeonBootstrapper>();
-                Debug.Log("<color=cyan>[DungeonBootstrapper] 씬에 부트스트래퍼가 자동 생성되어 모든 시스템을 초기화합니다.</color>");
-            }
-        }
+        [Header("Auto Setup on Awake (Disabled by Default - Use PlayMainSceneController)")]
+        [SerializeField] private bool _autoSetupScene = false;
 
         private void Awake()
         {
             if (!_autoSetupScene) return;
 
-            SetupCoreManagers();
-            var player = SetupPlayer();
-            SetupHelper();
-            SetupCamera(player.transform);
-            SetupDungeonGenerator();
-            SetupProgressionManagers();
-            SetupUI();
-            SetupLighting();
+            if (FindAnyObjectByType<PlayMainSceneController>() == null)
+            {
+                var ctrlGo = new GameObject("[PlayMainSceneController]");
+                ctrlGo.AddComponent<PlayMainSceneController>();
+            }
         }
 
         private void SetupCoreManagers()
@@ -232,6 +221,15 @@ namespace MythOfGuotaji.Core
 
         private void SetupUI()
         {
+            // EventSystem (New Input System UGUI 상호작용 및 클릭 보장)
+            EnsureEventSystem();
+
+            // 최하단 3중 체력 프로그레스바 UGUI 인스턴스화
+            MythOfGuotaji.UI.PlayerHealthBarUI.EnsureInstance();
+
+            // UGUI 비술(Boon) 3지선다 선택 모달 인스턴스화
+            MythOfGuotaji.UI.BoonSelectionUI.EnsureInstance();
+
             if (FindAnyObjectByType<ProgressionDebugUI>() == null)
             {
                 var go = new GameObject("[ProgressionDebugUI]");
@@ -254,6 +252,30 @@ namespace MythOfGuotaji.Core
             {
                 var go = new GameObject("[StageClearUI]");
                 go.AddComponent<StageClearUI>();
+            }
+        }
+
+        private static void EnsureEventSystem()
+        {
+            var es = Object.FindAnyObjectByType<UnityEngine.EventSystems.EventSystem>();
+            if (es == null)
+            {
+                var esGo = new GameObject("[EventSystem]");
+                es = esGo.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                esGo.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+            }
+            else
+            {
+                var standalone = es.GetComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+                if (standalone != null)
+                {
+                    standalone.enabled = false;
+                    Object.DestroyImmediate(standalone);
+                }
+                if (es.GetComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>() == null)
+                {
+                    es.gameObject.AddComponent<UnityEngine.InputSystem.UI.InputSystemUIInputModule>();
+                }
             }
         }
 

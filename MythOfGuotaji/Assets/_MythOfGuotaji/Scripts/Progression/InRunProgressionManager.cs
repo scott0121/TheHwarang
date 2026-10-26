@@ -180,7 +180,9 @@ namespace MythOfGuotaji.Progression
                 var b = ScriptableObject.CreateInstance<InRunBoonSO>();
                 b.boonId = entry.boonId;
                 b.boonTitle = $"{entry.title} (Lv.{nextRank}/{entry.maxUpgradeCount})";
+                b.category = entry.category;
                 b.rarity = rolledRarity;
+                b.rarityColor = rarityConfig != null ? rarityConfig.rarityColor : Color.white;
                 b.currentRank = nextRank;
                 b.maxRank = entry.maxUpgradeCount;
                 b.currentAccumulatedValue = newAcc;
@@ -240,13 +242,28 @@ namespace MythOfGuotaji.Progression
                         break;
                 }
 
-                // UI 설명 문구 포맷팅
+                // UI 설명 문구 포맷팅 (테이블의 descriptionFormat과 실시간 산출 수치 조합)
                 string valStr = FormatStatValue(entry, stepVal);
                 string accStr = FormatStatValue(entry, newAcc);
                 string maxStr = FormatStatValue(entry, entry.maxValue);
                 string rarityTag = rarityConfig != null && rolledRarity != BoonRarity.Common ? $" {rarityConfig.descriptionTag}" : "";
 
-                b.description = $"{entry.title} +{valStr} (누적: {accStr} / Max: {maxStr}){rarityTag}";
+                if (!string.IsNullOrEmpty(entry.descriptionFormat))
+                {
+                    try
+                    {
+                        b.description = string.Format(entry.descriptionFormat, valStr, accStr, maxStr) + rarityTag;
+                    }
+                    catch
+                    {
+                        b.description = $"{entry.title} +{valStr} (누적: {accStr} / Max: {maxStr}){rarityTag}";
+                    }
+                }
+                else
+                {
+                    b.description = $"{entry.title} +{valStr} (누적: {accStr} / Max: {maxStr}){rarityTag}";
+                }
+
                 result.Add(b);
             }
 
@@ -297,6 +314,16 @@ namespace MythOfGuotaji.Progression
             _activeBoonsInCurrentRun.Clear();
             _boonUpgradeRanks.Clear();
             _boonAccumulatedValues.Clear();
+
+            // 하트 드롭 및 회복 보너스 리셋
+            RecoveryHeart.BonusHealAmount = 0f;
+            RecoveryHeart.DropRateMultiplier = 1f;
+
+            // 플레이어의 일시 런 스탯 리셋 (테이블 기본값 복구 및 영구 캐릭터 트리 재적용)
+            if (PlayerController.Instance != null)
+            {
+                PlayerController.Instance.ResetRunStats();
+            }
         }
     }
 }

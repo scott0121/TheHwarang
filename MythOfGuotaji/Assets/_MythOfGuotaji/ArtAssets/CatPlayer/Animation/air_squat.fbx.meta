@@ -1,7 +1,7 @@
 fileFormatVersion: 2
 guid: 172c4d577ec96fa4bba4b8075bced260
 ModelImporter:
-  serializedVersion: 24200
+  serializedVersion: 24600
   internalIDToNameTable: []
   externalObjects: {}
   materials:
@@ -9,6 +9,7 @@ ModelImporter:
     materialName: 0
     materialSearch: 1
     materialLocation: 1
+    searchTexturesGlobally: 1
   animations:
     legacyGenerateAnimations: 4
     bakeSimulation: 0
@@ -52,22 +53,13 @@ ModelImporter:
       keepOriginalPositionXZ: 0
       heightFromFeet: 0
       mirror: 0
-      bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000
+      bodyMask: 01000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000u
       curves: []
       events:
-      - time: 0.09002433
-        functionName: SetPlayerEmotion
-        data: 
-        objectReferenceParameter: {fileID: 11500000, guid: f009b5002990440b1a868a76d430da7b,
-          type: 3}
-        floatParameter: 0
-        intParameter: 14
-        messageOptions: 0
       - time: 0.850365
         functionName: SetPlayerEmotion
         data: 
-        objectReferenceParameter: {fileID: 11500000, guid: f009b5002990440b1a868a76d430da7b,
-          type: 3}
+        objectReferenceParameter: {instanceID: 0}
         floatParameter: 0
         intParameter: 0
         messageOptions: 0
@@ -83,6 +75,8 @@ ModelImporter:
     addColliders: 0
     useSRGBMaterialColor: 1
     sortHierarchyByName: 1
+    preBakeConvexCollisionMesh: 0
+    preBakeTriangleCollisionMesh: 0
     importPhysicalCameras: 1
     importVisibility: 1
     importBlendShapes: 1
@@ -104,6 +98,8 @@ ModelImporter:
     generateMeshLods: 0
     meshLodGenerationFlags: 0
     maximumMeshLod: -1
+    importUVs: -1
+    importVertexColors: 1
     meshOptimizationFlags: -1
     indexFormat: 0
     secondaryUVAngleDistortion: 8
@@ -123,6 +119,7 @@ ModelImporter:
     legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
     blendShapeNormalImportMode: 1
     normalSmoothingSource: 0
+    calculateBlendshapeNormalsDeltaFromImportedNormals: 1
   referencedClips: []
   importAnimation: 1
   humanDescription:

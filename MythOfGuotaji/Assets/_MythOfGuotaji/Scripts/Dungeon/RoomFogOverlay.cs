@@ -39,16 +39,42 @@ namespace MythOfGuotaji.Dungeon
         {
             if (_shroudObj != null) return;
 
-            // 방 크기(39m)를 살짝 덮는 쿼드 생성 (Y=4.65m)
-            _shroudObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            _shroudObj.name = "FogShroud_Overlay";
-            _shroudObj.transform.SetParent(transform, false);
+            var existingShroud = transform.Find("FogShroud_Overlay");
+            if (existingShroud != null)
+            {
+                _shroudObj = existingShroud.gameObject;
+            }
+            else
+            {
+                GameObject shroudPrefab = null;
+                if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+                {
+                    shroudPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.fogShroudPrefab, "Prefabs/FogShroud_Overlay");
+                }
+                else
+                {
+                    shroudPrefab = Resources.Load<GameObject>("Prefabs/FogShroud_Overlay");
+                }
+
+                if (shroudPrefab != null)
+                {
+                    _shroudObj = Instantiate(shroudPrefab, transform, false);
+                    _shroudObj.name = "FogShroud_Overlay";
+                }
+                else
+                {
+                    _shroudObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                    _shroudObj.name = "FogShroud_Overlay";
+                    _shroudObj.transform.SetParent(transform, false);
+                    var col = _shroudObj.GetComponent<Collider>();
+                    if (col != null) Destroy(col);
+                }
+            }
+
+            // 방 크기(39m)를 살짝 덮는 쿼드 배치 (Y=4.65m)
             _shroudObj.transform.localPosition = new Vector3(0f, 4.65f, 0f);
             _shroudObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
             _shroudObj.transform.localScale = new Vector3(roomSize * 1.02f, roomSize * 1.02f, 1f);
-
-            var col = _shroudObj.GetComponent<Collider>();
-            if (col != null) Destroy(col);
 
             _shroudRend = _shroudObj.GetComponent<Renderer>();
             _shroudMat = CreateFogMaterial();

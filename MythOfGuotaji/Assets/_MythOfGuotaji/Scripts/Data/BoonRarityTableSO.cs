@@ -48,16 +48,49 @@ namespace MythOfGuotaji.Data
                 }
             }
 
-            // 안전 기본값 반환
-            return new BoonRarityConfig
+            // 안전 기본값 반환 (Common 40%, Rare 30%, Epic 20%, Legendary 10%)
+            return rarity switch
             {
-                rarity = rarity,
-                rarityName = rarity.ToString(),
-                statMultiplier = rarity == BoonRarity.Legendary ? 2.2f : (rarity == BoonRarity.Rare ? 1.5f : 1.0f),
-                rollWeight = rarity == BoonRarity.Legendary ? 6f : (rarity == BoonRarity.Rare ? 24f : 70f),
-                rarityColor = rarity == BoonRarity.Legendary ? new Color(1f, 0.84f, 0.0f) : (rarity == BoonRarity.Rare ? new Color(0f, 0.9f, 1f) : Color.white),
-                applyMode = BoonApplyMode.MultiplyValue,
-                descriptionTag = rarity == BoonRarity.Legendary ? "[전설 2.2배]" : (rarity == BoonRarity.Rare ? "[희귀 1.5배]" : "[일반]")
+                BoonRarity.Legendary => new BoonRarityConfig
+                {
+                    rarity = BoonRarity.Legendary,
+                    rarityName = "전설",
+                    statMultiplier = 2.2f,
+                    rollWeight = 10f,
+                    rarityColor = new Color(1f, 0.84f, 0.0f, 1f), // 노란색 / 황금
+                    applyMode = BoonApplyMode.MultiplyValue,
+                    descriptionTag = "[전설 2.2x]"
+                },
+                BoonRarity.Epic => new BoonRarityConfig
+                {
+                    rarity = BoonRarity.Epic,
+                    rarityName = "영웅",
+                    statMultiplier = 1.7f,
+                    rollWeight = 20f,
+                    rarityColor = new Color(0.72f, 0.28f, 1.0f, 1f), // 보라색
+                    applyMode = BoonApplyMode.MultiplyValue,
+                    descriptionTag = "[영웅 1.7x]"
+                },
+                BoonRarity.Rare => new BoonRarityConfig
+                {
+                    rarity = BoonRarity.Rare,
+                    rarityName = "희귀",
+                    statMultiplier = 1.3f,
+                    rollWeight = 30f,
+                    rarityColor = new Color(0.2f, 0.65f, 1.0f, 1f), // 파란색
+                    applyMode = BoonApplyMode.MultiplyValue,
+                    descriptionTag = "[희귀 1.3x]"
+                },
+                _ => new BoonRarityConfig
+                {
+                    rarity = BoonRarity.Common,
+                    rarityName = "일반",
+                    statMultiplier = 1.0f,
+                    rollWeight = 40f,
+                    rarityColor = new Color(0.95f, 0.95f, 0.95f, 1f), // 흰색
+                    applyMode = BoonApplyMode.MultiplyValue,
+                    descriptionTag = "[일반]"
+                }
             };
         }
 

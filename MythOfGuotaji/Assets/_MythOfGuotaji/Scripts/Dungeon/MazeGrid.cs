@@ -12,6 +12,10 @@ namespace MythOfGuotaji.Dungeon
         public bool visited = false;
         public int distanceFromStart = -1;
 
+        // [신규 2블럭 아키텍처 지원]
+        public int blockIndex = 1;      // 1 = 스타트~중간보스 블록, 2 = 중간보스~최종보스 블록
+        public bool isMainTrunk = false; // 메인 선형 경로인가? (false면 탐험형 샛길/미궁 방)
+
         public MazeCell(int x, int y)
         {
             gridPos = new Vector2Int(x, y);
@@ -23,12 +27,17 @@ namespace MythOfGuotaji.Dungeon
     }
 
     /// <summary>
-    /// N x N 논리적 미로 그리드 데이터 구조
+    /// 유기적 미궁 던전 그리드 데이터 구조:
+    /// - 정사각형 고정 크기에 구애받지 않고 유연한 좌표 배치를 지원하는 딕셔너리 기반
+    /// - 2블럭(스타트->중간보스, 중간보스->최종보스) 및 샛길 미궁 방 체계 지원
     /// </summary>
     public class MazeGrid
     {
         public readonly int size;
-        private readonly MazeCell[,] _cells;
+        private readonly Dictionary<Vector2Int, MazeCell> _cellsDict = new();
+        private readonly MazeCell[,] _cells; // 레거시 호환용
+
+        public int CellCount => _cellsDict.Count;
 
         public MazeGrid(int size)
         {
@@ -39,18 +48,42 @@ namespace MythOfGuotaji.Dungeon
             {
                 for (int y = 0; y < size; y++)
                 {
-                    _cells[x, y] = new MazeCell(x, y);
+                    var cell = new MazeCell(x, y);
+                    _cells[x, y] = cell;
+                    _cellsDict[new Vector2Int(x, y)] = cell;
                 }
             }
         }
 
-        public MazeCell GetCell(int x, int y)
+        /// <summary>
+        /// 유기적 비정방형 던전을 위한 생성자
+        /// </summary>
+        public MazeGrid()
         {
-            if (x < 0 || x >= size || y < 0 || y >= size) return null;
-            return _cells[x, y];
+            this.size = 30; // 넉넉한 가상 바운드
+            _cells = new MazeCell[0, 0];
         }
 
-        public MazeCell GetCell(Vector2Int pos) => GetCell(pos.x, pos.y);
+        public MazeCell GetCell(int x, int y) => GetCell(new Vector2Int(x, y));
+
+        public MazeCell GetCell(Vector2Int pos)
+        {
+            if (_cellsDict.TryGetValue(pos, out var cell))
+            {
+                return cell;
+            }
+            return null;
+        }
+
+        public void AddCell(MazeCell cell)
+        {
+            if (cell == null) return;
+            _cellsDict[cell.gridPos] = cell;
+        }
+
+        public bool ContainsCell(Vector2Int pos) => _cellsDict.ContainsKey(pos);
+
+        public IEnumerable<MazeCell> GetAllCells() => _cellsDict.Values;
 
         public static Vector2Int GetOffset(Direction dir)
         {

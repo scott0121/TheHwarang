@@ -45,7 +45,7 @@ MonoBehaviour:
     defaultRarity: 0
     unit: "\uCD08"
     isIntegerStat: 0
-    descriptionFormat: "\uB300\uC2DC \uCF58\uB2E4\uC6B4 -{0}\uCD08 (\uB204\uC801: -{1}/-{2}\uCD08)"
+    descriptionFormat: "\uB300\uC2DC \uCFE8\uB2E4\uC6B4 -{0}\uCD08 (\uB204\uC801: -{1}/-{2}\uCD08)"
   - boonId: BowDamage
     title: "\uCC9C\uB9C8\uC758 \uC2DC\uC704"
     category: "\uD65C & \uC0AC\uACA9"
@@ -56,7 +56,7 @@ MonoBehaviour:
     defaultRarity: 0
     unit: 
     isIntegerStat: 0
-    descriptionFormat: "\uD654\uC0B4 \uAE30\uBC38 \uACF5\uACA9\uB825 +{0} (\uB204\uC801: +{1}/+{2})"
+    descriptionFormat: "\uD654\uC0B4 \uAE30\uBCF8 \uACF5\uACA9\uB825 +{0} (\uB204\uC801: +{1}/+{2})"
   - boonId: BowRate
     title: "\uCF8C\uC18D \uC18D\uC0AC"
     category: "\uD65C & \uC0AC\uACA9"
@@ -86,7 +86,7 @@ MonoBehaviour:
     baseStepValue: 1
     maxValue: 2
     maxUpgradeCount: 2
-    defaultRarity: 2
+    defaultRarity: 3
     unit: "\uBC1C"
     isIntegerStat: 1
     descriptionFormat: "\uD654\uC0B4 \uB3D9\uC2DC \uBC1C\uC0AC \uC218 +{0}\uBC1C (\uB204\uC801: +{1}/+{2}\uBC1C)"
@@ -152,18 +152,40 @@ MonoBehaviour:
     baseStepValue: 0.35
     maxValue: 1.4
     maxUpgradeCount: 4
-    defaultRarity: 1
+    defaultRarity: 2
     unit: "\uBC30"
     isIntegerStat: 0
     descriptionFormat: "\uD22C\uC0AC\uCCB4 \uBC18\uC0AC \uD53C\uD574 \uBC30\uC728 +{0}\uBC30 (\uB204\uC801: +{1}/+{2}\uBC30)"
   - boonId: FluidCadence
     title: "\uC720\uC5F0\uD55C \uC5F0\uACC4"
-    category: "\uC720\uD2F8 & \uD68C\uBB0Bok"
-    statType: 0
-    baseStepValue: 0
-    maxValue: 0
-    maxUpgradeCount: 0
+    category: "\uC720\uD2F8 & \uD68C\uBCF5"
+    statType: 13
+    baseStepValue: 0.06
+    maxValue: 0.24
+    maxUpgradeCount: 4
     defaultRarity: 0
-    unit: 
+    unit: "\uCD08"
     isIntegerStat: 0
-    descriptionFormat: 
+    descriptionFormat: "\uBB34\uAE30 \uC804\uD658 \uCFE8\uB2E4\uC6B4 -{0}\uCD08 (\uB204\uC801: -{1}/-{2}\uCD08)"
+  - boonId: HeartHerb
+    title: "\uC57D\uCD08 \uCC44\uC9D1"
+    category: "\uC720\uD2F8 & \uD68C\uBCF5"
+    statType: 14
+    baseStepValue: 0.15
+    maxValue: 0.6
+    maxUpgradeCount: 4
+    defaultRarity: 0
+    unit: '%'
+    isIntegerStat: 0
+    descriptionFormat: "\uC0DD\uBA85 \uD558\uD2B8 \uB4DC\uB86D\uB960 +{0}% (\uB204\uC801: +{1}/+{2}%)"
+  - boonId: VitalSpring
+    title: "\uC0DD\uBA85\uC758 \uC0D8"
+    category: "\uC720\uD2F8 & \uD68C\uBCF5"
+    statType: 15
+    baseStepValue: 3
+    maxValue: 15
+    maxUpgradeCount: 5
+    defaultRarity: 0
+    unit: HP
+    isIntegerStat: 0
+    descriptionFormat: "\uD558\uD2B8 \uD68C\uBCF5\uB7C9 +{0}HP (\uB204\uC801: +{1}/+{2}HP)"

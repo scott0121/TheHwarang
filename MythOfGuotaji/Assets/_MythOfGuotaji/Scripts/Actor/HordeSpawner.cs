@@ -25,13 +25,24 @@ namespace MythOfGuotaji.Actor
             private set => _instance = value;
         }
 
-        [Header("Prefabs")]
+        [Header("Prefabs (Core 6)")]
         [SerializeField] private GameObject _minionPrefab;
         [SerializeField] private GameObject _elitePrefab;
         [SerializeField] private GameObject _foxBossPrefab;
         [SerializeField] private GameObject _archerPrefab;
         [SerializeField] private GameObject _bigMonPrefab;
         [SerializeField] private GameObject _zhuPrefab;
+
+        [Header("Prefabs (Gimmick 9)")]
+        [SerializeField] private GameObject _dokkaebiFirePrefab;
+        [SerializeField] private GameObject _boarChargerPrefab;
+        [SerializeField] private GameObject _spiderTetherPrefab;
+        [SerializeField] private GameObject _mudSlimePrefab;
+        [SerializeField] private GameObject _phantomFoxPrefab;
+        [SerializeField] private GameObject _ironShieldPrefab;
+        [SerializeField] private GameObject _energyAbsorberPrefab;
+        [SerializeField] private GameObject _bombSparrowPrefab;
+        [SerializeField] private GameObject _totemTurretPrefab;
 
         private void Awake()
         {
@@ -50,6 +61,16 @@ namespace MythOfGuotaji.Actor
                 if (_archerPrefab == null) _archerPrefab = prefabs.archerMonsterPrefab;
                 if (_bigMonPrefab == null) _bigMonPrefab = prefabs.bigMonMonsterPrefab;
                 if (_zhuPrefab == null) _zhuPrefab = prefabs.zhuMonsterPrefab;
+
+                if (_dokkaebiFirePrefab == null) _dokkaebiFirePrefab = prefabs.dokkaebiFireMonsterPrefab;
+                if (_boarChargerPrefab == null) _boarChargerPrefab = prefabs.boarChargerMonsterPrefab;
+                if (_spiderTetherPrefab == null) _spiderTetherPrefab = prefabs.spiderTetherMonsterPrefab;
+                if (_mudSlimePrefab == null) _mudSlimePrefab = prefabs.mudSlimeMonsterPrefab;
+                if (_phantomFoxPrefab == null) _phantomFoxPrefab = prefabs.phantomFoxMonsterPrefab;
+                if (_ironShieldPrefab == null) _ironShieldPrefab = prefabs.ironShieldMonsterPrefab;
+                if (_energyAbsorberPrefab == null) _energyAbsorberPrefab = prefabs.energyAbsorberMonsterPrefab;
+                if (_bombSparrowPrefab == null) _bombSparrowPrefab = prefabs.bombSparrowMonsterPrefab;
+                if (_totemTurretPrefab == null) _totemTurretPrefab = prefabs.totemTurretMonsterPrefab;
             }
 
             // Resources/Prefabs fallback
@@ -59,7 +80,34 @@ namespace MythOfGuotaji.Actor
             if (_archerPrefab == null) _archerPrefab = Resources.Load<GameObject>("Prefabs/Monster_Archer");
             if (_bigMonPrefab == null) _bigMonPrefab = Resources.Load<GameObject>("Prefabs/Monster_BigMon");
             if (_zhuPrefab == null) _zhuPrefab = Resources.Load<GameObject>("Prefabs/Monster_Zhu");
+
+            if (_dokkaebiFirePrefab == null) _dokkaebiFirePrefab = Resources.Load<GameObject>("Prefabs/Monster_DokkaebiFire");
+            if (_boarChargerPrefab == null) _boarChargerPrefab = Resources.Load<GameObject>("Prefabs/Monster_BoarCharger");
+            if (_spiderTetherPrefab == null) _spiderTetherPrefab = Resources.Load<GameObject>("Prefabs/Monster_SpiderTether");
+            if (_mudSlimePrefab == null) _mudSlimePrefab = Resources.Load<GameObject>("Prefabs/Monster_MudSlime");
+            if (_phantomFoxPrefab == null) _phantomFoxPrefab = Resources.Load<GameObject>("Prefabs/Monster_PhantomFox");
+            if (_ironShieldPrefab == null) _ironShieldPrefab = Resources.Load<GameObject>("Prefabs/Monster_IronShield");
+            if (_energyAbsorberPrefab == null) _energyAbsorberPrefab = Resources.Load<GameObject>("Prefabs/Monster_EnergyAbsorber");
+            if (_bombSparrowPrefab == null) _bombSparrowPrefab = Resources.Load<GameObject>("Prefabs/Monster_BombSparrow");
+            if (_totemTurretPrefab == null) _totemTurretPrefab = Resources.Load<GameObject>("Prefabs/Monster_TotemTurret");
         }
+
+        private static readonly MonsterType[] NormalSpawnPool = new MonsterType[]
+        {
+            MonsterType.Minion, MonsterType.Minion, // 기본 잡몹 가중치 2
+            MonsterType.Minion_Archer,
+            MonsterType.Minion_BigMon,
+            MonsterType.Minion_Zhu,
+            MonsterType.Dokkaebi_Fire,
+            MonsterType.Boar_Charger,
+            MonsterType.Spider_Tether,
+            MonsterType.Mud_Slime,
+            MonsterType.Phantom_Fox,
+            MonsterType.Iron_Shield,
+            MonsterType.Energy_Absorber,
+            MonsterType.Bomb_Sparrow,
+            MonsterType.Totem_Turret
+        };
 
         public List<GameObject> SpawnHorde(Vector3 center, int count, float radius)
         {
@@ -68,13 +116,7 @@ namespace MythOfGuotaji.Actor
 
             for (int i = 0; i < count; i++)
             {
-                MonsterType targetType = (i % 4) switch
-                {
-                    1 => MonsterType.Minion_Archer,
-                    2 => MonsterType.Minion_BigMon,
-                    3 => MonsterType.Minion_Zhu,
-                    _ => MonsterType.Minion
-                };
+                MonsterType targetType = NormalSpawnPool[Random.Range(0, NormalSpawnPool.Length)];
 
                 var stat = GameDataManager.Instance != null && GameDataManager.Instance.MonsterStats != null
                     ? GameDataManager.Instance.MonsterStats.GetStat(targetType)
@@ -103,31 +145,47 @@ namespace MythOfGuotaji.Actor
                 float finalHp = hp * hpMult;
                 float finalDamage = damage * dmgMult;
 
-                Vector2 randomCircle = Random.insideUnitCircle * radius;
-                Vector3 spawnPos = new Vector3(center.x + randomCircle.x, 1.0f, center.z + randomCircle.y);
+                // 스폰 시 몬스터들 간의 충돌 겹침 및 공중 부유 방지: 균등 원형 분할 및 안전 거리(2.5m~반경) 분산 배치
+                float angleStep = 360f / Mathf.Max(1, count);
+                float baseAngle = Random.Range(0f, 360f);
+                float angle = (baseAngle + i * angleStep) * Mathf.Deg2Rad;
+                float dist = Random.Range(2.5f, Mathf.Max(3.5f, radius));
+                Vector3 spawnPos = new Vector3(center.x + Mathf.Cos(angle) * dist, 0.2f, center.z + Mathf.Sin(angle) * dist);
 
                 GameObject minion = null;
-                string poolKey = targetType switch
-                {
-                    MonsterType.Minion_Archer => "Minion_Archer_Pool",
-                    MonsterType.Minion_BigMon => "Minion_BigMon_Pool",
-                    MonsterType.Minion_Zhu => "Minion_Zhu_Pool",
-                    _ => _minionPrefab != null ? _minionPrefab.name : "DefaultMinion"
-                };
+                string poolKey = $"{targetType}_Pool";
 
                 string mobName = targetType switch
                 {
                     MonsterType.Minion_Archer => "맹독충 (Minion_Archer)",
                     MonsterType.Minion_BigMon => "거북이 (Minion_BigMon)",
                     MonsterType.Minion_Zhu => "주(鴸) (Minion_Zhu)",
-                    _ => "Sanhaegyeong_Minion"
+                    MonsterType.Dokkaebi_Fire => "도깨비 화염술사 (Dokkaebi_Fire)",
+                    MonsterType.Boar_Charger => "저돌맹진 멧돼지 (Boar_Charger)",
+                    MonsterType.Spider_Tether => "요선 거미 (Spider_Tether)",
+                    MonsterType.Mud_Slime => "진흙 이괴 (Mud_Slime)",
+                    MonsterType.Phantom_Fox => "환영 여우귀 (Phantom_Fox)",
+                    MonsterType.Iron_Shield => "흑철 방패병 (Iron_Shield)",
+                    MonsterType.Energy_Absorber => "영력 흡수 괴물 (Energy_Absorber)",
+                    MonsterType.Bomb_Sparrow => "자폭 참새 떼 (Bomb_Sparrow)",
+                    MonsterType.Totem_Turret => "사방신 토템 (Totem_Turret)",
+                    _ => "산해경 잡몹 (Minion)"
                 };
 
                 GameObject targetPrefab = targetType switch
                 {
-                    MonsterType.Minion_Archer => _archerPrefab,
-                    MonsterType.Minion_BigMon => _bigMonPrefab,
-                    MonsterType.Minion_Zhu => _zhuPrefab,
+                    MonsterType.Minion_Archer => _archerPrefab != null ? _archerPrefab : _minionPrefab,
+                    MonsterType.Minion_BigMon => _bigMonPrefab != null ? _bigMonPrefab : _minionPrefab,
+                    MonsterType.Minion_Zhu => _zhuPrefab != null ? _zhuPrefab : _minionPrefab,
+                    MonsterType.Dokkaebi_Fire => _dokkaebiFirePrefab != null ? _dokkaebiFirePrefab : (_archerPrefab != null ? _archerPrefab : _minionPrefab),
+                    MonsterType.Boar_Charger => _boarChargerPrefab != null ? _boarChargerPrefab : (_bigMonPrefab != null ? _bigMonPrefab : _minionPrefab),
+                    MonsterType.Spider_Tether => _spiderTetherPrefab != null ? _spiderTetherPrefab : _minionPrefab,
+                    MonsterType.Mud_Slime => _mudSlimePrefab != null ? _mudSlimePrefab : (_zhuPrefab != null ? _zhuPrefab : _minionPrefab),
+                    MonsterType.Phantom_Fox => _phantomFoxPrefab != null ? _phantomFoxPrefab : _minionPrefab,
+                    MonsterType.Iron_Shield => _ironShieldPrefab != null ? _ironShieldPrefab : _minionPrefab,
+                    MonsterType.Energy_Absorber => _energyAbsorberPrefab != null ? _energyAbsorberPrefab : _minionPrefab,
+                    MonsterType.Bomb_Sparrow => _bombSparrowPrefab != null ? _bombSparrowPrefab : _minionPrefab,
+                    MonsterType.Totem_Turret => _totemTurretPrefab != null ? _totemTurretPrefab : (_zhuPrefab != null ? _zhuPrefab : _minionPrefab),
                     _ => _minionPrefab
                 };
 
@@ -157,6 +215,20 @@ namespace MythOfGuotaji.Actor
                 minion.transform.rotation = Quaternion.identity;
                 minion.transform.localScale = Vector3.one * scale;
                 Physics.SyncTransforms();
+
+                // 외형 틴트 컬러 적용 (모델 메쉬 및 머티리얼)
+                var rends = minion.GetComponentsInChildren<Renderer>();
+                foreach (var r in rends)
+                {
+                    if (r != null && r.material != null)
+                    {
+                        r.material.color = tint;
+                        if (r.material.HasProperty("_BaseColor"))
+                        {
+                            r.material.SetColor("_BaseColor", tint);
+                        }
+                    }
+                }
 
                 if (minionCc != null) minionCc.enabled = true;
 

@@ -143,22 +143,55 @@ namespace MythOfGuotaji.UI
         {
             if (_groundAimBox != null) return;
 
-            _groundAimBox = new GameObject("[ChargeAimBox_Telegraph]");
-            _groundAimBox.transform.position = Vector3.zero;
+            GameObject aimBoxPrefab = null;
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                aimBoxPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.chargeAimBoxPrefab, "Prefabs/Telegraph_ChargeAimBox");
+            }
+            else
+            {
+                aimBoxPrefab = Resources.Load<GameObject>("Prefabs/Telegraph_ChargeAimBox");
+            }
+
+            if (aimBoxPrefab != null)
+            {
+                _groundAimBox = Instantiate(aimBoxPrefab, Vector3.zero, Quaternion.identity);
+                _groundAimBox.name = "[ChargeAimBox_Telegraph]";
+            }
+            else
+            {
+                _groundAimBox = new GameObject("[ChargeAimBox_Telegraph]");
+                _groundAimBox.transform.position = Vector3.zero;
+            }
 
             float range = 1.0f;
             float width = 0.3f;
 
             // 1. 바닥 면 (Semi-transparent inner fill)
-            var fillObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            fillObj.name = "FillPlane";
-            fillObj.transform.SetParent(_groundAimBox.transform, false);
-            _fillTransform = fillObj.transform;
+            var existingFill = _groundAimBox.transform.Find("FillPlane");
+            GameObject fillObj;
+            if (existingFill != null)
+            {
+                fillObj = existingFill.gameObject;
+                _fillTransform = fillObj.transform;
+            }
+            else
+            {
+                fillObj = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                fillObj.name = "FillPlane";
+                fillObj.transform.SetParent(_groundAimBox.transform, false);
+                _fillTransform = fillObj.transform;
+                var fillCol = fillObj.GetComponent<Collider>();
+                if (fillCol != null) Destroy(fillCol);
+
+                // 2. 테두리 외곽선 (Left & Right Border, Front Tip)
+                CreateBorderLine(fillObj.transform, new Vector3(-0.48f, 0.5f, 0f), new Vector3(0.08f, 1.2f, 1f));
+                CreateBorderLine(fillObj.transform, new Vector3(0.48f, 0.5f, 0f), new Vector3(0.08f, 1.2f, 1f));
+                CreateBorderLine(fillObj.transform, new Vector3(0f, 0.5f, 0.5f), new Vector3(1f, 1.2f, 0.02f));
+            }
+
             _fillTransform.localPosition = new Vector3(0f, 0.02f, range * 0.5f);
             _fillTransform.localScale = new Vector3(width, 0.01f, range);
-
-            var fillCol = fillObj.GetComponent<Collider>();
-            if (fillCol != null) Destroy(fillCol);
 
             var fillRend = fillObj.GetComponent<Renderer>();
             if (fillRend != null)
@@ -169,11 +202,6 @@ namespace MythOfGuotaji.UI
                 if (_aimBoxMaterial.HasProperty("_BaseColor")) _aimBoxMaterial.SetColor("_BaseColor", aimColor);
                 fillRend.material = _aimBoxMaterial;
             }
-
-            // 2. 테두리 외곽선 (Left & Right Border, Front Tip)
-            CreateBorderLine(fillObj.transform, new Vector3(-0.48f, 0.5f, 0f), new Vector3(0.08f, 1.2f, 1f));
-            CreateBorderLine(fillObj.transform, new Vector3(0.48f, 0.5f, 0f), new Vector3(0.08f, 1.2f, 1f));
-            CreateBorderLine(fillObj.transform, new Vector3(0f, 0.5f, 0.5f), new Vector3(1f, 1.2f, 0.02f));
 
             _groundAimBox.SetActive(false);
         }

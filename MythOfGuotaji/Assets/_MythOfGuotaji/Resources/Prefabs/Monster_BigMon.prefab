@@ -102,6 +102,7 @@ MonoBehaviour:
   _attackRange: 2
   _attackCooldown: 1.8
   _separationRadius: 1.2
+  _projectileParryType: 0
   _projectileSpeed: 6
   _kiteDistance: 0
   _knockbackPower: 3
@@ -113,6 +114,8 @@ MonoBehaviour:
   _postAttackDelay: 0.2
   _gemDropCount: 1
   _expPerGem: 1
+  _heartDropChance: 0.25
+  _heartHealAmount: 25
   _dashDistance: 2
   _dashWidth: 0.5
   _dashDuration: 0.3
@@ -132,15 +135,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5523472075302276688, guid: 941961b13b8a8764cb54bb489fb004bb, type: 3}
       propertyPath: m_LocalScale.x
-      value: 0.13
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5523472075302276688, guid: 941961b13b8a8764cb54bb489fb004bb, type: 3}
       propertyPath: m_LocalScale.y
-      value: 0.13
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5523472075302276688, guid: 941961b13b8a8764cb54bb489fb004bb, type: 3}
       propertyPath: m_LocalScale.z
-      value: 0.13
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5523472075302276702, guid: 941961b13b8a8764cb54bb489fb004bb, type: 3}
       propertyPath: m_LocalScale.x

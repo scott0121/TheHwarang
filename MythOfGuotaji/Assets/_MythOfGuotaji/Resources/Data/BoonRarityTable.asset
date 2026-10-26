@@ -16,21 +16,28 @@ MonoBehaviour:
   - rarity: 0
     rarityName: "\uC77C\uBC18"
     statMultiplier: 1
-    rollWeight: 70
-    rarityColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
+    rollWeight: 40
+    rarityColor: {r: 0.95, g: 0.95, b: 0.95, a: 1}
     applyMode: 0
     descriptionTag: "[\uC77C\uBC18]"
   - rarity: 1
     rarityName: "\uD76C\uADC0"
-    statMultiplier: 1.5
-    rollWeight: 24
-    rarityColor: {r: 0, g: 0.85, b: 1, a: 1}
+    statMultiplier: 1.3
+    rollWeight: 30
+    rarityColor: {r: 0.2, g: 0.65, b: 1, a: 1}
     applyMode: 0
-    descriptionTag: "[\uD76C\uADC0 1.5x]"
+    descriptionTag: "[\uD76C\uADC0 1.3x]"
   - rarity: 2
+    rarityName: "\uC601\uC6C5"
+    statMultiplier: 1.7
+    rollWeight: 20
+    rarityColor: {r: 0.72, g: 0.28, b: 1, a: 1}
+    applyMode: 0
+    descriptionTag: "[\uC601\uC6C5 1.7x]"
+  - rarity: 3
     rarityName: "\uC804\uC124"
     statMultiplier: 2.2
-    rollWeight: 6
-    rarityColor: {r: 1, g: 0.84, b: 0, a: 1}
+    rollWeight: 10
+    rarityColor: {r: 1, g: 0.84, b: 0.05, a: 1}
     applyMode: 0
     descriptionTag: "[\uC804\uC124 2.2x]"
