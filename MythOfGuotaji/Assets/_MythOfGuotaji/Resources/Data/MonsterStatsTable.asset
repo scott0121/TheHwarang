@@ -19,8 +19,8 @@ MonoBehaviour:
     category: Normal
     scaleMultiplier: 1
     tintColor: {r: 1, g: 1, b: 1, a: 1}
-    maxHp: 35
-    moveSpeed: 4.2
+    maxHp: 55
+    moveSpeed: 5.3
     defense: 0
     separationRadius: 0.9
     hitStunDuration: 0.15
@@ -61,8 +61,8 @@ MonoBehaviour:
     category: Elite
     scaleMultiplier: 1.8
     tintColor: {r: 1, g: 0.85, b: 0.2, a: 1}
-    maxHp: 550
-    moveSpeed: 3.6
+    maxHp: 880
+    moveSpeed: 4
     defense: 8
     separationRadius: 2.2
     hitStunDuration: 0.1
@@ -78,7 +78,7 @@ MonoBehaviour:
       dropChance: 1
       dropVFX: HCFX_Marble_02_Get
     normalAttack:
-      attackRange: 2.8
+      attackRange: 4
       attackDamage: 16
       attackCooldown: 1.5
       windupTime: 0.3
@@ -107,7 +107,7 @@ MonoBehaviour:
     category: Boss
     scaleMultiplier: 2.6
     tintColor: {r: 1, g: 0.35, b: 0.35, a: 1}
-    maxHp: 900
+    maxHp: 1500
     moveSpeed: 4
     defense: 12
     separationRadius: 3
@@ -150,8 +150,8 @@ MonoBehaviour:
     category: Ranged
     scaleMultiplier: 0.9
     tintColor: {r: 0.2, g: 0.9, b: 0.3, a: 1}
-    maxHp: 30
-    moveSpeed: 2.7
+    maxHp: 66
+    moveSpeed: 6
     defense: 0
     separationRadius: 1
     hitStunDuration: 0.2
@@ -192,7 +192,7 @@ MonoBehaviour:
     category: Heavy
     scaleMultiplier: 1.4
     tintColor: {r: 0.25, g: 0.6, b: 0.5, a: 1}
-    maxHp: 90
+    maxHp: 110
     moveSpeed: 2
     defense: 5
     separationRadius: 1.6
@@ -234,7 +234,7 @@ MonoBehaviour:
     category: Ranged
     scaleMultiplier: 1.15
     tintColor: {r: 0.72, g: 0.22, b: 0.85, a: 1}
-    maxHp: 50
+    maxHp: 65
     moveSpeed: 1.2
     defense: 2
     separationRadius: 1.2
@@ -276,7 +276,7 @@ MonoBehaviour:
     category: Ranged
     scaleMultiplier: 1.1
     tintColor: {r: 0.3, g: 0.6, b: 1, a: 1}
-    maxHp: 45
+    maxHp: 65
     moveSpeed: 3.2
     defense: 6
     separationRadius: 1.2

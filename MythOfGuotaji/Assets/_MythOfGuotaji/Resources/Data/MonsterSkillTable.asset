@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -218,7 +218,7 @@ MonoBehaviour:
     telegraphDuration: 0.4
     telegraphShape: Sector
     aoeRadius: 3.5
-    aoeAngle: 120
+    aoeAngle: 180
     postAttackDelay: 0.3
     dashDistance: 0
     dashSpeed: 0
@@ -498,10 +498,10 @@ MonoBehaviour:
     description: "\uACE0\uC815\uD615 \uC11D\uC0C1. 4\uBC29\uD5A5 \uD68C\uC804 \uD0C4\uD658 \uC9C0\uC18D \uBC1C\uC0AC. \uBAA8\uB4E0 \uD0C4\uD658\uC740 \uB2E8\uAC80 \uD328\uB9C1 \uC5ED\uD3ED\uD30C \uAC00\uB2A5"
     skillType: 15
     minRange: 2
-    maxRange: 16
-    damageMultiplier: 0.8
+    maxRange: 25
+    damageMultiplier: 1
     fixedDamage: 8
-    cooldown: 1
+    cooldown: 0.6
     knockbackPower: 1
     telegraphDuration: 0.2
     telegraphShape: Circle
@@ -512,11 +512,11 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
-    projectileSpeed: 6
+    projectileSpeed: 7
     flightDuration: 0
     arcHeight: 0
-    projectileCount: 4
-    spreadAngle: 90
+    projectileCount: 8
+    spreadAngle: 45
     pierceCount: 0
     projectilePrefabName: Totem_Energy_Orb
     projectileParryType: 1
