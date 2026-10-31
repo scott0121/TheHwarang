@@ -12,36 +12,161 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0f4bd50bde71d6b41be7e56a31f59560, type: 3}
   m_Name: WeaponStatsTable
   m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Data.WeaponStatsTableSO
-  bow:
-    baseDamage: 10
-    attackRate: 2.8
-    critChance: 0.15
-    critMultiplier: 2
-    baseArrowCount: 1
-    spreadAngle: 12
-    basePierceCount: 0
-    knockbackPower: 4.5
-    projectileSpeed: 24
-    projectileLifeTime: 2.5
-    projectileHitRadius: 0.4
-    chargeStartTime: 0.3
-    maxChargeTime: 2
-    chargeMinRange: 0
-    chargeMaxRange: 25
-    chargeDamageMultiplier: 2
-    chargeProjectileSpeed: 36
-    chargeKnockback: 12
-    chargeTelegraphWidth: 0.5
-    burstShotCount: 5
-    burstTotalDuration: 1.5
-    burstCooldown: 2
-    multiHitDamageFalloffRatio: 0.5
-  dagger:
-    baseDamage: 20
-    attackRadius: 3
-    attackAngle: 150
-    cooldown: 0.5
-    knockback: 9
-    canReflectProjectiles: 1
-    reflectDamageMultiplier: 1.5
-    reflectSpeedMultiplier: 1.8
+  bows:
+  - weaponId: Bow_00
+    weaponName: "\uAE30\uBCF8 \uACE1\uB3C4 \uD65C (\uD65C_00)"
+    description: "\uC11C\uD574 \uC6A9\uAD81\uC758 \uC2E0\uC131\uD55C \uD65C\uC2DC\uC704. \uC548\uC815\uC801\uC778 \uC5F0\uC0AC\uB825\uACFC \uCC28\uC9D5 \uC131\uB2A5\uC744 \uC790\uB791\uD558\uB294 \uADE0\uD615\uD615 \uD65C\uC785\uB2C8\uB2E4."
+    modelPrefab: {fileID: 4986769913158527845, guid: dadd54970aa248adbc6967db85aff3cc, type: 3}
+    normalArrowPrefab: {fileID: 4101925674279290782, guid: e16d0798412213b4a9296e84db406492, type: 3}
+    chargedArrowPrefab: {fileID: 5819146256159109793, guid: 5a5aeb522ce5416429d7cfb7db265d28, type: 3}
+    fireSoundPrefab: {fileID: 0}
+    chargedFireSoundPrefab: {fileID: 0}
+    stats:
+      baseDamage: 14
+      attackRate: 2.8
+      critChance: 0.15
+      critMultiplier: 2
+      baseArrowCount: 1
+      spreadAngle: 12
+      basePierceCount: 0
+      knockbackPower: 4.5
+      projectileSpeed: 24
+      projectileLifeTime: 2
+      projectileHitRadius: 0.4
+      normalRange: 15
+      chargeStartTime: 0.3
+      maxChargeTime: 3
+      chargeMinRange: 0
+      chargeMaxRange: 25
+      chargeDamageMultiplier: 2
+      chargeProjectileSpeed: 36
+      chargeKnockback: 12
+      chargeTelegraphWidth: 0.3
+      burstShotCount: 5
+      burstTotalDuration: 1.5
+      burstCooldown: 2
+      multiHitDamageFalloffRatio: 0.5
+  - weaponId: Bow_01
+    weaponName: "\uD604\uBB34 \uAC15\uAD81 (\uD65C_01)"
+    description: "\uBD81\uBC29 \uD604\uBB34\uC758 \uBB34\uAC70\uC6B4 \uC2E0\uB825\uC744 \uB2F4\uC740 \uB300\uAD81. \uCC28\uC9D5 \uD53C\uD574\uC640 \uAD00\uD1B5\uB825\uC774 \uADF9\uB300\uD654\uB418\uC5B4 \uBCF4\uC2A4\uC640 \uC815\uC608 \uC694\uAD34\uB97C \uB2E8\uC228\uC5D0 \uAFF0\uB6AB\uC2B5\uB2C8\uB2E4."
+    modelPrefab: {fileID: 4986769913158527845, guid: dadd54970aa248adbc6967db85aff3cc, type: 3}
+    normalArrowPrefab: {fileID: 100001, guid: 02ea43cb4f82e3640b159f82f1d9b3e3, type: 3}
+    chargedArrowPrefab: {fileID: 100001, guid: 4753b193a48c6354f8d01d9430fd7ac5, type: 3}
+    fireSoundPrefab: {fileID: 0}
+    chargedFireSoundPrefab: {fileID: 0}
+    stats:
+      baseDamage: 13
+      attackRate: 2.2
+      critChance: 0.2
+      critMultiplier: 2.5
+      baseArrowCount: 1
+      spreadAngle: 10
+      basePierceCount: 1
+      knockbackPower: 7
+      projectileSpeed: 28
+      projectileLifeTime: 3
+      projectileHitRadius: 0.5
+      normalRange: 15
+      chargeStartTime: 0.25
+      maxChargeTime: 2.5
+      chargeMinRange: 0
+      chargeMaxRange: 30
+      chargeDamageMultiplier: 2.8
+      chargeProjectileSpeed: 45
+      chargeKnockback: 18
+      chargeTelegraphWidth: 0.45
+      burstShotCount: 4
+      burstTotalDuration: 1.2
+      burstCooldown: 2.5
+      multiHitDamageFalloffRatio: 0.6
+  - weaponId: Bow_02
+    weaponName: "\uC8FC\uC791 \uC5F0\uAD81 (\uD65C_02)"
+    description: "\uB0A8\uBC29 \uC8FC\uC791\uC758 \uB0A0\uB835\uD55C \uAE43\uD138 \uC2DC\uC704. 1\uD68C \uB9B4\uB9AC\uC988\uB2F9 7\uBC1C\uC758 \uD654\uC0B4\uC744 \uD3ED\uD48D\uCC98\uB7FC \uD37C\uBD93\uB294 \uC18D\uC0AC \uD2B9\uD654 \uD65C\uC785\uB2C8\uB2E4."
+    modelPrefab: {fileID: 4986769913158527845, guid: dadd54970aa248adbc6967db85aff3cc, type: 3}
+    normalArrowPrefab: {fileID: 9160660778860531109, guid: 55dead75d2b8af045a1e98abb34abb88, type: 3}
+    chargedArrowPrefab: {fileID: 1664365223859898, guid: a7375386be2c1614792dfff5302d951f, type: 3}
+    fireSoundPrefab: {fileID: 0}
+    chargedFireSoundPrefab: {fileID: 0}
+    stats:
+      baseDamage: 10
+      attackRate: 3.6
+      critChance: 0.12
+      critMultiplier: 1.8
+      baseArrowCount: 1
+      spreadAngle: 14
+      basePierceCount: 0
+      knockbackPower: 3.5
+      projectileSpeed: 26
+      projectileLifeTime: 2.2
+      projectileHitRadius: 0.35
+      normalRange: 15
+      chargeStartTime: 0.4
+      maxChargeTime: 3.5
+      chargeMinRange: 0
+      chargeMaxRange: 22
+      chargeDamageMultiplier: 1.6
+      chargeProjectileSpeed: 32
+      chargeKnockback: 8
+      chargeTelegraphWidth: 0.25
+      burstShotCount: 7
+      burstTotalDuration: 1.4
+      burstCooldown: 1.6
+      multiHitDamageFalloffRatio: 0.45
+  daggers:
+  - weaponId: Dagger_00
+    weaponName: "\uAE30\uBCF8 \uC625\uB2E8\uAC80 (\uB2E8\uAC80_00)"
+    description: "\uACE1\uB3C4 \uC0AC\uB2F9\uC758 \uC625\uBE5B \uBE44\uC218. \uBD80\uCC44\uAF34\uB85C \uC801\uC744 \uBCA0\uC5B4\uB0B4\uBA70 \uD22C\uC0AC\uCCB4\uB97C \uD328\uB9C1 \uBC18\uC0AC\uD558\uB294 \uADE0\uD615\uD615 \uBCF4\uC870\uBB34\uAE30\uC785\uB2C8\uB2E4."
+    modelPrefab: {fileID: 5509321525132887416, guid: 1aeb66ae0b5b42c5a1053e118e375617, type: 3}
+    slashVfxPrefab: {fileID: 2187682806594559930, guid: 08b77fac0e6260746b329ceba4b6eafd, type: 3}
+    parryVfxPrefab: {fileID: 8711317540203598715, guid: bab504ca77da9bd41a8cf79744e6c2a7, type: 3}
+    swingSoundPrefab: {fileID: 0}
+    parrySuccessSoundPrefab: {fileID: 0}
+    stats:
+      baseDamage: 4
+      attackRadius: 3
+      attackAngle: 120
+      cooldown: 1
+      knockback: 9
+      canReflectProjectiles: 1
+      reflectDamageMultiplier: 1.2
+      reflectSpeedMultiplier: 2
+      critChance: 0.1
+      critMultiplier: 2
+  - weaponId: Dagger_01
+    weaponName: "\uBCBD\uB825 \uBE44\uC218 (\uB2E8\uAC80_01)"
+    description: "\uBC88\uAC1C\uC758 \uC601\uAE30\uB97C \uD488\uC740 \uB0A0\uCE74\uB85C\uC6B4 \uBE44\uC218. \uD328\uB9C1 \uBC18\uC0AC \uD53C\uD574\uC640 \uBE44\uD589 \uC18D\uB3C4\uAC00 \uB300\uD3ED \uC99D\uAC00\uD558\uBA70 \uCC38\uACA9 \uAC01\uB3C4\uAC00 \uB113\uC5B4\uC9D1\uB2C8\uB2E4."
+    modelPrefab: {fileID: 5509321525132887416, guid: 1aeb66ae0b5b42c5a1053e118e375617, type: 3}
+    slashVfxPrefab: {fileID: 100001, guid: 2fe4a063919ab1e4aba107bac3797855, type: 3}
+    parryVfxPrefab: {fileID: 8711317540203598715, guid: bab504ca77da9bd41a8cf79744e6c2a7, type: 3}
+    swingSoundPrefab: {fileID: 0}
+    parrySuccessSoundPrefab: {fileID: 0}
+    stats:
+      baseDamage: 12
+      attackRadius: 4
+      attackAngle: 180
+      cooldown: 1
+      knockback: 8
+      canReflectProjectiles: 1
+      reflectDamageMultiplier: 2.5
+      reflectSpeedMultiplier: 2.5
+      critChance: 0.15
+      critMultiplier: 2
+  - weaponId: Dagger_02
+    weaponName: "\uBC31\uD638 \uADC0\uCC38\uB3C4 (\uB2E8\uAC80_02)"
+    description: "\uC11C\uBC29 \uBC31\uD638\uC758 \uAE30\uC6B4\uC744 \uB2F4\uC740 \uBB35\uC9C1\uD55C \uCC38\uB3C4. \uBCA0\uAE30 \uACF5\uACA9\uB825\uACFC \uC0AC\uAC70\uB9AC, \uB109\uBC31\uC774 \uAC15\uB825\uD558\uC5EC \uADFC\uC811 \uBC29\uC5B4\uC5D0 \uD0C1\uC6D4\uD569\uB2C8\uB2E4."
+    modelPrefab: {fileID: 5509321525132887416, guid: 1aeb66ae0b5b42c5a1053e118e375617, type: 3}
+    slashVfxPrefab: {fileID: 100001, guid: 2fe4a063919ab1e4aba107bac3797855, type: 3}
+    parryVfxPrefab: {fileID: 8711317540203598715, guid: bab504ca77da9bd41a8cf79744e6c2a7, type: 3}
+    swingSoundPrefab: {fileID: 0}
+    parrySuccessSoundPrefab: {fileID: 0}
+    stats:
+      baseDamage: 15
+      attackRadius: 2
+      attackAngle: 160
+      cooldown: 0.65
+      knockback: 14
+      canReflectProjectiles: 1
+      reflectDamageMultiplier: 1.2
+      reflectSpeedMultiplier: 1.5
+      critChance: 0.15
+      critMultiplier: 2

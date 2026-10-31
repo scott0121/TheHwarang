@@ -6,14 +6,8 @@ using MythOfGuotaji.Data;
 
 namespace MythOfGuotaji.EditorTools
 {
-    [InitializeOnLoad]
     public static class MonsterPrefabGenerator
     {
-        static MonsterPrefabGenerator()
-        {
-            EditorApplication.delayCall += GenerateMissingPrefabs;
-        }
-
         [MenuItem("MythOfGuotaji/Generate Missing Monster Prefabs")]
         public static void GenerateMissingPrefabs()
         {

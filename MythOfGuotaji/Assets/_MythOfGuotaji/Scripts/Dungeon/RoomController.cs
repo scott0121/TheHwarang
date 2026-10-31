@@ -19,6 +19,8 @@ namespace MythOfGuotaji.Dungeon
         [Header("Room Coordinates & Type")]
         public Vector2Int gridPosition;
         [SerializeField] private RoomType _roomType = RoomType.Normal;
+        [SerializeField] private int _blockIndex = 1;
+        public int BlockIndex => _blockIndex;
 
         [Header("Sockets (N, E, S, W)")]
         [SerializeField] private DoorSocket _socketNorth;
@@ -31,6 +33,7 @@ namespace MythOfGuotaji.Dungeon
         private bool _isCleared = false;
         private bool _isEncounterActive = false;
         private bool _hasPreSpawned = false;
+        public bool HasPreSpawned => _hasPreSpawned;
         private readonly List<GameObject> _spawnedEnemies = new();
 
         [Header("Wave Encounter Settings")]
@@ -112,7 +115,7 @@ namespace MythOfGuotaji.Dungeon
             _socketWest = west;
         }
 
-        public void SetupRoom(Vector2Int gridPos, RoomType type)
+        public void SetupRoom(Vector2Int gridPos, RoomType type, int blockIndex = 1)
         {
             gridPosition = gridPos;
             // [규칙 1 절대 보장]: (0,0) 좌표는 무조건 시작 안전방(RoomType.Start)으로 강제
@@ -121,6 +124,7 @@ namespace MythOfGuotaji.Dungeon
                 type = RoomType.Start;
             }
             _roomType = type;
+            _blockIndex = blockIndex;
             _isCleared = (_roomType == RoomType.Start);
             _roomEntryTimer = 0f;
             _centerTriggerActivated = false;
@@ -156,7 +160,7 @@ namespace MythOfGuotaji.Dungeon
                     }
 
                     // 일반/함정 방에 진입한 경우 잠시 뒤(0.8초) 연결된 몬스터 방들의 문을 자동 개방 (규칙 7)
-                    if (!_centerTriggerActivated && _roomType != RoomType.Boss && _roomType != RoomType.KeyRoom)
+                    if (!_centerTriggerActivated && _roomType != RoomType.Boss)
                     {
                         _roomEntryTimer += Time.deltaTime;
                         if (_roomEntryTimer >= RoomEntryAutoOpenDelay)
@@ -270,6 +274,66 @@ namespace MythOfGuotaji.Dungeon
                 case RoomType.Boss:
                     SpawnNormalHorde(); // 1차 웨이브는 일반 잡몹 무리만 대기 (최종보스는 2차 웨이브에서 스폰)
                     break;
+            }
+        }
+
+        private readonly List<Renderer> _cachedRoomRenderers = new();
+        private bool _hasCachedRenderers = false;
+        private bool _isRoomVisualActive = true;
+
+        /// <summary>
+        /// [최적화 2: 룸 메쉬 오클루전 컬링]
+        /// 플레이어 기준 반경을 벗어난 방의 지오메트리 렌더러(바닥, 벽, 장식 등)를 일괄 On/Off합니다.
+        /// 콜라이더와 트리거, 문 소켓 로직은 그대로 유지되므로 플레이 및 충돌에 영향을 주지 않고 GPU/DrawCall을 대폭 절감합니다.
+        /// </summary>
+        public void SetRoomVisualActive(bool active)
+        {
+            if (_isRoomVisualActive == active && _hasCachedRenderers) return;
+            _isRoomVisualActive = active;
+
+            if (!_hasCachedRenderers)
+            {
+                _cachedRoomRenderers.Clear();
+                var allRenderers = GetComponentsInChildren<Renderer>(true);
+                for (int i = 0; i < allRenderers.Length; i++)
+                {
+                    var r = allRenderers[i];
+                    if (r == null) continue;
+
+                    // 몬스터는 자체 동면화/컬링으로 관리되므로 룸 지오메트리에서 제외
+                    if (r.GetComponentInParent<MonsterAI>() != null) continue;
+
+                    // 문(DoorSocket)의 비주얼은 문 통과 및 닫힘 식별을 위해 룸 렌더러 캐시에서 제외
+                    if (r.GetComponentInParent<DoorSocket>() != null) continue;
+
+                    _cachedRoomRenderers.Add(r);
+                }
+                _hasCachedRenderers = true;
+            }
+
+            for (int i = 0; i < _cachedRoomRenderers.Count; i++)
+            {
+                var r = _cachedRoomRenderers[i];
+                if (r != null)
+                {
+                    r.enabled = active;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 플레이어로부터 상하좌우 2칸 이상 벗어난 방의 몬스터들을 휴면(Dormant) 처리하여 AI/물리 연산 스킵
+        /// </summary>
+        public void SetMonstersDormant(bool dormant)
+        {
+            if (_spawnedEnemies == null) return;
+            for (int i = 0; i < _spawnedEnemies.Count; i++)
+            {
+                var enemy = _spawnedEnemies[i];
+                if (enemy != null && enemy.TryGetComponent<MonsterAI>(out var ai))
+                {
+                    ai.SetDormant(dormant);
+                }
             }
         }
 
@@ -461,7 +525,7 @@ namespace MythOfGuotaji.Dungeon
                     ? Data.GameDataManager.Instance.DungeonConfig.normalRoomMinionCount
                     : 6;
                 _initialMonsterCount = count;
-                var enemies = HordeSpawner.Instance.SpawnHorde(center, count: count, radius: 6f);
+                var enemies = HordeSpawner.Instance.SpawnHorde(center, count: count, radius: 6f, blockIndex: _blockIndex);
                 if (enemies != null)
                 {
                     _spawnedEnemies.AddRange(enemies);
@@ -479,7 +543,7 @@ namespace MythOfGuotaji.Dungeon
             {
                 Vector3 center = _spawnPoint != null ? _spawnPoint.position : transform.position;
                 _initialMonsterCount = 8;
-                var enemies = HordeSpawner.Instance.SpawnHorde(center, count: _initialMonsterCount, radius: 6f);
+                var enemies = HordeSpawner.Instance.SpawnHorde(center, count: _initialMonsterCount, radius: 6f, blockIndex: _blockIndex);
                 if (enemies != null)
                 {
                     _spawnedEnemies.AddRange(enemies);
@@ -495,7 +559,7 @@ namespace MythOfGuotaji.Dungeon
         {
             if (HordeSpawner.Instance != null)
             {
-                var horde = HordeSpawner.Instance.SpawnHorde(center, count: count, radius: 6f);
+                var horde = HordeSpawner.Instance.SpawnHorde(center, count: count, radius: 6f, blockIndex: _blockIndex);
                 if (horde != null)
                 {
                     _spawnedEnemies.AddRange(horde);

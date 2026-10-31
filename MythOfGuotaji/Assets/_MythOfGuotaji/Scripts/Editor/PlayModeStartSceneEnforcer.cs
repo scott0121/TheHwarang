@@ -33,6 +33,7 @@ namespace MythOfGuotaji.Editor
         {
             EditorApplication.delayCall += OnEditorDelayedInitialize;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+            EditorSceneManager.activeSceneChangedInEditMode += (prev, current) => ApplyPlayModeStartScene();
         }
 
         public static bool IsEnforceIntroEnabled
@@ -83,6 +84,66 @@ namespace MythOfGuotaji.Editor
             Debug.Log($"[PlayModeStartSceneEnforcer] 항상 Intro 씬에서 Play 시작: {(IsEnforceIntroEnabled ? "활성화됨 (ON)" : "비활성화됨 (OFF - 현재 열린 씬에서 시작)")}");
         }
 
+        /// <summary>
+        /// 대상 씬이 Build Profile (또는 Build Settings)의 활성화된 Scene List에 등록되어 있는지 검사
+        /// </summary>
+        public static bool IsSceneInBuildProfileList(string scenePath)
+        {
+            if (string.IsNullOrEmpty(scenePath)) return false;
+
+            // 1. Unity 6 BuildProfile API 검사
+            try
+            {
+                var buildProfileType = System.Type.GetType("UnityEditor.Build.Profile.BuildProfile, UnityEditor.CoreModule")
+                                    ?? System.Type.GetType("UnityEditor.Build.Profile.BuildProfile, UnityEditor");
+
+                if (buildProfileType != null)
+                {
+                    var getActiveMethod = buildProfileType.GetMethod("GetActiveBuildProfile", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+                    if (getActiveMethod != null)
+                    {
+                        var activeProfile = getActiveMethod.Invoke(null, null);
+                        if (activeProfile != null)
+                        {
+                            var scenesProp = buildProfileType.GetProperty("scenes");
+                            if (scenesProp != null && scenesProp.GetValue(activeProfile) is EditorBuildSettingsScene[] profileScenes)
+                            {
+                                foreach (var sceneEntry in profileScenes)
+                                {
+                                    if (sceneEntry != null && sceneEntry.enabled &&
+                                        string.Equals(sceneEntry.path, scenePath, System.StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        return true;
+                                    }
+                                }
+                                return false;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"[PlayModeStartSceneEnforcer] BuildProfile 검사 중 예외 발생 (Fallback 사용): {ex.Message}");
+            }
+
+            // 2. Fallback: EditorBuildSettings.scenes 검사
+            var buildScenes = EditorBuildSettings.scenes;
+            if (buildScenes != null)
+            {
+                foreach (var sceneEntry in buildScenes)
+                {
+                    if (sceneEntry != null && sceneEntry.enabled &&
+                        string.Equals(sceneEntry.path, scenePath, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         public static void ApplyPlayModeStartScene()
         {
             if (!IsEnforceIntroEnabled)
@@ -91,12 +152,27 @@ namespace MythOfGuotaji.Editor
                 return;
             }
 
-            SceneAsset introSceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(IntroScenePath);
-            if (introSceneAsset != null)
+            // 현재 열려있는 활성 씬 경로
+            string activeScenePath = EditorSceneManager.GetActiveScene().path;
+
+            // Build Profile / Build Settings의 Scene List에 등록되어 있는 씬일 때만 Intro 강제 시작 적용
+            if (IsSceneInBuildProfileList(activeScenePath))
             {
-                if (EditorSceneManager.playModeStartScene != introSceneAsset)
+                SceneAsset introSceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(IntroScenePath);
+                if (introSceneAsset != null)
                 {
-                    EditorSceneManager.playModeStartScene = introSceneAsset;
+                    if (EditorSceneManager.playModeStartScene != introSceneAsset)
+                    {
+                        EditorSceneManager.playModeStartScene = introSceneAsset;
+                    }
+                }
+            }
+            else
+            {
+                // MonsterTest 등 빌드 목록에 없는 테스트 씬에서는 해당 씬이 그대로 실행되도록 playModeStartScene 해제
+                if (EditorSceneManager.playModeStartScene != null)
+                {
+                    EditorSceneManager.playModeStartScene = null;
                 }
             }
         }

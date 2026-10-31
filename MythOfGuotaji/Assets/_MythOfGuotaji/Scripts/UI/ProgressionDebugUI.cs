@@ -14,7 +14,7 @@ namespace MythOfGuotaji.UI
     public class ProgressionDebugUI : MonoBehaviour
     {
         private PlayerController _player;
-        private bool _showDebugPanel = true;
+        [SerializeField] private bool _showDebugPanel = false; // 기본값 닫힘: F1으로 토글. 닫혀있을 때 OnGUI 가비지 0B 달성
         private List<InRunBoonSO> _pendingBoonChoices = null;
 
         private void Start()
@@ -51,6 +51,12 @@ namespace MythOfGuotaji.UI
 
         private void OnGUI()
         {
+#if UNITY_EDITOR || DEBUG
+            if (!Application.isEditor && !Debug.isDebugBuild) return;
+
+            // 디버그 패널이 꺼져있고 대기 중인 축복 모달이 없으면 즉시 종료하여 4.8KB GC 및 0.8ms IMGUI 부하 완전 제거
+            if (!_showDebugPanel && (_pendingBoonChoices == null || _pendingBoonChoices.Count == 0)) return;
+
             DrawHUD();
 
             if (_pendingBoonChoices != null && _pendingBoonChoices.Count > 0)
@@ -63,6 +69,7 @@ namespace MythOfGuotaji.UI
             {
                 DrawDebugControls();
             }
+#endif
         }
 
         private void DrawHUD()

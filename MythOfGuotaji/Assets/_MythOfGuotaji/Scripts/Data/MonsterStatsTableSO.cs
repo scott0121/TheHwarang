@@ -20,8 +20,11 @@ namespace MythOfGuotaji.Data
         [Tooltip("드롭 확률 (1.0 = 100% 확정 드롭)")]
         [Range(0f, 1f)] public float dropChance = 1.0f;
 
-        [Tooltip("드롭 시 재생할 VFX")]
-        public string dropVFX = "HCFX_Marble_02_Get";
+        [Tooltip("드롭 시 재생할 VFX 프리팹 (GameObject 직접 등록)")]
+        public GameObject dropVfxPrefab;
+
+        [Tooltip("드롭 시 재생할 1회성 사운드 프리팹 (GameObject 직접 등록)")]
+        public GameObject dropSoundPrefab;
     }
 
     /// <summary>
@@ -48,16 +51,28 @@ namespace MythOfGuotaji.Data
         [Tooltip("근접 타격 판정 반경 (m)")]
         public float hitboxRadius = 1.0f;
 
-        [Tooltip("공격 궤적 휘두르기 VFX")]
-        public string attackVFX = "HCFX_Slash_01";
+        [Tooltip("공격 궤적 휘두르기 VFX 프리팹 (GameObject 직접 등록)")]
+        public GameObject attackVfxPrefab;
 
-        [Tooltip("적중 시 피격 충격 VFX")]
-        public string hitVFX = "HCFX_Dust_FloorHit_01";
+        [Tooltip("적중 시 피격 충격 VFX 프리팹 (GameObject 직접 등록)")]
+        public GameObject hitVfxPrefab;
+
+        [Tooltip("공격 시전 1회성 사운드 프리팹 (GameObject 직접 등록)")]
+        public GameObject attackSoundPrefab;
+
+        [Tooltip("공격 적중 1회성 사운드 프리팹 (GameObject 직접 등록)")]
+        public GameObject hitSoundPrefab;
+
+        [Tooltip("전조 장판 형태 (None, StretchBox, SelfCircle, TargetCircle, StretchArc30~210, TargetConnect)")]
+        public string telegraphType = "None";
+
+        [Tooltip("전조 장판 프리팹 (GameObject 직접 등록, None일 경우 비워둠)")]
+        public GameObject telegraphPrefab;
     }
 
     /// <summary>
     /// 통합 몬스터 데이터 엔트리
-    /// - 기본 정보 / Stats / Drop Rewards / Special Drops / Attack Normal / Attack Special
+    /// - 기본 정보 / Stats / Drop Rewards / Special Drops / Attack Normal / Attack Special / VFX & Sound
     /// </summary>
     [Serializable]
     public class MonsterStatEntry
@@ -69,6 +84,8 @@ namespace MythOfGuotaji.Data
         public string category = "Normal"; // Normal, Ranged, Heavy, Elite, Boss
         public float scaleMultiplier = 1.0f;
         public Color tintColor = Color.white;
+        [Tooltip("몬스터 기본 본체 프리팹 (지정 시 이 프리팹을 최우선 스폰)")]
+        public GameObject monsterPrefab;
 
         [Header("2. 스탯 (Stats)")]
         public float maxHp = 40.0f;
@@ -96,8 +113,37 @@ namespace MythOfGuotaji.Data
         [Tooltip("몬스터 스킬 테이블(MonsterSkillTable)에서 지정된 스킬 ID 연결 (e.g. minion_dash, turtle_charge)")]
         public List<string> specialSkillIds = new();
 
+        [Header("7. 피격/사망/상태 VFX (GameObject 직접 등록)")]
+        [Tooltip("몬스터 피격 시 재생할 VFX 프리팹")]
+        public GameObject hitVfxPrefab;
+
+        [Tooltip("방패 도탄/방어 시 재생할 VFX 프리팹")]
+        public GameObject deflectVfxPrefab;
+
+        [Tooltip("보호막/방패 파괴 또는 스턴 시 재생할 VFX 프리팹")]
+        public GameObject guardBreakVfxPrefab;
+
+        [Tooltip("몬스터 사망 시 재생할 VFX 프리팹")]
+        public GameObject deathVfxPrefab;
+
+        [Header("8. 사운드 프리팹 설정 (1회성 종료 시까지 재생 & 루프 사운드 별도 설정)")]
+        [Tooltip("몬스터 스폰 시 1회성 사운드 프리팹 (클립 종료 시까지 재생)")]
+        public GameObject spawnSoundPrefab;
+
+        [Tooltip("몬스터 피격 시 1회성 사운드 프리팹 (클립 종료 시까지 재생)")]
+        public GameObject hitSoundPrefab;
+
+        [Tooltip("몬스터 사망 시 1회성 사운드 프리팹 (클립 종료 시까지 재생)")]
+        public GameObject deathSoundPrefab;
+
+        [Tooltip("이동/상시 루프 사운드 활성화 여부")]
+        public bool enableMoveLoopSound = false;
+
+        [Tooltip("이동/상시 루프 사운드 프리팹 (루프 재생, 정지/사망 시 해제)")]
+        public GameObject moveLoopSoundPrefab;
+
         // ==========================================
-        // 하위 호환성 프로퍼티 및 필드 (기존 코드 100% 호환)
+        // 하위 호환성 프로퍼티 및 필드
         // ==========================================
         public float attackDamage
         {
@@ -109,26 +155,11 @@ namespace MythOfGuotaji.Data
         {
             get
             {
-                // [기획 규칙] 몬스터별 실제 스킬 발동/교전 사거리 보장
-                return type switch
+                if (normalAttack != null && normalAttack.attackRange > 0f)
                 {
-                    MonsterType.Minion => 5.0f,
-                    MonsterType.Minion_Archer => 15.0f,
-                    MonsterType.Minion_BigMon => 20.0f,
-                    MonsterType.Minion_Zhu => 20.0f,
-                    MonsterType.Elite => 3.0f,
-                    MonsterType.FoxBoss => 3.5f,
-                    MonsterType.Dokkaebi_Fire => 14.0f,
-                    MonsterType.Boar_Charger => 15.0f,
-                    MonsterType.Spider_Tether => 12.0f,
-                    MonsterType.Mud_Slime => 9.0f,
-                    MonsterType.Phantom_Fox => 6.0f,
-                    MonsterType.Iron_Shield => 3.5f,
-                    MonsterType.Energy_Absorber => 3.0f,
-                    MonsterType.Bomb_Sparrow => 8.0f,
-                    MonsterType.Totem_Turret => 16.0f,
-                    _ => normalAttack != null ? normalAttack.attackRange : 2f
-                };
+                    return normalAttack.attackRange;
+                }
+                return GetDefaultAttackRange(type);
             }
             set { if (normalAttack != null) normalAttack.attackRange = value; }
         }
@@ -137,28 +168,77 @@ namespace MythOfGuotaji.Data
         {
             get
             {
-                // [기획 규칙] 몬스터별 패턴 쿨다운 보장
-                return type switch
+                if (normalAttack != null && normalAttack.attackCooldown > 0f)
                 {
-                    MonsterType.Minion => 1.0f,
-                    MonsterType.Minion_Archer => 0.7f,
-                    MonsterType.Minion_BigMon => 3.5f,
-                    MonsterType.Minion_Zhu => 3.0f,
-                    MonsterType.Elite => 1.8f,
-                    MonsterType.FoxBoss => 1.2f,
-                    MonsterType.Dokkaebi_Fire => 2.5f,
-                    MonsterType.Boar_Charger => 3.0f,
-                    MonsterType.Spider_Tether => 4.5f,
-                    MonsterType.Mud_Slime => 5.0f,
-                    MonsterType.Phantom_Fox => 2.0f,
-                    MonsterType.Iron_Shield => 2.0f,
-                    MonsterType.Energy_Absorber => 1.5f,
-                    MonsterType.Bomb_Sparrow => 1.0f,
-                    MonsterType.Totem_Turret => 1.0f,
-                    _ => normalAttack != null ? normalAttack.attackCooldown : 1.2f
-                };
+                    return normalAttack.attackCooldown;
+                }
+                return GetDefaultAttackCooldown(type);
             }
             set { if (normalAttack != null) normalAttack.attackCooldown = value; }
+        }
+
+        public float windupTime
+        {
+            get => normalAttack != null ? normalAttack.windupTime : 0.2f;
+            set { if (normalAttack != null) normalAttack.windupTime = value; }
+        }
+
+        public float recoveryTime
+        {
+            get => normalAttack != null ? normalAttack.recoveryTime : (postAttackDelay > 0f ? postAttackDelay : 0.2f);
+            set { if (normalAttack != null) normalAttack.recoveryTime = value; postAttackDelay = value; }
+        }
+
+        public float hitboxRadius
+        {
+            get => normalAttack != null ? normalAttack.hitboxRadius : 1.0f;
+            set { if (normalAttack != null) normalAttack.hitboxRadius = value; }
+        }
+
+        public static float GetDefaultAttackRange(MonsterType type)
+        {
+            return type switch
+            {
+                MonsterType.Minion => 5.0f,
+                MonsterType.Minion_Archer => 15.0f,
+                MonsterType.Minion_BigMon => 20.0f,
+                MonsterType.Minion_Zhu => 20.0f,
+                MonsterType.Elite => 3.0f,
+                MonsterType.FoxBoss => 3.5f,
+                MonsterType.Dokkaebi_Fire => 14.0f,
+                MonsterType.Boar_Charger => 15.0f,
+                MonsterType.Spider_Tether => 12.0f,
+                MonsterType.Mud_Slime => 9.0f,
+                MonsterType.Phantom_Fox => 6.0f,
+                MonsterType.Iron_Shield => 3.5f,
+                MonsterType.Energy_Absorber => 3.0f,
+                MonsterType.Bomb_Sparrow => 8.0f,
+                MonsterType.Totem_Turret => 16.0f,
+                _ => 2f
+            };
+        }
+
+        public static float GetDefaultAttackCooldown(MonsterType type)
+        {
+            return type switch
+            {
+                MonsterType.Minion => 1.0f,
+                MonsterType.Minion_Archer => 0.7f,
+                MonsterType.Minion_BigMon => 3.5f,
+                MonsterType.Minion_Zhu => 3.0f,
+                MonsterType.Elite => 1.8f,
+                MonsterType.FoxBoss => 1.2f,
+                MonsterType.Dokkaebi_Fire => 2.5f,
+                MonsterType.Boar_Charger => 3.0f,
+                MonsterType.Spider_Tether => 4.5f,
+                MonsterType.Mud_Slime => 5.0f,
+                MonsterType.Phantom_Fox => 2.0f,
+                MonsterType.Iron_Shield => 2.0f,
+                MonsterType.Energy_Absorber => 1.5f,
+                MonsterType.Bomb_Sparrow => 1.0f,
+                MonsterType.Totem_Turret => 1.0f,
+                _ => 1.2f
+            };
         }
 
         public bool dropsBossKey
@@ -182,17 +262,11 @@ namespace MythOfGuotaji.Data
         }
 
         // 기존 필드 하위 호환
-        [Header("투사체 및 패링 설정")]
-        [Tooltip("몬스터 발사 투사체의 패링 분류 (Normal: 기본 푸른/초록 패링가능, Enhanced: 강화 황금색 패링가능 2배데미지, Unparryable: 패링불가 붉은색)")]
-        public Combat.ProjectileParryType projectileParryType = Combat.ProjectileParryType.Normal;
-        public float projectileSpeed = 6.0f;
         public float kiteDistance = 0.0f;
         public float knockbackPower = 2.0f;
         public float telegraphDuration = 0.4f;
         public float specialAttackRadius = 2.5f;
         public float specialAttackAngle = 90.0f;
-        public float flightDuration = 1.8f;
-        public float arcHeight = 6.0f;
         public float postAttackDelay = 0.2f;
         public float dashDistance = 5.0f;
         public float dashWidth = 0.5f;
@@ -205,6 +279,31 @@ namespace MythOfGuotaji.Data
     [CreateAssetMenu(fileName = "MonsterStatsTable", menuName = "MythOfGuotaji/Tables/MonsterStatsTable")]
     public class MonsterStatsTableSO : ScriptableObject
     {
+        [Header("몬스터 간 충돌/밀어내기/마찰 전역 물리 설정 (테스트 및 밸런싱용)")]
+        [Tooltip("돌진 등 스킬로 이동 시 문/벽/패링/플레이어 외 다른 몬스터와의 충돌을 완전히 무시합니다.")]
+        public bool ignoreMonsterCollisionDuringSkillDash = true;
+
+        [Tooltip("몬스터끼리 겹치거나 비빌 때 발생하는 접선 마찰 계수 (0 = 무마찰로 매끄럽게 미끄러짐, 1 = 정지 마찰)")]
+        [Range(0f, 1f)]
+        public float monsterCollisionFriction = 0.02f;
+
+        [Tooltip("몬스터끼리 겹쳤을 때 서로 밀어내는 단단함(탄성 강도) (높을수록 단단하게 즉시 밀어냄)")]
+        [Range(1f, 40f)]
+        public float monsterSeparationPushStiffness = 14.0f;
+
+        [Tooltip("한 지점에 동시에 스폰되거나 정지 상태에서 겹쳤을 때 자연스럽게 미끄러져 퍼지는 최대 속도 (m/s)")]
+        [Range(1f, 30f)]
+        public float monsterSpawnOverlapSlideSpeed = 10.0f;
+
+        [Tooltip("기본 이동 시 앞을 가로막은 다른 몬스터를 돌아서 미끄러져 나가는 우회 가중치")]
+        [Range(0f, 3f)]
+        public float monsterDetourSlideWeight = 1.15f;
+
+        [Tooltip("separationRadius 대비 단단한 몸체 반경 비율 (이 반경 안으로 겹치면 강한 반발력으로 밀어냄)")]
+        [Range(0.3f, 1.2f)]
+        public float monsterBodyRadiusRatio = 0.85f;
+
+        [Header("몬스터 엔트리 목록")]
         public List<MonsterStatEntry> entries = new();
 
         public MonsterStatEntry GetStat(MonsterType type)
@@ -213,6 +312,16 @@ namespace MythOfGuotaji.Data
             if (found != null) return found;
 
             return GetDefaultStat(type);
+        }
+
+        public GameObject GetMonsterPrefab(MonsterType type)
+        {
+            var stat = GetStat(type);
+            if (stat != null && stat.monsterPrefab != null)
+            {
+                return stat.monsterPrefab;
+            }
+            return null;
         }
 
         public static MonsterStatEntry GetDefaultStat(MonsterType type)
@@ -239,11 +348,10 @@ namespace MythOfGuotaji.Data
                     heartHealAmount = 5.0f,
                     normalAttack = new NormalAttackInfo
                     {
-                        attackRange = 1.8f,
+                        attackRange = 5.0f,
                         attackDamage = 6.0f,
                         attackCooldown = 1.0f,
-                        hitboxRadius = 0.8f,
-                        attackVFX = "HCFX_Slash_01"
+                        hitboxRadius = 0.8f
                     },
                     specialSkillIds = new List<string> { "minion_dash" },
                     dashDistance = 5.0f,
@@ -271,14 +379,12 @@ namespace MythOfGuotaji.Data
                     heartHealAmount = 5.0f,
                     normalAttack = new NormalAttackInfo
                     {
-                        attackRange = 8.5f,
+                        attackRange = 20.0f,
                         attackDamage = 10.0f,
                         attackCooldown = 3.0f,
                         hitboxRadius = 1.2f
                     },
                     specialSkillIds = new List<string> { "zhu_parabolic" },
-                    flightDuration = 2.0f,
-                    arcHeight = 6.0f,
                     specialAttackRadius = 2.5f,
                     postAttackDelay = 0.3f,
                     telegraphDuration = 0.5f
@@ -303,9 +409,9 @@ namespace MythOfGuotaji.Data
                     heartHealAmount = 8.0f,
                     normalAttack = new NormalAttackInfo
                     {
-                        attackRange = 2.2f,
+                        attackRange = 20.0f,
                         attackDamage = 14.0f,
-                        attackCooldown = 2.0f,
+                        attackCooldown = 3.5f,
                         hitboxRadius = 1.4f
                     },
                     specialSkillIds = new List<string> { "turtle_charge" },
@@ -335,13 +441,12 @@ namespace MythOfGuotaji.Data
                     heartHealAmount = 5.0f,
                     normalAttack = new NormalAttackInfo
                     {
-                        attackRange = 7.0f,
+                        attackRange = 15.0f,
                         attackDamage = 7.0f,
-                        attackCooldown = 1.8f,
+                        attackCooldown = 0.7f,
                         hitboxRadius = 0.6f
                     },
                     specialSkillIds = new List<string> { "toxic_spit" },
-                    projectileSpeed = 6.0f,
                     kiteDistance = 6.0f,
                     telegraphDuration = 0.3f
                 },
@@ -369,17 +474,15 @@ namespace MythOfGuotaji.Data
                         {
                             itemId = "BossKey",
                             itemName = "보스방 황금 열쇠",
-                            dropChance = 1.0f,
-                            dropVFX = "HCFX_Marble_02_Get"
+                            dropChance = 1.0f
                         }
                     },
                     normalAttack = new NormalAttackInfo
                     {
-                        attackRange = 2.8f,
+                        attackRange = 3.0f,
                         attackDamage = 16.0f,
-                        attackCooldown = 1.5f,
-                        hitboxRadius = 1.6f,
-                        attackVFX = "HCFX_Slash_01"
+                        attackCooldown = 1.8f,
+                        hitboxRadius = 1.6f
                     },
                     specialSkillIds = new List<string> { "elite_boulder" }
                 },
@@ -403,11 +506,10 @@ namespace MythOfGuotaji.Data
                     heartHealAmount = 30.0f,
                     normalAttack = new NormalAttackInfo
                     {
-                        attackRange = 3.2f,
+                        attackRange = 3.5f,
                         attackDamage = 24.0f,
-                        attackCooldown = 1.8f,
-                        hitboxRadius = 2.0f,
-                        attackVFX = "HCFX_Slash_01"
+                        attackCooldown = 1.2f,
+                        hitboxRadius = 2.0f
                     },
                     specialSkillIds = new List<string> { "boss_vacuum", "boss_cleave" }
                 },
@@ -434,11 +536,9 @@ namespace MythOfGuotaji.Data
                         attackRange = 14.0f,
                         attackDamage = 10.0f,
                         attackCooldown = 2.5f,
-                        hitboxRadius = 0.8f,
-                        attackVFX = "HCFX_ElementOrb_02"
+                        hitboxRadius = 0.8f
                     },
                     specialSkillIds = new List<string> { "dokkaebi_fireball" },
-                    projectileSpeed = 5.0f,
                     kiteDistance = 5.0f
                 },
                 MonsterType.Boar_Charger => new MonsterStatEntry
@@ -464,8 +564,7 @@ namespace MythOfGuotaji.Data
                         attackRange = 15.0f,
                         attackDamage = 16.0f,
                         attackCooldown = 3.0f,
-                        hitboxRadius = 1.2f,
-                        attackVFX = "HCFX_Dust_Dash_01"
+                        hitboxRadius = 1.2f
                     },
                     specialSkillIds = new List<string> { "boar_charge" },
                     dashDistance = 15.0f,
@@ -496,8 +595,7 @@ namespace MythOfGuotaji.Data
                         attackRange = 12.0f,
                         attackDamage = 8.0f,
                         attackCooldown = 4.5f,
-                        hitboxRadius = 1.0f,
-                        attackVFX = "HCFX_Poison_02"
+                        hitboxRadius = 1.0f
                     },
                     specialSkillIds = new List<string> { "spider_web_tether" }
                 },
@@ -524,8 +622,7 @@ namespace MythOfGuotaji.Data
                         attackRange = 9.0f,
                         attackDamage = 6.0f,
                         attackCooldown = 5.0f,
-                        hitboxRadius = 1.2f,
-                        attackVFX = "HCFX_Poison_01"
+                        hitboxRadius = 1.2f
                     },
                     specialSkillIds = new List<string> { "mud_puddle" }
                 },
@@ -552,8 +649,7 @@ namespace MythOfGuotaji.Data
                         attackRange = 6.0f,
                         attackDamage = 8.0f,
                         attackCooldown = 2.0f,
-                        hitboxRadius = 0.8f,
-                        attackVFX = "HCFX_Slash_01"
+                        hitboxRadius = 0.8f
                     },
                     specialSkillIds = new List<string> { "phantom_decoy" }
                 },
@@ -580,8 +676,7 @@ namespace MythOfGuotaji.Data
                         attackRange = 3.5f,
                         attackDamage = 14.0f,
                         attackCooldown = 2.0f,
-                        hitboxRadius = 1.2f,
-                        attackVFX = "HCFX_Hit_01"
+                        hitboxRadius = 1.2f
                     },
                     specialSkillIds = new List<string> { "iron_shield_stance" }
                 },
@@ -608,8 +703,7 @@ namespace MythOfGuotaji.Data
                         attackRange = 3.0f,
                         attackDamage = 10.0f,
                         attackCooldown = 1.5f,
-                        hitboxRadius = 1.0f,
-                        attackVFX = "HCFX_Energy_01"
+                        hitboxRadius = 1.0f
                     },
                     specialSkillIds = new List<string> { "energy_absorb" }
                 },
@@ -636,8 +730,7 @@ namespace MythOfGuotaji.Data
                         attackRange = 8.0f,
                         attackDamage = 18.0f,
                         attackCooldown = 1.0f,
-                        hitboxRadius = 1.0f,
-                        attackVFX = "HCFX_Explosion_02"
+                        hitboxRadius = 1.0f
                     },
                     specialSkillIds = new List<string> { "sparrow_kamikaze" },
                     dashDistance = 8.0f,
@@ -662,14 +755,12 @@ namespace MythOfGuotaji.Data
                     affinityReward = 4,
                     heartDropChance = 0.5f,
                     heartHealAmount = 12.0f,
-                    projectileParryType = Combat.ProjectileParryType.Enhanced, // [강화 투사체]: 황금색, 패링 시 2배 데미지
                     normalAttack = new NormalAttackInfo
                     {
                         attackRange = 16.0f,
                         attackDamage = 8.0f,
                         attackCooldown = 1.0f,
-                        hitboxRadius = 1.0f,
-                        attackVFX = "HCFX_MagicCircle_02"
+                        hitboxRadius = 1.0f
                     },
                     specialSkillIds = new List<string> { "totem_turret_barrage" }
                 },

@@ -45,6 +45,7 @@ namespace MythOfGuotaji.Actor
         private GameObject _vacuumRingObj;
         private GameObject _skillOrbVisual;
         private float _lastGemScanTime = 0f;
+        private GameObject _currentAuraObj;
 
         public HelperState CurrentState => _currentState;
         public string DisplayName => _displayName;
@@ -97,14 +98,35 @@ namespace MythOfGuotaji.Actor
         public void ApplyConfig(HelperDataSO data)
         {
             if (data == null) return;
-            _helperId = data.helperId;
-            _displayName = data.displayName;
-            _moveSpeed = data.moveSpeed;
-            _fleeSpeed = data.fleeSpeed;
-            _vacuumRadius = data.vacuumRadius;
-            _gemSafetyRadius = data.gemSafetyRadius;
-            _helperFleeDistance = data.fleeDistance;
-            transform.localScale = Vector3.one * data.scale;
+            var entry = data.GetHelper(_helperId);
+            if (entry != null)
+            {
+                ApplyConfig(entry);
+            }
+        }
+
+        public void ApplyConfig(HelperEntry entry)
+        {
+            if (entry == null) return;
+            _helperId = entry.helperId;
+            _displayName = entry.displayName;
+            _moveSpeed = entry.moveSpeed;
+            _fleeSpeed = entry.fleeSpeed;
+            _vacuumRadius = entry.vacuumRadius;
+            _gemSafetyRadius = entry.gemSafetyRadius;
+            _helperFleeDistance = entry.fleeDistance;
+            transform.localScale = Vector3.one * entry.scale;
+
+            // 아우라 프리팹 생성 및 연결
+            if (entry.auraPrefab != null)
+            {
+                if (_currentAuraObj != null)
+                {
+                    Destroy(_currentAuraObj);
+                }
+                _currentAuraObj = Instantiate(entry.auraPrefab, transform.position, Quaternion.identity, transform);
+                _currentAuraObj.name = "Helper_Aura";
+            }
         }
 
         private void FindPlayer()
@@ -466,10 +488,14 @@ namespace MythOfGuotaji.Actor
             var rend = body.GetComponent<Renderer>();
             if (rend != null)
             {
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-                mat.color = new Color(0.92f, 0.95f, 1.0f); // 달빛 은백색
-                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", new Color(0.92f, 0.95f, 1.0f));
-                rend.material = mat;
+                var shader = ExpGem.ResolveSafeShader("Universal Render Pipeline/Lit", "Universal Render Pipeline/Unlit", "Sprites/Default", "Standard");
+                var mat = shader != null ? new Material(shader) : (rend.sharedMaterial != null ? new Material(rend.sharedMaterial) : null);
+                if (mat != null)
+                {
+                    mat.color = new Color(0.92f, 0.95f, 1.0f); // 달빛 은백색
+                    if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", new Color(0.92f, 0.95f, 1.0f));
+                    rend.material = mat;
+                }
             }
 
             // 2. 귀/뿔 장식 (토끼/도깨비 귀 2개)
@@ -494,9 +520,13 @@ namespace MythOfGuotaji.Actor
                 var orbRend = _skillOrbVisual.GetComponent<Renderer>();
                 if (orbRend != null)
                 {
-                    var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
-                    mat.color = new Color(1f, 0.85f, 0.2f, 0.95f); // 찬란한 황금빛
-                    orbRend.material = mat;
+                    var shader = ExpGem.ResolveSafeShader("Universal Render Pipeline/Unlit", "Universal Render Pipeline/Lit", "Sprites/Default", "Unlit/Color");
+                    var mat = shader != null ? new Material(shader) : (orbRend.sharedMaterial != null ? new Material(orbRend.sharedMaterial) : null);
+                    if (mat != null)
+                    {
+                        mat.color = new Color(1f, 0.85f, 0.2f, 0.95f); // 찬란한 황금빛
+                        orbRend.material = mat;
+                    }
                 }
                 _skillOrbVisual.SetActive(false);
             }
@@ -515,9 +545,13 @@ namespace MythOfGuotaji.Actor
             var r = ear.GetComponent<Renderer>();
             if (r != null)
             {
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-                mat.color = new Color(0.98f, 0.88f, 0.92f); // 연분홍 귓바퀴
-                r.material = mat;
+                var shader = ExpGem.ResolveSafeShader("Universal Render Pipeline/Lit", "Universal Render Pipeline/Unlit", "Sprites/Default", "Standard");
+                var mat = shader != null ? new Material(shader) : (r.sharedMaterial != null ? new Material(r.sharedMaterial) : null);
+                if (mat != null)
+                {
+                    mat.color = new Color(0.98f, 0.88f, 0.92f); // 연분홍 귓바퀴
+                    r.material = mat;
+                }
             }
         }
 
@@ -533,9 +567,13 @@ namespace MythOfGuotaji.Actor
             var r = eye.GetComponent<Renderer>();
             if (r != null)
             {
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
-                mat.color = new Color(0.1f, 0.4f, 0.9f); // 푸른 영혼의 눈
-                r.material = mat;
+                var shader = ExpGem.ResolveSafeShader("Universal Render Pipeline/Unlit", "Universal Render Pipeline/Lit", "Sprites/Default", "Unlit/Color");
+                var mat = shader != null ? new Material(shader) : (r.sharedMaterial != null ? new Material(r.sharedMaterial) : null);
+                if (mat != null)
+                {
+                    mat.color = new Color(0.1f, 0.4f, 0.9f); // 푸른 영혼의 눈
+                    r.material = mat;
+                }
             }
         }
 
@@ -563,9 +601,13 @@ namespace MythOfGuotaji.Actor
 
             mf.sharedMesh = CreateFlatRingMesh(_vacuumRadius - 0.1f, _vacuumRadius, 36);
 
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
-            mat.color = new Color(0.15f, 0.9f, 0.8f, 0.45f); // 은은한 청록색 진공 흡수 링
-            mr.material = mat;
+            var shader = ExpGem.ResolveSafeShader("Universal Render Pipeline/Unlit", "Universal Render Pipeline/Lit", "Sprites/Default", "Unlit/Color");
+            var mat = shader != null ? new Material(shader) : (mr.sharedMaterial != null ? new Material(mr.sharedMaterial) : null);
+            if (mat != null)
+            {
+                mat.color = new Color(0.15f, 0.9f, 0.8f, 0.45f); // 은은한 청록색 진공 흡수 링
+                mr.material = mat;
+            }
         }
 
         private static Mesh CreateFlatRingMesh(float innerRadius, float outerRadius, int segments)
@@ -605,6 +647,8 @@ namespace MythOfGuotaji.Actor
             return mesh;
         }
 
+        private static GUIStyle s_helperStatusStyle;
+
         private void OnGUI()
         {
             // 헬퍼 머리 위 상태 표시
@@ -626,14 +670,17 @@ namespace MythOfGuotaji.Actor
                 _ => ""
             };
 
-            var style = new GUIStyle(GUI.skin.label)
+            if (s_helperStatusStyle == null)
             {
-                alignment = TextAnchor.MiddleCenter,
-                fontSize = 12,
-                fontStyle = FontStyle.Bold
-            };
+                s_helperStatusStyle = new GUIStyle(GUI.skin.label)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = 12,
+                    fontStyle = FontStyle.Bold
+                };
+            }
 
-            GUI.Label(new Rect(x, y, 140, 24), $"{statusText}", style);
+            GUI.Label(new Rect(x, y, 140, 24), statusText, s_helperStatusStyle);
         }
     }
 }

@@ -27,10 +27,11 @@ namespace MythOfGuotaji.Editor
             ExportPlayerStats();
             ExportWeaponStats();
             ExportMonsterStats();
+            ExportMonsterSkills();
             ExportDungeonConfig();
 
             AssetDatabase.Refresh();
-            Debug.Log("<color=green>[DataSheetManager] 모든 테이블을 CSV 시트(Assets/_MythOfGuotaji/DataSheets/)로 내보냈습니다.</color>");
+            Debug.Log("<color=green>[DataSheetManager] 모든 테이블(Player, Weapon, MonsterStats, MonsterSkills, DungeonConfig)을 CSV 시트(Assets/_MythOfGuotaji/DataSheets/)로 내보냈습니다.</color>");
         }
 
         [MenuItem("MythOfGuotaji/Data/Import All CSV Sheets to Tables")]
@@ -41,6 +42,7 @@ namespace MythOfGuotaji.Editor
             ImportPlayerStats();
             ImportWeaponStats();
             ImportMonsterStats();
+            ImportMonsterSkills();
             ImportDungeonConfig();
 
             AssetDatabase.SaveAssets();
@@ -175,15 +177,19 @@ namespace MythOfGuotaji.Editor
             }
 
             var sb = new StringBuilder();
-            sb.AppendLine("Type,DisplayName,MaxHp,MoveSpeed,AttackDamage,AttackRange,AttackCooldown,SeparationRadius,DropsBossKey,AffinityReward,GoldReward,ScaleMultiplier,ColorHex");
+            sb.AppendLine("Type,DisplayName,MaxHp,MoveSpeed,AttackDamage,AttackRange,AttackCooldown,SeparationRadius,DropsBossKey,AffinityReward,GoldReward,ScaleMultiplier,ColorHex,Defense,DashDistance,DashDuration,DashWidth,KiteDistance,SpecialSkillIds");
 
             foreach (var e in table.entries)
             {
                 string colHex = ColorUtility.ToHtmlStringRGBA(e.tintColor);
+                string skillIds = e.specialSkillIds != null && e.specialSkillIds.Count > 0
+                    ? string.Join(";", e.specialSkillIds)
+                    : "";
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture,
-                    "{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},#{12}",
+                    "{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},#{12},{13},{14},{15},{16},{17},{18}",
                     e.type, e.displayName, e.maxHp, e.moveSpeed, e.attackDamage, e.attackRange, e.attackCooldown,
-                    e.separationRadius, e.dropsBossKey, e.affinityReward, e.goldReward, e.scaleMultiplier, colHex));
+                    e.separationRadius, e.dropsBossKey, e.affinityReward, e.goldReward, e.scaleMultiplier, colHex,
+                    e.defense, e.dashDistance, e.dashDuration, e.dashWidth, e.kiteDistance, skillIds));
             }
 
             File.WriteAllText($"{SheetDirectory}/MonsterStats.csv", sb.ToString(), Encoding.UTF8);
@@ -232,6 +238,133 @@ namespace MythOfGuotaji.Editor
                 {
                     entry.tintColor = col;
                 }
+
+                if (cols.Length >= 19)
+                {
+                    entry.defense = float.Parse(cols[13], CultureInfo.InvariantCulture);
+                    entry.dashDistance = float.Parse(cols[14], CultureInfo.InvariantCulture);
+                    entry.dashDuration = float.Parse(cols[15], CultureInfo.InvariantCulture);
+                    entry.dashWidth = float.Parse(cols[16], CultureInfo.InvariantCulture);
+                    if (cols.Length >= 20)
+                    {
+                        // 구버전 20개 열 호환: cols[17]이 projectileSpeed, cols[18]이 kiteDistance, cols[19]가 specialSkillIds인 경우
+                        if (float.TryParse(cols[17], NumberStyles.Float, CultureInfo.InvariantCulture, out _) &&
+                            float.TryParse(cols[18], NumberStyles.Float, CultureInfo.InvariantCulture, out var legacyKite))
+                        {
+                            entry.kiteDistance = legacyKite;
+                            if (!string.IsNullOrWhiteSpace(cols[19]))
+                            {
+                                entry.specialSkillIds = new List<string>(cols[19].Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries));
+                            }
+                        }
+                        else
+                        {
+                            entry.kiteDistance = float.Parse(cols[17], CultureInfo.InvariantCulture);
+                            if (!string.IsNullOrWhiteSpace(cols[18]))
+                            {
+                                entry.specialSkillIds = new List<string>(cols[18].Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // 신버전 19개 열: cols[17]이 kiteDistance, cols[18]이 specialSkillIds
+                        entry.kiteDistance = float.Parse(cols[17], CultureInfo.InvariantCulture);
+                        if (!string.IsNullOrWhiteSpace(cols[18]))
+                        {
+                            entry.specialSkillIds = new List<string>(cols[18].Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries));
+                        }
+                    }
+                }
+            }
+
+            EditorUtility.SetDirty(table);
+        }
+        #endregion
+
+        #region Monster Skills
+        private static void ExportMonsterSkills()
+        {
+            var table = LoadOrCreateAsset<MonsterSkillTableSO>($"{DataDirectory}/MonsterSkillTable.asset");
+            if (table.skills == null || table.skills.Count == 0)
+            {
+                table.PopulateDefaults();
+                EditorUtility.SetDirty(table);
+            }
+
+            var sb = new StringBuilder();
+            sb.AppendLine("SkillId,SkillName,SkillType,MinRange,MaxRange,DamageMultiplier,FixedDamage,Cooldown,KnockbackPower,TelegraphDuration,TelegraphShape,AoeRadius,AoeAngle,PostAttackDelay,DashDistance,DashSpeed,DashDuration,DashWidth,ProjectileSpeed,FlightDuration,ArcHeight,ProjectileCount,SpreadAngle,PierceCount,ProjectileParryType");
+
+            foreach (var s in table.skills)
+            {
+                if (s == null) continue;
+                string safeName = (s.skillName ?? "").Replace(",", " ");
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture,
+                    "{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15},{16},{17},{18},{19},{20},{21},{22},{23},{24}",
+                    s.skillId, safeName, s.skillType, s.minRange, s.maxRange, s.damageMultiplier, s.fixedDamage,
+                    s.cooldown, s.knockbackPower, s.telegraphDuration, s.telegraphShape, s.aoeRadius, s.aoeAngle,
+                    s.postAttackDelay, s.dashDistance, s.dashSpeed, s.dashDuration, s.dashWidth,
+                    s.projectileSpeed, s.flightDuration, s.arcHeight, s.projectileCount, s.spreadAngle,
+                    s.pierceCount, s.projectileParryType));
+            }
+
+            File.WriteAllText($"{SheetDirectory}/MonsterSkills.csv", sb.ToString(), Encoding.UTF8);
+        }
+
+        private static void ImportMonsterSkills()
+        {
+            string path = $"{SheetDirectory}/MonsterSkills.csv";
+            if (!File.Exists(path)) return;
+
+            var lines = File.ReadAllLines(path);
+            if (lines.Length < 2) return;
+
+            var table = LoadOrCreateAsset<MonsterSkillTableSO>($"{DataDirectory}/MonsterSkillTable.asset");
+            if (table.skills == null || table.skills.Count == 0)
+            {
+                table.PopulateDefaults();
+            }
+
+            for (int i = 1; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                var cols = lines[i].Split(',');
+                if (cols.Length < 25) continue;
+
+                string skillId = cols[0].Trim();
+                if (string.IsNullOrEmpty(skillId)) continue;
+
+                var entry = table.skills.Find(s => s != null && s.skillId == skillId);
+                if (entry == null)
+                {
+                    entry = MonsterSkillTableSO.GetDefaultSkill(skillId);
+                    table.skills.Add(entry);
+                }
+
+                entry.skillName = cols[1];
+                if (Enum.TryParse<MonsterSkillType>(cols[2], out var sType)) entry.skillType = sType;
+                entry.minRange = float.Parse(cols[3], CultureInfo.InvariantCulture);
+                entry.maxRange = float.Parse(cols[4], CultureInfo.InvariantCulture);
+                entry.damageMultiplier = float.Parse(cols[5], CultureInfo.InvariantCulture);
+                entry.fixedDamage = float.Parse(cols[6], CultureInfo.InvariantCulture);
+                entry.cooldown = float.Parse(cols[7], CultureInfo.InvariantCulture);
+                entry.knockbackPower = float.Parse(cols[8], CultureInfo.InvariantCulture);
+                entry.telegraphDuration = float.Parse(cols[9], CultureInfo.InvariantCulture);
+                entry.telegraphShape = cols[10];
+                entry.aoeRadius = float.Parse(cols[11], CultureInfo.InvariantCulture);
+                entry.aoeAngle = float.Parse(cols[12], CultureInfo.InvariantCulture);
+                entry.postAttackDelay = float.Parse(cols[13], CultureInfo.InvariantCulture);
+                entry.dashDistance = float.Parse(cols[14], CultureInfo.InvariantCulture);
+                entry.dashSpeed = float.Parse(cols[15], CultureInfo.InvariantCulture);
+                entry.dashDuration = float.Parse(cols[16], CultureInfo.InvariantCulture);
+                entry.dashWidth = float.Parse(cols[17], CultureInfo.InvariantCulture);
+                entry.projectileSpeed = float.Parse(cols[18], CultureInfo.InvariantCulture);
+                entry.flightDuration = float.Parse(cols[19], CultureInfo.InvariantCulture);
+                entry.arcHeight = float.Parse(cols[20], CultureInfo.InvariantCulture);
+                entry.projectileCount = int.Parse(cols[21], CultureInfo.InvariantCulture);
+                entry.spreadAngle = float.Parse(cols[22], CultureInfo.InvariantCulture);
+                entry.pierceCount = int.Parse(cols[23], CultureInfo.InvariantCulture);
+                if (Enum.TryParse<Combat.ProjectileParryType>(cols[24], out var pType)) entry.projectileParryType = pType;
             }
 
             EditorUtility.SetDirty(table);

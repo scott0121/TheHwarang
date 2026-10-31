@@ -17,9 +17,9 @@ namespace MythOfGuotaji.Data
         [SerializeField] private WeaponStatsTableSO _weaponStatsTable;
         [SerializeField] private MonsterStatsTableSO _monsterStatsTable;
         [SerializeField] private MonsterSkillTableSO _monsterSkillTable;
-        [SerializeField] private MonsterSkillVFXTableSO _monsterSkillVFXTable;
         [SerializeField] private DungeonConfigTableSO _dungeonConfigTable;
         [SerializeField] private DungeonStageTableSO _dungeonStageTable;
+        [SerializeField] private DungeonMonsterTableSO _dungeonMonsterTable;
         [SerializeField] private MapSkinTableSO _mapSkinTable;
         [SerializeField] private HelperDataSO _helperData;
         [SerializeField] private InRunBoonTableSO _inRunBoonTable;
@@ -30,9 +30,9 @@ namespace MythOfGuotaji.Data
         public WeaponStatsTableSO WeaponStats => _weaponStatsTable;
         public MonsterStatsTableSO MonsterStats => _monsterStatsTable;
         public MonsterSkillTableSO MonsterSkills => _monsterSkillTable;
-        public MonsterSkillVFXTableSO MonsterSkillVFX => _monsterSkillVFXTable;
         public DungeonConfigTableSO DungeonConfig => _dungeonConfigTable;
         public DungeonStageTableSO DungeonStages => _dungeonStageTable;
+        public DungeonMonsterTableSO DungeonMonsters => _dungeonMonsterTable;
         public MapSkinTableSO MapSkinTable => _mapSkinTable;
         public HelperDataSO HelperData => _helperData;
         public InRunBoonTableSO InRunBoonTable => _inRunBoonTable;
@@ -73,10 +73,6 @@ namespace MythOfGuotaji.Data
             {
                 _monsterSkillTable = Resources.Load<MonsterSkillTableSO>("Data/MonsterSkillTable");
             }
-            if (_monsterSkillVFXTable == null)
-            {
-                _monsterSkillVFXTable = Resources.Load<MonsterSkillVFXTableSO>("Data/MonsterSkillVFXTable");
-            }
             if (_dungeonConfigTable == null)
             {
                 _dungeonConfigTable = Resources.Load<DungeonConfigTableSO>("Data/DungeonConfigTable");
@@ -84,6 +80,10 @@ namespace MythOfGuotaji.Data
             if (_dungeonStageTable == null)
             {
                 _dungeonStageTable = Resources.Load<DungeonStageTableSO>("Data/DungeonStageTable");
+            }
+            if (_dungeonMonsterTable == null)
+            {
+                _dungeonMonsterTable = Resources.Load<DungeonMonsterTableSO>("Data/DungeonMonsterTable");
             }
             if (_mapSkinTable == null)
             {
@@ -101,6 +101,17 @@ namespace MythOfGuotaji.Data
             {
                 _boonRarityTable = Resources.Load<BoonRarityTableSO>("Data/BoonRarityTable");
             }
+        }
+
+        /// <summary>
+        /// 런타임에 몬스터 스텟 및 스킬 테이블을 다시 로드하고 활성화된 모든 몬스터에 실시간 적용
+        /// </summary>
+        public void ReloadMonsterTables()
+        {
+            _monsterStatsTable = Resources.Load<MonsterStatsTableSO>("Data/MonsterStatsTable");
+            _monsterSkillTable = Resources.Load<MonsterSkillTableSO>("Data/MonsterSkillTable");
+            Debug.Log("[GameDataManager] 몬스터 테이블 (Stats & Skills) 리로드 완료. 활성 몬스터들에게 실시간 적용합니다.");
+            Actor.MonsterAI.ReloadAllMonsterData();
         }
     }
 }

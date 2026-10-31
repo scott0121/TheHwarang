@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using MythOfGuotaji.Core;
 using MythOfGuotaji.Data;
 using UnityEngine;
@@ -55,22 +55,22 @@ namespace MythOfGuotaji.Actor
             if (GameDataManager.Instance != null && GameDataManager.Instance.Prefabs != null)
             {
                 var prefabs = GameDataManager.Instance.Prefabs;
-                if (_minionPrefab == null) _minionPrefab = prefabs.minionMonsterPrefab;
-                if (_elitePrefab == null) _elitePrefab = prefabs.eliteMonsterPrefab;
-                if (_foxBossPrefab == null) _foxBossPrefab = prefabs.foxBossPrefab;
-                if (_archerPrefab == null) _archerPrefab = prefabs.archerMonsterPrefab;
-                if (_bigMonPrefab == null) _bigMonPrefab = prefabs.bigMonMonsterPrefab;
-                if (_zhuPrefab == null) _zhuPrefab = prefabs.zhuMonsterPrefab;
+                if (_minionPrefab == null) _minionPrefab = prefabs.GetMonsterPrefab(MonsterType.Minion);
+                if (_elitePrefab == null) _elitePrefab = prefabs.GetMonsterPrefab(MonsterType.Elite);
+                if (_foxBossPrefab == null) _foxBossPrefab = prefabs.GetMonsterPrefab(MonsterType.FoxBoss);
+                if (_archerPrefab == null) _archerPrefab = prefabs.GetMonsterPrefab(MonsterType.Minion_Archer);
+                if (_bigMonPrefab == null) _bigMonPrefab = prefabs.GetMonsterPrefab(MonsterType.Minion_BigMon);
+                if (_zhuPrefab == null) _zhuPrefab = prefabs.GetMonsterPrefab(MonsterType.Minion_Zhu);
 
-                if (_dokkaebiFirePrefab == null) _dokkaebiFirePrefab = prefabs.dokkaebiFireMonsterPrefab;
-                if (_boarChargerPrefab == null) _boarChargerPrefab = prefabs.boarChargerMonsterPrefab;
-                if (_spiderTetherPrefab == null) _spiderTetherPrefab = prefabs.spiderTetherMonsterPrefab;
-                if (_mudSlimePrefab == null) _mudSlimePrefab = prefabs.mudSlimeMonsterPrefab;
-                if (_phantomFoxPrefab == null) _phantomFoxPrefab = prefabs.phantomFoxMonsterPrefab;
-                if (_ironShieldPrefab == null) _ironShieldPrefab = prefabs.ironShieldMonsterPrefab;
-                if (_energyAbsorberPrefab == null) _energyAbsorberPrefab = prefabs.energyAbsorberMonsterPrefab;
-                if (_bombSparrowPrefab == null) _bombSparrowPrefab = prefabs.bombSparrowMonsterPrefab;
-                if (_totemTurretPrefab == null) _totemTurretPrefab = prefabs.totemTurretMonsterPrefab;
+                if (_dokkaebiFirePrefab == null) _dokkaebiFirePrefab = prefabs.GetMonsterPrefab(MonsterType.Dokkaebi_Fire);
+                if (_boarChargerPrefab == null) _boarChargerPrefab = prefabs.GetMonsterPrefab(MonsterType.Boar_Charger);
+                if (_spiderTetherPrefab == null) _spiderTetherPrefab = prefabs.GetMonsterPrefab(MonsterType.Spider_Tether);
+                if (_mudSlimePrefab == null) _mudSlimePrefab = prefabs.GetMonsterPrefab(MonsterType.Mud_Slime);
+                if (_phantomFoxPrefab == null) _phantomFoxPrefab = prefabs.GetMonsterPrefab(MonsterType.Phantom_Fox);
+                if (_ironShieldPrefab == null) _ironShieldPrefab = prefabs.GetMonsterPrefab(MonsterType.Iron_Shield);
+                if (_energyAbsorberPrefab == null) _energyAbsorberPrefab = prefabs.GetMonsterPrefab(MonsterType.Energy_Absorber);
+                if (_bombSparrowPrefab == null) _bombSparrowPrefab = prefabs.GetMonsterPrefab(MonsterType.Bomb_Sparrow);
+                if (_totemTurretPrefab == null) _totemTurretPrefab = prefabs.GetMonsterPrefab(MonsterType.Totem_Turret);
             }
 
             // Resources/Prefabs fallback
@@ -92,6 +92,49 @@ namespace MythOfGuotaji.Actor
             if (_totemTurretPrefab == null) _totemTurretPrefab = Resources.Load<GameObject>("Prefabs/Monster_TotemTurret");
         }
 
+        private static readonly MonsterType[] Chapter1SpawnPool = new MonsterType[]
+        {
+            MonsterType.Minion, MonsterType.Minion, MonsterType.Minion,
+            MonsterType.Minion_Archer, MonsterType.Minion_Archer,
+            MonsterType.Minion_BigMon,
+            MonsterType.Dokkaebi_Fire,
+            MonsterType.Boar_Charger
+        };
+
+        private static readonly MonsterType[] Chapter2SpawnPool = new MonsterType[]
+        {
+            MonsterType.Minion, MonsterType.Minion,
+            MonsterType.Minion_Archer,
+            MonsterType.Minion_Zhu,
+            MonsterType.Dokkaebi_Fire,
+            MonsterType.Boar_Charger,
+            MonsterType.Bomb_Sparrow,
+            MonsterType.Iron_Shield
+        };
+
+        private static readonly MonsterType[] Chapter3SpawnPool = new MonsterType[]
+        {
+            MonsterType.Minion, MonsterType.Minion,
+            MonsterType.Minion_Archer,
+            MonsterType.Minion_BigMon,
+            MonsterType.Spider_Tether,
+            MonsterType.Mud_Slime,
+            MonsterType.Iron_Shield,
+            MonsterType.Dokkaebi_Fire
+        };
+
+        private static readonly MonsterType[] Chapter4SpawnPool = new MonsterType[]
+        {
+            MonsterType.Minion,
+            MonsterType.Minion_Archer,
+            MonsterType.Minion_Zhu,
+            MonsterType.Phantom_Fox,
+            MonsterType.Energy_Absorber,
+            MonsterType.Totem_Turret,
+            MonsterType.Spider_Tether,
+            MonsterType.Dokkaebi_Fire
+        };
+
         private static readonly MonsterType[] NormalSpawnPool = new MonsterType[]
         {
             MonsterType.Minion, MonsterType.Minion, // 기본 잡몹 가중치 2
@@ -109,14 +152,77 @@ namespace MythOfGuotaji.Actor
             MonsterType.Totem_Turret
         };
 
-        public List<GameObject> SpawnHorde(Vector3 center, int count, float radius)
+        private static MonsterType[] GetSpawnPoolForCurrentChapter()
+        {
+            if (GameManager.Instance == null || GameManager.Instance.SaveData == null)
+            {
+                return NormalSpawnPool;
+            }
+
+            return GameManager.Instance.SaveData.currentChapter switch
+            {
+                0 or 1 => Chapter1SpawnPool,
+                2 => Chapter2SpawnPool,
+                3 => Chapter3SpawnPool,
+                4 => Chapter4SpawnPool,
+                _ => NormalSpawnPool
+            };
+        }
+
+        public static Data.StageMonsterEntry GetCurrentStageMonsterEntry()
+        {
+            var gdm = Data.GameDataManager.Instance;
+            int stageNum = Core.GameManager.Instance != null ? Core.GameManager.Instance.CurrentStage : 1;
+
+            if (gdm != null && gdm.DungeonStages != null)
+            {
+                var stageCfg = gdm.DungeonStages.GetConfigForStage(stageNum);
+                if (stageCfg != null)
+                {
+                    var table = stageCfg.monsterTable ?? gdm.DungeonMonsters ?? gdm.DungeonStages.defaultMonsterTable;
+                    if (table != null)
+                    {
+                        var entry = table.GetEntry(stageCfg.stageMonsterKey);
+                        if (entry != null) return entry;
+                    }
+                }
+            }
+
+            if (gdm != null && gdm.DungeonMonsters != null)
+            {
+                return gdm.DungeonMonsters.GetEntryByStageNumber(stageNum);
+            }
+
+            var fallbackTable = Resources.Load<Data.DungeonMonsterTableSO>("Data/DungeonMonsterTable");
+            return fallbackTable != null ? fallbackTable.GetEntryByStageNumber(stageNum) : null;
+        }
+
+        public static MonsterType[] GetSpawnPoolForBlock(int blockIndex)
+        {
+            var entry = GetCurrentStageMonsterEntry();
+            if (entry != null)
+            {
+                if (blockIndex == 2 && entry.lateRoomMonsters != null && entry.lateRoomMonsters.Length > 0)
+                {
+                    return entry.lateRoomMonsters;
+                }
+                if (entry.earlyRoomMonsters != null && entry.earlyRoomMonsters.Length > 0)
+                {
+                    return entry.earlyRoomMonsters;
+                }
+            }
+            return GetSpawnPoolForCurrentChapter();
+        }
+
+        public List<GameObject> SpawnHorde(Vector3 center, int count, float radius, int blockIndex = 1)
         {
             LoadPrefabsFromDatabase();
             List<GameObject> spawned = new();
+            MonsterType[] activePool = GetSpawnPoolForBlock(blockIndex);
 
             for (int i = 0; i < count; i++)
             {
-                MonsterType targetType = NormalSpawnPool[Random.Range(0, NormalSpawnPool.Length)];
+                MonsterType targetType = activePool[Random.Range(0, activePool.Length)];
 
                 var stat = GameDataManager.Instance != null && GameDataManager.Instance.MonsterStats != null
                     ? GameDataManager.Instance.MonsterStats.GetStat(targetType)
@@ -243,19 +349,57 @@ namespace MythOfGuotaji.Actor
             return spawned;
         }
 
+                public GameObject GetPrefabForMonsterType(MonsterType type)
+        {
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.MonsterStats != null)
+            {
+                var mp = Data.GameDataManager.Instance.MonsterStats.GetMonsterPrefab(type);
+                if (mp != null) return mp;
+            }
+            LoadPrefabsFromDatabase();
+            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            {
+                var p = Data.GameDataManager.Instance.Prefabs.GetMonsterPrefab(type);
+                if (p != null) return p;
+            }
+            return type switch
+            {
+                MonsterType.Minion => _minionPrefab,
+                MonsterType.Elite => _elitePrefab,
+                MonsterType.FoxBoss => _foxBossPrefab,
+                MonsterType.Minion_Archer => _archerPrefab,
+                MonsterType.Minion_BigMon => _bigMonPrefab,
+                MonsterType.Minion_Zhu => _zhuPrefab,
+                MonsterType.Dokkaebi_Fire => _dokkaebiFirePrefab,
+                MonsterType.Boar_Charger => _boarChargerPrefab,
+                MonsterType.Spider_Tether => _spiderTetherPrefab,
+                MonsterType.Mud_Slime => _mudSlimePrefab,
+                MonsterType.Phantom_Fox => _phantomFoxPrefab,
+                MonsterType.Iron_Shield => _ironShieldPrefab,
+                MonsterType.Energy_Absorber => _energyAbsorberPrefab,
+                MonsterType.Bomb_Sparrow => _bombSparrowPrefab,
+                MonsterType.Totem_Turret => _totemTurretPrefab,
+                _ => _minionPrefab
+            };
+        }
+
         public GameObject SpawnEliteKeyKeeper(Vector3 position)
         {
             LoadPrefabsFromDatabase();
-            if (_elitePrefab == null)
+            var stageEntry = GetCurrentStageMonsterEntry();
+            MonsterType keeperType = stageEntry != null ? stageEntry.keyKeeperMonster : MonsterType.Elite;
+
+            GameObject keeperPrefab = GetPrefabForMonsterType(keeperType) ?? _elitePrefab;
+            if (keeperPrefab == null)
             {
-                _elitePrefab = Resources.Load<GameObject>("Prefabs/Monster_Elite");
+                keeperPrefab = Resources.Load<GameObject>("Prefabs/Monster_Elite");
             }
 
             position.y = 1.0f;
             GameObject elite = null;
 
             var stat = GameDataManager.Instance != null && GameDataManager.Instance.MonsterStats != null
-                ? GameDataManager.Instance.MonsterStats.GetStat(MonsterType.Elite)
+                ? GameDataManager.Instance.MonsterStats.GetStat(keeperType)
                 : null;
 
             float baseHp = stat != null ? stat.maxHp : 120f;
@@ -272,13 +416,13 @@ namespace MythOfGuotaji.Actor
             float finalHp = baseHp * hpMult;
             float finalDamage = baseDamage * dmgMult;
 
-            if (_elitePrefab != null && ObjectPoolManager.Instance != null)
+            if (keeperPrefab != null && ObjectPoolManager.Instance != null)
             {
-                elite = ObjectPoolManager.Instance.Spawn(_elitePrefab, position, Quaternion.identity);
+                elite = ObjectPoolManager.Instance.Spawn(keeperPrefab, position, Quaternion.identity);
             }
-            else if (_elitePrefab != null)
+            else if (keeperPrefab != null)
             {
-                elite = Instantiate(_elitePrefab, position, Quaternion.identity);
+                elite = Instantiate(keeperPrefab, position, Quaternion.identity);
             }
 
             if (elite == null)
@@ -303,7 +447,7 @@ namespace MythOfGuotaji.Actor
 
             if (elite.TryGetComponent<MonsterAI>(out var ai))
             {
-                ai.Setup(MonsterType.Elite, finalHp, speed, finalDamage, dropsKey: true, poolKey: poolKey, level: monsterLevel);
+                ai.Setup(keeperType, finalHp, speed, finalDamage, dropsKey: true, poolKey: poolKey, level: monsterLevel);
             }
 
             return elite;
@@ -312,16 +456,20 @@ namespace MythOfGuotaji.Actor
         public GameObject SpawnFoxBoss(Vector3 position)
         {
             LoadPrefabsFromDatabase();
-            if (_foxBossPrefab == null)
+            var stageEntry = GetCurrentStageMonsterEntry();
+            MonsterType bossType = stageEntry != null ? stageEntry.bossMonster : MonsterType.FoxBoss;
+
+            GameObject bossPrefab = GetPrefabForMonsterType(bossType) ?? _foxBossPrefab;
+            if (bossPrefab == null)
             {
-                _foxBossPrefab = Resources.Load<GameObject>("Prefabs/Monster_FoxBoss");
+                bossPrefab = Resources.Load<GameObject>("Prefabs/Monster_FoxBoss");
             }
 
             position.y = 1.0f;
             GameObject boss = null;
 
             var stat = GameDataManager.Instance != null && GameDataManager.Instance.MonsterStats != null
-                ? GameDataManager.Instance.MonsterStats.GetStat(MonsterType.FoxBoss)
+                ? GameDataManager.Instance.MonsterStats.GetStat(bossType)
                 : null;
 
             float baseHp = stat != null ? stat.maxHp : 350f;
@@ -338,13 +486,13 @@ namespace MythOfGuotaji.Actor
             float finalHp = baseHp * hpMult;
             float finalDamage = baseDamage * dmgMult;
 
-            if (_foxBossPrefab != null && ObjectPoolManager.Instance != null)
+            if (bossPrefab != null && ObjectPoolManager.Instance != null)
             {
-                boss = ObjectPoolManager.Instance.Spawn(_foxBossPrefab, position, Quaternion.identity);
+                boss = ObjectPoolManager.Instance.Spawn(bossPrefab, position, Quaternion.identity);
             }
-            else if (_foxBossPrefab != null)
+            else if (bossPrefab != null)
             {
-                boss = Instantiate(_foxBossPrefab, position, Quaternion.identity);
+                boss = Instantiate(bossPrefab, position, Quaternion.identity);
             }
 
             if (boss == null)
@@ -369,7 +517,7 @@ namespace MythOfGuotaji.Actor
 
             if (boss.TryGetComponent<MonsterAI>(out var ai))
             {
-                ai.Setup(MonsterType.FoxBoss, finalHp, speed, finalDamage, dropsKey: false, poolKey: poolKey, level: monsterLevel);
+                ai.Setup(bossType, finalHp, speed, finalDamage, dropsKey: false, poolKey: poolKey, level: monsterLevel);
             }
 
             return boss;

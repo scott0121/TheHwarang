@@ -69,6 +69,14 @@ namespace MythOfGuotaji.Core
         public GameObject Spawn(string vfxName, Vector3 position, Quaternion rotation, float scale = 1.0f, float autoDestroyTime = 2.0f, Transform parent = null)
         {
             var prefab = GetVFXPrefab(vfxName);
+            return Spawn(prefab, position, rotation, scale, autoDestroyTime, parent);
+        }
+
+        /// <summary>
+        /// 프리팹 GameObject 직접 전달 스폰
+        /// </summary>
+        public GameObject Spawn(GameObject prefab, Vector3 position, Quaternion rotation, float scale = 1.0f, float autoDestroyTime = 2.0f, Transform parent = null)
+        {
             if (prefab == null) return null;
 
             GameObject instance = Instantiate(prefab, position, rotation, parent);
@@ -83,6 +91,30 @@ namespace MythOfGuotaji.Core
                 }
             }
             return instance;
+        }
+
+        /// <summary>
+        /// 사운드 프리팹 1회성 스폰 및 자동 재생 파괴
+        /// </summary>
+        public GameObject PlaySoundPrefab(GameObject soundPrefab, Vector3 position, float autoDestroyTime = 2.5f)
+        {
+            if (soundPrefab == null) return null;
+            GameObject soundObj = Instantiate(soundPrefab, position, Quaternion.identity);
+            if (soundObj != null)
+            {
+                var audio = soundObj.GetComponent<AudioSource>();
+                if (audio != null)
+                {
+                    audio.Play();
+                    float life = audio.clip != null ? Mathf.Max(audio.clip.length + 0.1f, 0.5f) : autoDestroyTime;
+                    Destroy(soundObj, life);
+                }
+                else
+                {
+                    Destroy(soundObj, autoDestroyTime);
+                }
+            }
+            return soundObj;
         }
 
         private void ApplyHierarchyScaling(GameObject go, float scale)
@@ -223,7 +255,25 @@ namespace MythOfGuotaji.Core
         public GameObject SpawnPlayerDashDust(Vector3 position, Vector3 direction)
         {
             Quaternion rot = direction.sqrMagnitude > 0.001f ? Quaternion.LookRotation(direction) : Quaternion.identity;
+            var playerStats = Data.GameDataManager.Instance?.PlayerStats;
+            if (playerStats != null && playerStats.dashDustVfxPrefab != null)
+            {
+                return Spawn(playerStats.dashDustVfxPrefab, position + Vector3.up * 0.05f, rot, scale: 1.25f, autoDestroyTime: 1.2f);
+            }
             return Spawn("HCFX_Dust_Dash_01", position + Vector3.up * 0.05f, rot, scale: 1.25f, autoDestroyTime: 1.2f);
+        }
+
+        /// <summary>
+        /// 플레이어 무적/슬라이딩 회피 성공 시 반짝임 이펙트
+        /// </summary>
+        public GameObject SpawnPlayerEvasionShine(Vector3 position)
+        {
+            var playerStats = Data.GameDataManager.Instance?.PlayerStats;
+            if (playerStats != null && playerStats.evasionShineVfxPrefab != null)
+            {
+                return Spawn(playerStats.evasionShineVfxPrefab, position + Vector3.up * 0.8f, Quaternion.identity, scale: 0.9f, autoDestroyTime: 0.6f);
+            }
+            return Spawn("HCFX_Shine_01", position + Vector3.up * 0.8f, Quaternion.identity, scale: 0.9f, autoDestroyTime: 0.6f);
         }
 
         /// <summary>
@@ -231,6 +281,23 @@ namespace MythOfGuotaji.Core
         /// </summary>
         public GameObject SpawnBowChargingAura(Transform parent, int step)
         {
+            var playerStats = Data.GameDataManager.Instance?.PlayerStats;
+            GameObject targetPrefab = null;
+            if (playerStats != null)
+            {
+                targetPrefab = step switch
+                {
+                    1 => playerStats.chargeAuraStep1VfxPrefab,
+                    2 => playerStats.chargeAuraStep2VfxPrefab,
+                    _ => playerStats.chargeAuraStep3VfxPrefab
+                };
+            }
+
+            if (targetPrefab != null)
+            {
+                return Spawn(targetPrefab, parent.position + Vector3.up * 0.6f, Quaternion.identity, scale: 1.0f, autoDestroyTime: 0f, parent: parent);
+            }
+
             string prefabName = step switch
             {
                 1 => "HCFX_Charging_01_Step1",
@@ -246,15 +313,29 @@ namespace MythOfGuotaji.Core
         public GameObject SpawnBowChargeReleaseBurst(Vector3 position, Vector3 direction)
         {
             Quaternion rot = direction.sqrMagnitude > 0.001f ? Quaternion.LookRotation(direction) : Quaternion.identity;
+            var playerStats = Data.GameDataManager.Instance?.PlayerStats;
+            if (playerStats != null && playerStats.chargeReleaseBurstVfxPrefab != null)
+            {
+                return Spawn(playerStats.chargeReleaseBurstVfxPrefab, position + Vector3.up * 0.6f, rot, scale: 1.3f, autoDestroyTime: 1.5f);
+            }
             return Spawn("HCFX_Charging_01_Step3_End", position + Vector3.up * 0.6f, rot, scale: 1.3f, autoDestroyTime: 1.5f);
         }
 
         /// <summary>
         /// 단검 부채꼴 베기(Slash) 검기 플래시 이펙트
         /// </summary>
-        public GameObject SpawnDaggerSlash(Vector3 position, Vector3 direction, float radius = 3.0f)
+        public GameObject SpawnDaggerSlash(Vector3 position, Vector3 direction, float radius = 3.0f, GameObject customSlashPrefab = null)
         {
             Quaternion rot = direction.sqrMagnitude > 0.001f ? Quaternion.LookRotation(direction) : Quaternion.identity;
+            if (customSlashPrefab != null)
+            {
+                return Spawn(customSlashPrefab, position + direction * 0.6f + Vector3.up * 0.7f, rot, scale: radius * 0.55f, autoDestroyTime: 0.8f);
+            }
+            var playerStats = Data.GameDataManager.Instance?.PlayerStats;
+            if (playerStats != null && playerStats.defaultDaggerSlashVfxPrefab != null)
+            {
+                return Spawn(playerStats.defaultDaggerSlashVfxPrefab, position + direction * 0.6f + Vector3.up * 0.7f, rot, scale: radius * 0.55f, autoDestroyTime: 0.8f);
+            }
             // HCFX_Flash_02는 화려한 호형 참격 플래시
             return Spawn("HCFX_Flash_02", position + direction * 0.6f + Vector3.up * 0.7f, rot, scale: radius * 0.55f, autoDestroyTime: 0.8f);
         }
@@ -262,8 +343,12 @@ namespace MythOfGuotaji.Core
         /// <summary>
         /// 단검 투사체 패링/반사 마법진 스파크 이펙트
         /// </summary>
-        public GameObject SpawnDaggerParrySpark(Vector3 position)
+        public GameObject SpawnDaggerParrySpark(Vector3 position, GameObject customParryPrefab = null)
         {
+            if (customParryPrefab != null)
+            {
+                return Spawn(customParryPrefab, position, Quaternion.identity, scale: 1.4f, autoDestroyTime: 1.0f);
+            }
             Spawn("HCFX_MagicCircle_01", position + Vector3.up * 0.05f, Quaternion.Euler(90f, 0f, 0f), scale: 1.2f, autoDestroyTime: 0.8f);
             return Spawn("HCFX_Hit_06", position, Quaternion.identity, scale: 1.4f, autoDestroyTime: 1.0f);
         }
@@ -278,6 +363,15 @@ namespace MythOfGuotaji.Core
         public GameObject SpawnHitImpact(Vector3 position, Vector3 direction, bool isCritical = false)
         {
             Quaternion rot = direction.sqrMagnitude > 0.001f ? Quaternion.LookRotation(-direction) : Quaternion.identity;
+            var playerStats = Data.GameDataManager.Instance?.PlayerStats;
+            if (playerStats != null)
+            {
+                var customHitPrefab = isCritical ? playerStats.criticalHitSparkVfxPrefab : playerStats.hitSparkVfxPrefab;
+                if (customHitPrefab != null)
+                {
+                    return Spawn(customHitPrefab, position, rot, scale: isCritical ? 1.6f : 1.1f, autoDestroyTime: 1.0f);
+                }
+            }
             string hitPrefab = isCritical ? "HCFX_Hit_07" : "HCFX_Hit_04";
             float scale = isCritical ? 1.6f : 1.1f;
             return Spawn(hitPrefab, position, rot, scale: scale, autoDestroyTime: 1.0f);
@@ -301,55 +395,124 @@ namespace MythOfGuotaji.Core
         // ==========================================
 
         /// <summary>
-        /// 잡몹(Minion) 돌진 먼지 및 70cm 도착 충격 이펙트
+        /// 잡몹(Minion) 돌진 먼지 (테이블 연결 프리팹 우선 로드, 없으면 HCFX_Dust_01)
         /// </summary>
-        public GameObject SpawnMinionDashDust(Vector3 position, Vector3 direction)
+        public GameObject SpawnMinionDashDust(Vector3 position, Vector3 direction, GameObject customPrefab = null)
         {
             Quaternion rot = direction.sqrMagnitude > 0.001f ? Quaternion.LookRotation(direction) : Quaternion.identity;
+            if (customPrefab != null)
+            {
+                return Spawn(customPrefab, position + Vector3.up * 0.05f, rot, scale: 0.9f, autoDestroyTime: 1.0f);
+            }
+            var skill = Data.GameDataManager.Instance?.MonsterSkills?.GetSkill("minion_dash");
+            var targetPrefab = skill?.castVfxPrefab ?? skill?.trailVfxPrefab;
+            if (targetPrefab != null)
+            {
+                return Spawn(targetPrefab, position + Vector3.up * 0.05f, rot, scale: 0.9f, autoDestroyTime: 1.0f);
+            }
             return Spawn("HCFX_Dust_01", position + Vector3.up * 0.05f, rot, scale: 0.9f, autoDestroyTime: 1.0f);
         }
 
-        public GameObject SpawnMinionArrivalImpact(Vector3 position, float radius = 0.7f)
+        /// <summary>
+        /// 잡몹(Minion) 70cm 도착 충격 이펙트 (테이블 연결 프리팹 우선 로드, 없으면 HCFX_Dust_FloorHit_01)
+        /// </summary>
+        public GameObject SpawnMinionArrivalImpact(Vector3 position, float radius = 0.7f, GameObject customPrefab = null)
         {
+            if (customPrefab != null)
+            {
+                return Spawn(customPrefab, position + Vector3.up * 0.05f, Quaternion.identity, scale: radius * 1.5f, autoDestroyTime: 1.0f);
+            }
+            var skill = Data.GameDataManager.Instance?.MonsterSkills?.GetSkill("minion_dash");
+            if (skill != null && skill.impactVfxPrefab != null)
+            {
+                return Spawn(skill.impactVfxPrefab, position + Vector3.up * 0.05f, Quaternion.identity, scale: radius * 1.5f, autoDestroyTime: 1.0f);
+            }
             return Spawn("HCFX_Dust_FloorHit_01", position + Vector3.up * 0.05f, Quaternion.identity, scale: radius * 1.5f, autoDestroyTime: 1.0f);
         }
 
         /// <summary>
-        /// 맹독충(Minion_Archer) 독침 발사구 및 피격/착지 독물 튐 이펙트
+        /// 맹독충(Minion_Archer) 독침 발사구 및 피격/착지 독물 튐 이펙트 (테이블 연결 프리팹 우선 로드, 없으면 HCFX_Poison_01)
         /// </summary>
-        public GameObject SpawnVenomMuzzle(Vector3 position, Vector3 direction)
+        public GameObject SpawnVenomMuzzle(Vector3 position, Vector3 direction, GameObject customPrefab = null)
         {
             Quaternion rot = direction.sqrMagnitude > 0.001f ? Quaternion.LookRotation(direction) : Quaternion.identity;
+            if (customPrefab != null)
+            {
+                return Spawn(customPrefab, position, rot, scale: 0.9f, autoDestroyTime: 1.0f);
+            }
+            var skill = Data.GameDataManager.Instance?.MonsterSkills?.GetSkill("toxic_spit");
+            if (skill != null && skill.castVfxPrefab != null)
+            {
+                return Spawn(skill.castVfxPrefab, position, rot, scale: 0.9f, autoDestroyTime: 1.0f);
+            }
             return Spawn("HCFX_Poison_01", position, rot, scale: 0.9f, autoDestroyTime: 1.0f);
         }
 
-        public GameObject SpawnVenomSplash(Vector3 position)
+        public GameObject SpawnVenomSplash(Vector3 position, GameObject customPrefab = null)
         {
+            if (customPrefab != null)
+            {
+                return Spawn(customPrefab, position + Vector3.up * 0.05f, Quaternion.identity, scale: 1.3f, autoDestroyTime: 1.5f);
+            }
+            var skill = Data.GameDataManager.Instance?.MonsterSkills?.GetSkill("toxic_spit");
+            if (skill != null && skill.impactVfxPrefab != null)
+            {
+                return Spawn(skill.impactVfxPrefab, position + Vector3.up * 0.05f, Quaternion.identity, scale: 1.3f, autoDestroyTime: 1.5f);
+            }
             return Spawn("HCFX_Poison_02", position + Vector3.up * 0.05f, Quaternion.identity, scale: 1.3f, autoDestroyTime: 1.5f);
         }
 
         /// <summary>
-        /// 거북이(Minion_BigMon) 돌진 시 후방 대시 흙먼지 폭풍 & 3m 정지 "쿵!" 충격파
+        /// 거북이(Minion_BigMon) 돌진 시 후방 대시 흙먼지 폭풍 & 3m 정지 "쿵!" 충격파 (테이블 연결 프리팹 우선 로드, 없으면 HCFX_Dust_Dash_01)
         /// </summary>
-        public GameObject SpawnBigMonRunDust(Vector3 position, Vector3 direction)
+        public GameObject SpawnBigMonRunDust(Vector3 position, Vector3 direction, GameObject customPrefab = null)
         {
             Quaternion rot = direction.sqrMagnitude > 0.001f ? Quaternion.LookRotation(-direction) : Quaternion.identity;
+            if (customPrefab != null)
+            {
+                return Spawn(customPrefab, position + Vector3.up * 0.05f, rot, scale: 1.4f, autoDestroyTime: 1.0f);
+            }
+            var skill = Data.GameDataManager.Instance?.MonsterSkills?.GetSkill("turtle_charge");
+            if (skill != null && skill.trailVfxPrefab != null)
+            {
+                return Spawn(skill.trailVfxPrefab, position + Vector3.up * 0.05f, rot, scale: 1.4f, autoDestroyTime: 1.0f);
+            }
             return Spawn("HCFX_Dust_Dash_01", position + Vector3.up * 0.05f, rot, scale: 1.4f, autoDestroyTime: 1.0f);
         }
 
-        public GameObject SpawnBigMonGroundImpact(Vector3 position, float radius = 3.0f)
+        public GameObject SpawnBigMonGroundImpact(Vector3 position, float radius = 3.0f, GameObject customPrefab = null)
         {
+            if (customPrefab != null)
+            {
+                return Spawn(customPrefab, position + Vector3.up * 0.05f, Quaternion.identity, scale: radius * 0.75f, autoDestroyTime: 1.8f);
+            }
+            var skill = Data.GameDataManager.Instance?.MonsterSkills?.GetSkill("turtle_charge");
+            if (skill != null && skill.impactVfxPrefab != null)
+            {
+                return Spawn(skill.impactVfxPrefab, position + Vector3.up * 0.05f, Quaternion.identity, scale: radius * 0.75f, autoDestroyTime: 1.8f);
+            }
             // 바닥 충격파 링 + 폭발성 흙먼지 복합 스폰
             Spawn("HCFX_Dust_FloorHit_03", position + Vector3.up * 0.05f, Quaternion.identity, scale: radius * 0.75f, autoDestroyTime: 1.8f);
             return Spawn("HCFX_Explosion_03", position + Vector3.up * 0.1f, Quaternion.identity, scale: radius * 0.65f, autoDestroyTime: 1.8f);
         }
 
         /// <summary>
-        /// 주(鴸) 곡사 투사체 비행 화염 및 5m 착지 대폭발 이펙트
+        /// 주(鴸) 곡사 투사체 비행 화염 및 5m 착지 대폭발 이펙트 (테이블 연결 프리팹 우선 로드, 없으면 HCFX_Fire_01)
         /// </summary>
-        public GameObject AttachZhuProjectileFire(Transform parent)
+        public GameObject AttachZhuProjectileFire(Transform parent, GameObject customPrefab = null)
         {
-            var go = Spawn("HCFX_Fire_01", parent.position, parent.rotation, scale: 0.9f, autoDestroyTime: 0f, parent: parent);
+            GameObject targetPrefab = customPrefab;
+            if (targetPrefab == null)
+            {
+                var skill = Data.GameDataManager.Instance?.MonsterSkills?.GetSkill("zhu_parabolic");
+                if (skill != null && skill.trailVfxPrefab != null)
+                {
+                    targetPrefab = skill.trailVfxPrefab;
+                }
+            }
+            var go = targetPrefab != null
+                ? Spawn(targetPrefab, parent.position, parent.rotation, scale: 0.9f, autoDestroyTime: 0f, parent: parent)
+                : Spawn("HCFX_Fire_01", parent.position, parent.rotation, scale: 0.9f, autoDestroyTime: 0f, parent: parent);
             if (go != null)
             {
                 foreach (var r in go.GetComponentsInChildren<Renderer>(true)) r.sortingOrder = 4900;
@@ -357,10 +520,86 @@ namespace MythOfGuotaji.Core
             return go;
         }
 
-        public GameObject SpawnZhuGroundExplosion(Vector3 position, float radius = 5.0f)
+        public GameObject SpawnZhuGroundExplosion(Vector3 position, float radius = 5.0f, GameObject customPrefab = null)
         {
-            // 5미터 광역 지면 대폭발 (HCFX_Explosion_01)
+            if (customPrefab != null)
+            {
+                return Spawn(customPrefab, position + Vector3.up * 0.1f, Quaternion.identity, scale: radius * 0.65f, autoDestroyTime: 2.0f);
+            }
+            var skill = Data.GameDataManager.Instance?.MonsterSkills?.GetSkill("zhu_parabolic");
+            if (skill != null && skill.impactVfxPrefab != null)
+            {
+                return Spawn(skill.impactVfxPrefab, position + Vector3.up * 0.1f, Quaternion.identity, scale: radius * 0.65f, autoDestroyTime: 2.0f);
+            }
             return Spawn("HCFX_Explosion_01", position + Vector3.up * 0.1f, Quaternion.identity, scale: radius * 0.65f, autoDestroyTime: 2.0f);
+        }
+
+        /// <summary>
+        /// 몬스터 평타 공격 시전 궤적 VFX 스폰 (MonsterStatsTableSO의 normalAttack.attackVfxPrefab 연동)
+        /// </summary>
+        public GameObject SpawnMonsterAttackVFX(Actor.MonsterType type, Vector3 position, Quaternion rotation, GameObject customPrefab = null)
+        {
+            if (customPrefab != null)
+            {
+                return Spawn(customPrefab, position, rotation, scale: 1.0f, autoDestroyTime: 1.0f);
+            }
+            var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(type);
+            if (stat?.normalAttack != null && stat.normalAttack.attackVfxPrefab != null)
+            {
+                return Spawn(stat.normalAttack.attackVfxPrefab, position, rotation, scale: 1.0f, autoDestroyTime: 1.0f);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 몬스터 피격 충격 VFX 스폰 (MonsterStatsTableSO의 hitVfxPrefab 연동)
+        /// </summary>
+        public GameObject SpawnMonsterHitVFX(Actor.MonsterType type, Vector3 position, Quaternion rotation, GameObject customPrefab = null)
+        {
+            if (customPrefab != null)
+            {
+                return Spawn(customPrefab, position, rotation, scale: 1.1f, autoDestroyTime: 1.0f);
+            }
+            var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(type);
+            if (stat != null && stat.hitVfxPrefab != null)
+            {
+                return Spawn(stat.hitVfxPrefab, position, rotation, scale: 1.1f, autoDestroyTime: 1.0f);
+            }
+            return Spawn("HCFX_Hit_01", position, rotation, scale: 1.1f, autoDestroyTime: 1.0f);
+        }
+
+        /// <summary>
+        /// 몬스터 방패/면역 도탄 VFX 스폰 (MonsterStatsTableSO의 deflectVfxPrefab 연동)
+        /// </summary>
+        public GameObject SpawnMonsterDeflectVFX(Actor.MonsterType type, Vector3 position, Quaternion rotation, GameObject customPrefab = null)
+        {
+            if (customPrefab != null)
+            {
+                return Spawn(customPrefab, position, rotation, scale: 1.2f, autoDestroyTime: 1.0f);
+            }
+            var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(type);
+            if (stat != null && stat.deflectVfxPrefab != null)
+            {
+                return Spawn(stat.deflectVfxPrefab, position, rotation, scale: 1.2f, autoDestroyTime: 1.0f);
+            }
+            return Spawn("HCFX_Sparks_01", position, rotation, scale: 1.2f, autoDestroyTime: 1.0f);
+        }
+
+        /// <summary>
+        /// 몬스터 사망 시 폭발/연기 VFX 스폰 (MonsterStatsTableSO의 deathVfxPrefab 연동)
+        /// </summary>
+        public GameObject SpawnMonsterDeathVFX(Actor.MonsterType type, Vector3 position, Quaternion rotation, GameObject customPrefab = null)
+        {
+            if (customPrefab != null)
+            {
+                return Spawn(customPrefab, position, rotation, scale: 1.2f, autoDestroyTime: 2.0f);
+            }
+            var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(type);
+            if (stat != null && stat.deathVfxPrefab != null)
+            {
+                return Spawn(stat.deathVfxPrefab, position, rotation, scale: 1.2f, autoDestroyTime: 2.0f);
+            }
+            return Spawn("HCFX_Explosion_01", position, rotation, scale: 1.2f, autoDestroyTime: 2.0f);
         }
 
         // ==========================================
@@ -397,6 +636,11 @@ namespace MythOfGuotaji.Core
         public GameObject SpawnHealBuff(Transform target)
         {
             if (target == null) return null;
+            var playerStats = Data.GameDataManager.Instance?.PlayerStats;
+            if (playerStats != null && playerStats.healBuffVfxPrefab != null)
+            {
+                return Spawn(playerStats.healBuffVfxPrefab, target.position + Vector3.up * 0.4f, Quaternion.identity, scale: 1.25f, autoDestroyTime: 1.5f, parent: target);
+            }
             return Spawn("HCFX_Heart", target.position + Vector3.up * 0.4f, Quaternion.identity, scale: 1.25f, autoDestroyTime: 1.5f, parent: target);
         }
     }

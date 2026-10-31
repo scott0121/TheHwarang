@@ -37,7 +37,22 @@ namespace MythOfGuotaji.Core
         /// 게임 시작 후 5분부터 매 5분마다 소환되는 몬스터의 레벨 (5분 미만: 0Lv, 5분~: 1Lv, 10분~: 2Lv...)
         /// 레벨당 체력 +20%, 공격력 +10% 합연산 적용
         /// </summary>
-        public int CurrentMonsterLevel => Mathf.Max(0, Mathf.FloorToInt(StageElapsedTime / 300f));
+        public int CurrentMonsterLevel
+        {
+            get
+            {
+                int startLevel = 1;
+                if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.DungeonStages != null)
+                {
+                    var cfg = Data.GameDataManager.Instance.DungeonStages.GetConfigForStage(CurrentStage);
+                    if (cfg != null)
+                    {
+                        startLevel = cfg.monsterLevelStart;
+                    }
+                }
+                return startLevel + Mathf.Max(0, Mathf.FloorToInt(StageElapsedTime / 300f));
+            }
+        }
 
         public SaveData SaveData { get; private set; }
 
@@ -141,10 +156,29 @@ namespace MythOfGuotaji.Core
                 SaveData.totalCollectedShards = Mathf.Min(22, SaveData.totalCollectedShards + 1);
                 SaveData.retryBlessingStacks = 0;
                 SaveData.returnedFromDeath = false;
+
+                // 스테이지 클리어 및 누적 기억의 조각에 따른 6대 핵심 기억 해금
+                if (SaveData.unlockedCoreMemoryIds == null) SaveData.unlockedCoreMemoryIds = new System.Collections.Generic.List<string>();
+                UnlockCoreMemoryIfNeeded("MEM_CH1_FIRST_STRING", SaveData.selectedStageCode == "1-2" || SaveData.currentStage >= 3);
+                UnlockCoreMemoryIfNeeded("MEM_CH2_STEADY_EYE", SaveData.selectedStageCode == "2-3" || SaveData.currentStage >= 7);
+                UnlockCoreMemoryIfNeeded("MEM_CH3_REGRET_WEIGHT", SaveData.selectedStageCode == "3-3" || SaveData.currentStage >= 11);
+                UnlockCoreMemoryIfNeeded("MEM_CH4_RESOLUTE", SaveData.selectedStageCode == "4-3" || SaveData.currentStage >= 15);
+                UnlockCoreMemoryIfNeeded("MEM_CH5_DIVINE_BOW", SaveData.selectedStageCode == "5-3" || SaveData.currentStage >= 19);
+                UnlockCoreMemoryIfNeeded("MEM_CH6_DAWN_STRING", SaveData.totalCollectedShards >= 22);
+
                 SaveData.currentStage = Mathf.Min(22, SaveData.currentStage + 1);
                 SaveGame();
             }
             Debug.Log($"[GameManager] 스테이지 클리어! 기억의 조각 +1, 인연 포인트 +{affinityReward}, 골드 +{goldReward}");
+        }
+
+        private void UnlockCoreMemoryIfNeeded(string memoryId, bool condition)
+        {
+            if (condition && SaveData != null && !SaveData.unlockedCoreMemoryIds.Contains(memoryId))
+            {
+                SaveData.unlockedCoreMemoryIds.Add(memoryId);
+                Debug.Log($"<color=gold><b>[핵심 기억 해금!]</b> '{memoryId}' 특성이 새롭게 해금되었습니다!</color>");
+            }
         }
 
         /// <summary>

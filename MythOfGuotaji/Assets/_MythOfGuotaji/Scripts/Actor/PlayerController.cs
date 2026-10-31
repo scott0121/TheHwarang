@@ -1,3 +1,4 @@
+using MythOfGuotaji.Data;
 using System.Collections;
 using System.Collections.Generic;
 using MythOfGuotaji.Combat;
@@ -36,6 +37,12 @@ namespace MythOfGuotaji.Actor
         [SerializeField] private float _dashCooldown = 2.0f; // 슬라이딩 쿨타임 2초
         [SerializeField] private float _dashInvincibleDuration = 0.5f; // 슬라이딩 중 0.5초간 데미지 완전 무효화 (i-frame)
 
+        [Header("Combat Feedback & Timers (from Table)")]
+        [SerializeField] private float _damageVignetteIntensity = 0.85f;
+        [SerializeField] private float _cameraShakeDuration = 0.35f;
+        [SerializeField] private float _cameraShakeIntensity = 0.20f;
+        [SerializeField] private float _defaultStunDuration = 0.35f;
+
         [Header("Health & Stats")]
         [SerializeField] private float _maxHp = 100f;
         private float _currentHp;
@@ -45,6 +52,16 @@ namespace MythOfGuotaji.Actor
         [SerializeField] private DaggerWeapon _dagger;
         [SerializeField] private Transform _visualRoot;
         [SerializeField] private Animator _animator;
+
+        [Header("Weapon Models & Sockets")]
+        private Transform _leftHandBone;
+        private Transform _rightHandBone;
+        private GameObject _bowModelInstance;
+        private GameObject _daggerModelInstance;
+        private Coroutine _bowModelVisibleCoroutine;
+        private Coroutine _daggerModelVisibleCoroutine;
+
+        public bool IsGodMode { get; set; } = false;
 
         [Header("Charge & Attack Settings")]
         [SerializeField] private float _minChargeTime = 0.3f;
@@ -66,6 +83,7 @@ namespace MythOfGuotaji.Actor
         private bool _isCharging = false;
         private float _chargeStartTime = 0f;
         private bool _hasFullCharged = false;
+        private bool _hasTriggeredStartCharge = false;
         private GameObject _chargingAuraInstance;
         private int _currentChargeStep = 0;
         private bool _isInputLocked = false;
@@ -74,9 +92,27 @@ namespace MythOfGuotaji.Actor
         private float _magicCooldownEndTime = 0f;
         private Vector3 _knockbackVelocity = Vector3.zero;
 
+        // 이동속도 일시 배율 (늪지 감속 / 패링 가속 버프 등)
+        private float _tempMoveSpeedMultiplier = 1.0f;
+        private float _tempMoveSpeedExpireTime = 0f;
+
+        // [기획 핵심 메카닉]: 단검 패링 성공 ➔ 차징 화살 즉시 완충 버프
+        private float _instantChargeReadyUntil = 0f;
+        public bool HasInstantChargeBuff => Time.time < _instantChargeReadyUntil;
+
+        // 아웃게임(곡도 사당) 재도전 가호 피해 감면 및 장착 핵심 기억 ID
+        private float _damageReductionRatio = 0f;
+        private string _equippedCoreMemoryId = "";
+        public string EquippedCoreMemoryId => _equippedCoreMemoryId;
+
         private static readonly int AnimHashMoveSpeed = Animator.StringToHash("MoveSpeed");
         private static readonly int AnimHashJump = Animator.StringToHash("Jump");
         private static readonly int AnimHashIsInteracting = Animator.StringToHash("IsInteracting");
+        private static readonly int AnimHashStart5Arrow = Animator.StringToHash("Start5Arrow");
+        private static readonly int AnimHashStartCharge = Animator.StringToHash("StartCharge");
+        private static readonly int AnimHashShotCharge = Animator.StringToHash("ShotCharge");
+        private static readonly int AnimHashStartDagger = Animator.StringToHash("StartDagger");
+        private static readonly int AnimHashAttackSpeed = Animator.StringToHash("AttackSpeed");
         private static readonly int AnimHashDamage = Animator.StringToHash("Damage");
         private static readonly int AnimHashDeath = Animator.StringToHash("Death");
         private static readonly int AnimHashRespawn = Animator.StringToHash("Respawn");
@@ -97,9 +133,13 @@ namespace MythOfGuotaji.Actor
         }
 
         public Transform Transform => transform;
+        public bool IsInvincible => _isInvulnerable || _invincibleTimer > 0f || _isDashing;
+        public CharacterController CharacterController => _cc;
         public Vector3 AimDirection => _aimDirection;
         public bool IsCharging => _isCharging;
-        public float ChargeHoldDuration => _isCharging ? (Time.time - _chargeStartTime) : 0f;
+        public float ChargeHoldDuration => _isCharging
+            ? (HasInstantChargeBuff ? _maxChargeTime : (Time.time - _chargeStartTime))
+            : 0f;
         public float MinChargeTime => _minChargeTime;
         public float MaxChargeTime => _maxChargeTime;
 
@@ -198,6 +238,64 @@ namespace MythOfGuotaji.Actor
             }
         }
 
+        private void Start()
+        {
+            SetupWeaponModels();
+        }
+
+        private void OnEnable()
+        {
+            DaggerWeapon.OnParrySuccess += HandleDaggerParrySuccess;
+        }
+
+        private void OnDisable()
+        {
+            DaggerWeapon.OnParrySuccess -= HandleDaggerParrySuccess;
+        }
+
+        /// <summary>
+        /// [코어 메카닉]: 단검 패링 성공 시 차징 화살 즉시 100% 완충 및 글로벌 쿨타임 즉시 해제
+        /// </summary>
+        private void HandleDaggerParrySuccess(int reflectedCount)
+        {
+            if (IsDead) return;
+
+            float buffDuration = _equippedCoreMemoryId == "MEM_CH3_REGRET_WEIGHT" ? 6.0f : 4.0f;
+            _instantChargeReadyUntil = Time.time + buffDuration;
+            _bowCooldownEndTime = 0f; // 패링 직후 딜레이 없이 즉시 사격 가능!
+
+            if (_isCharging)
+            {
+                _chargeStartTime = Time.time - _maxChargeTime;
+                _hasFullCharged = true;
+            }
+
+            // [핵심 기억 3: 회한의 무게] 패링 성공 시 이동속도 +35% 가속 및 보옥 결계 치유
+            if (_equippedCoreMemoryId == "MEM_CH3_REGRET_WEIGHT")
+            {
+                ApplyMoveSpeedMultiplier(1.35f, 2.5f);
+                Heal(4f);
+            }
+
+            Debug.Log($"<color=cyan><b>[인연의 화살 — 즉발 완충!]</b> 단검 패링 성공으로 다음 차징 화살이 {buffDuration:F1}초간 즉시 100% 완충(25m 관통) 상태로 장전됩니다!</color>");
+        }
+
+        public void ApplyMoveSpeedMultiplier(float multiplier, float duration)
+        {
+            _tempMoveSpeedMultiplier = Mathf.Clamp(multiplier, 0.2f, 2.5f);
+            _tempMoveSpeedExpireTime = Mathf.Max(_tempMoveSpeedExpireTime, Time.time + duration);
+        }
+
+        public void SetRetryBlessingDamageReduction(float reductionRatio)
+        {
+            _damageReductionRatio = Mathf.Clamp(reductionRatio, 0f, 0.5f);
+        }
+
+        public void SetEquippedCoreMemory(string coreMemoryId)
+        {
+            _equippedCoreMemoryId = coreMemoryId ?? "";
+        }
+
         public void ApplyStatsFromTable()
         {
             if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.PlayerStats != null)
@@ -211,6 +309,10 @@ namespace MythOfGuotaji.Actor
                 _dashInvincibleDuration = table.dashInvincibleDuration > 0f ? table.dashInvincibleDuration : 0.5f;
                 _sameCategoryGCD = table.sameCategoryGCD;
                 _diffCategoryGCD = table.diffCategoryGCD;
+                _damageVignetteIntensity = table.damageVignetteIntensity > 0f ? table.damageVignetteIntensity : 0.85f;
+                _cameraShakeDuration = table.cameraShakeDuration > 0f ? table.cameraShakeDuration : 0.35f;
+                _cameraShakeIntensity = table.cameraShakeIntensity > 0f ? table.cameraShakeIntensity : 0.20f;
+                _defaultStunDuration = table.defaultStunDuration > 0f ? table.defaultStunDuration : 0.35f;
             }
 
             if (_bow != null)
@@ -338,6 +440,9 @@ namespace MythOfGuotaji.Actor
                 }
             }
 
+            float speedMult = Time.time < _tempMoveSpeedExpireTime ? _tempMoveSpeedMultiplier : 1.0f;
+            float effectiveMoveSpeed = _moveSpeed * speedMult;
+
             if (_isDashing)
             {
                 _dashTimer -= Time.deltaTime;
@@ -351,7 +456,7 @@ namespace MythOfGuotaji.Actor
             }
             else
             {
-                finalMove = _moveInput * _moveSpeed;
+                finalMove = _moveInput * effectiveMoveSpeed;
             }
 
             // 넉백 벡터 결합 및 감쇄
@@ -370,7 +475,7 @@ namespace MythOfGuotaji.Actor
             {
                 float currentSpeed = _isDashing 
                     ? _dashSpeed 
-                    : (_moveInput.sqrMagnitude > 0.01f ? _moveSpeed : 0f);
+                    : (_moveInput.sqrMagnitude > 0.01f ? effectiveMoveSpeed : 0f);
                 _animator.SetFloat(AnimHashMoveSpeed, currentSpeed);
             }
         }
@@ -388,8 +493,22 @@ namespace MythOfGuotaji.Actor
 
             Vector3 dashDir = _moveInput.sqrMagnitude > 0.01f ? _moveInput.normalized : _aimDirection;
             Core.VFXManager.Instance?.SpawnPlayerDashDust(transform.position, dashDir);
+            var playerStats = Data.GameDataManager.Instance?.PlayerStats;
+            if (playerStats != null && playerStats.dashSoundPrefab != null)
+            {
+                Core.VFXManager.Instance?.PlaySoundPrefab(playerStats.dashSoundPrefab, transform.position);
+            }
 
             SetAnimatorTriggerSafe(AnimHashJump);
+
+            if (_chargingAuraInstance != null)
+            {
+                Destroy(_chargingAuraInstance);
+                _chargingAuraInstance = null;
+            }
+            _isCharging = false;
+            _hasTriggeredStartCharge = false;
+            ResetAnimatorTriggerSafe(AnimHashStartCharge);
 
             if (_bow != null && _bow.IsBursting)
             {
@@ -419,23 +538,31 @@ namespace MythOfGuotaji.Actor
             {
                 _isCharging = true;
                 _chargeStartTime = Time.time;
+                SetBowModelActive(true);
                 _hasFullCharged = false;
+                _hasTriggeredStartCharge = false;
                 _currentChargeStep = 0;
                 _bow.StopBurst(); // 연사 도중 차징 진입 시 기존 연사를 부드럽게 전환
             }
 
             if (_isCharging && _bow != null)
             {
-                float holdDuration = Time.time - _chargeStartTime;
+                float holdDuration = ChargeHoldDuration;
 
                 if (holdDuration >= _maxChargeTime)
                 {
                     _hasFullCharged = true;
                 }
 
-                // 차징 0.3초 이상부터 단계별 VFX 오라 동적 부착
+                // 차징 0.3초 이상부터: 애니메이터 StartCharge 트리거 전송 및 단계별 VFX 오라 동적 부착
                 if (holdDuration >= _minChargeTime)
                 {
+                    if (!_hasTriggeredStartCharge)
+                    {
+                        _hasTriggeredStartCharge = true;
+                        TriggerStartChargeAnimation();
+                    }
+
                     float ratio = CurrentChargeRatio;
                     int step = ratio < 0.5f ? 1 : (ratio < 0.85f ? 2 : 3);
                     if (_currentChargeStep != step)
@@ -457,17 +584,21 @@ namespace MythOfGuotaji.Actor
 
                     if (holdDuration >= _minChargeTime)
                     {
-                        // 0.3초 이상 차징 후 릴리즈: 사거리 선형 증가(0m~25m) 차징샷 발사 (2배 피해, 무제한 관통, 1.5배속, 강력 넉백)
+                        // 0.3초 이상 차징 후 릴리즈 (또는 패링 즉발 완충 상태): ShotCharge 애니메이션 트리거 및 사거리 선형 증가(0m~25m) 차징샷 발사
                         float range = CurrentChargedRange;
+                        _instantChargeReadyUntil = 0f; // 즉발 완충 버프 소모
+                        TriggerShotChargeAnimation();
                         _bow.FireCharged(_aimDirection, gameObject, range);
+                        ShowBowModel(0.5f);
                         Core.VFXManager.Instance?.SpawnBowChargeReleaseBurst(transform.position, _aimDirection);
-                        TriggerAttackAnimation();
                     }
                     else
                     {
-                        // 0.3초 미만 퀵 클릭: 1.5초간 5회 연사 발사
+                        // 0.3초 미만 퀵 클릭: 1회 애니메이션 시작 트리거(Start5Arrow) 전송 및 배속 반영 5회 연사 발사
+                        float speedRatio = _bow != null ? _bow.AttackRateRatio : 1.0f;
+                        Trigger5ArrowAnimation(speedRatio);
                         _bow.FireBurst5(() => _aimDirection, gameObject);
-                        TriggerAttackAnimation();
+                        ShowBowModel(1.5f / speedRatio);
                     }
 
                     // 같은 카테고리 0.5초, 다른 카테고리 0.2초 글로벌 쿨다운 적용
@@ -475,6 +606,7 @@ namespace MythOfGuotaji.Actor
 
                     _isCharging = false;
                     _hasFullCharged = false;
+                    _hasTriggeredStartCharge = false;
                     _currentChargeStep = 0;
                 }
             }
@@ -487,6 +619,7 @@ namespace MythOfGuotaji.Actor
                 }
                 _isCharging = false;
                 _hasFullCharged = false;
+                _hasTriggeredStartCharge = false;
                 _currentChargeStep = 0;
             }
 
@@ -501,39 +634,73 @@ namespace MythOfGuotaji.Actor
                         Destroy(_chargingAuraInstance);
                         _chargingAuraInstance = null;
                     }
+                    if (_hasTriggeredStartCharge)
+                    {
+                        ResetAnimatorTriggerSafe(AnimHashStartCharge);
+                    }
                     _isCharging = false;
                     _hasFullCharged = false;
+                    _hasTriggeredStartCharge = false;
                     _currentChargeStep = 0;
                     TriggerCategoryGCD(CombatCategory.Dagger);
-                    TriggerAttackAnimation();
+                    TriggerDaggerAnimation();
+                    ShowDaggerModel(_dagger.Cooldown);
                 }
             }
         }
 
         /// <summary>
-        /// 애니메이터 Upper Layer의 Attack1 0 스테이트 및 IsInteracting 파라미터 연동
+        /// 활 일반 연사: 1회 애니메이션 시작 트리거(Start5Arrow) 전송 및 공격속도 배속 반영. 종료는 애니메이터에서 처리.
         /// </summary>
-        public void TriggerAttackAnimation()
+        public void Trigger5ArrowAnimation(float speedMultiplier = 1.0f)
         {
             if (_animator == null) return;
-
-            SetAnimatorBoolSafe(AnimHashIsInteracting, true);
-
-            int upperLayerIndex = _animator.GetLayerIndex("Upper Layer");
-            if (upperLayerIndex >= 0)
+            if (_daggerModelInstance != null && _daggerModelInstance.activeSelf)
             {
-                _animator.CrossFadeInFixedTime("Attack1 0", 0.05f, upperLayerIndex);
+                _daggerModelInstance.SetActive(false);
             }
-            else
-            {
-                _animator.CrossFadeInFixedTime("Attack1 0", 0.05f);
-            }
+            SetAnimatorFloatSafe(AnimHashAttackSpeed, speedMultiplier);
+            SetAnimatorTriggerSafe(AnimHashStart5Arrow);
+        }
 
-            if (_interactionAnimRoutine != null)
+        /// <summary>
+        /// 활 차징 시작: 마우스 0.3초 이상 누를 때 1회 애니메이션 시작 트리거(StartCharge) 전송.
+        /// </summary>
+        public void TriggerStartChargeAnimation()
+        {
+            if (_animator == null) return;
+            if (_daggerModelInstance != null && _daggerModelInstance.activeSelf)
             {
-                StopCoroutine(_interactionAnimRoutine);
+                _daggerModelInstance.SetActive(false);
             }
-            _interactionAnimRoutine = StartCoroutine(ResetInteractingRoutine(0.25f));
+            SetBowModelActive(true);
+            SetAnimatorTriggerSafe(AnimHashStartCharge);
+        }
+
+        /// <summary>
+        /// 활 차징샷 발사: 마우스를 뗄 때 1회 애니메이션 발사 트리거(ShotCharge) 전송. 종료는 애니메이터에서 처리.
+        /// </summary>
+        public void TriggerShotChargeAnimation()
+        {
+            if (_animator == null) return;
+            SetAnimatorTriggerSafe(AnimHashShotCharge);
+        }
+
+        public void TriggerChargeAnimation() => TriggerStartChargeAnimation();
+
+        /// <summary>
+        /// 단검 휘두르기: 1회 애니메이션 시작 트리거(StartDagger) 전송. 종료는 애니메이터에서 처리.
+        /// </summary>
+        public void TriggerDaggerAnimation()
+        {
+            if (_animator == null) return;
+            SetBowModelActive(false);
+            SetAnimatorTriggerSafe(AnimHashStartDagger);
+        }
+
+        public void TriggerAttackAnimation()
+        {
+            Trigger5ArrowAnimation(1.0f);
         }
 
         private HashSet<int> _animParamHashes;
@@ -558,6 +725,12 @@ namespace MythOfGuotaji.Actor
             _animator.SetBool(hash, value);
         }
 
+        private void SetAnimatorFloatSafe(int hash, float value)
+        {
+            if (!HasParameter(hash)) return;
+            _animator.SetFloat(hash, value);
+        }
+
         private void SetAnimatorTriggerSafe(int hash)
         {
             if (!HasParameter(hash)) return;
@@ -570,38 +743,35 @@ namespace MythOfGuotaji.Actor
             _animator.ResetTrigger(hash);
         }
 
-        private System.Collections.IEnumerator ResetInteractingRoutine(float delay)
-        {
-            yield return new WaitForSeconds(delay);
-            if (_animator != null)
-            {
-                SetAnimatorBoolSafe(AnimHashIsInteracting, false);
-            }
-            _interactionAnimRoutine = null;
-        }
-
         public void TakeDamage(DamageInfo info)
         {
-            if (IsDead) return;
+            if (IsDead || IsGodMode) return;
 
             // [기획 규칙]: 슬라이딩 무적 (i-frame) 동안 데미지 완전 무효화
             if (_isInvulnerable)
             {
                 Debug.Log("<color=cyan><b>[회피 성공!]</b> 슬라이딩 무적(0.5초 i-frame)으로 공격을 흘려보냈습니다!</color>");
-                Core.VFXManager.Instance?.Spawn("HCFX_Shine_01", transform.position + Vector3.up * 0.8f, Quaternion.identity, scale: 0.9f, autoDestroyTime: 0.6f);
+                Core.VFXManager.Instance?.SpawnPlayerEvasionShine(transform.position);
                 return;
             }
 
-            _currentHp -= info.amount;
-            Debug.Log($"<color=red>[거타지 피격!] 남은 체력: {_currentHp:F0}/{_maxHp}</color>");
+            float finalDamage = info.amount * (1f - _damageReductionRatio);
+            _currentHp -= finalDamage;
+            Debug.Log($"<color=red>[거타지 피격!] 적용 피해: {finalDamage:F1} (남은 체력: {_currentHp:F0}/{_maxHp})</color>");
 
             // 화면 주변 붉은 피격 비네트 플래시 발동
-            UI.ScreenDamageVignetteUI.Instance?.TriggerDamageFlash(0.85f);
+            UI.ScreenDamageVignetteUI.Instance?.TriggerDamageFlash(_damageVignetteIntensity);
 
             // 카메라 피격 셰이크
             if (Cameras.QuarterViewCamera.Instance != null)
             {
-                Cameras.QuarterViewCamera.Instance.TriggerShake(0.35f, 0.20f);
+                Cameras.QuarterViewCamera.Instance.TriggerShake(_cameraShakeDuration, _cameraShakeIntensity);
+            }
+
+            var pStats = Data.GameDataManager.Instance?.PlayerStats;
+            if (pStats != null && pStats.hitSoundPrefab != null)
+            {
+                Core.VFXManager.Instance?.PlaySoundPrefab(pStats.hitSoundPrefab, transform.position);
             }
 
             SetAnimatorTriggerSafe(AnimHashDamage);
@@ -627,11 +797,12 @@ namespace MythOfGuotaji.Actor
         private Coroutine _stunCoroutine;
         public bool IsStunned => _stunCoroutine != null;
 
-        public void ApplyStun(float duration)
+        public void ApplyStun(float duration = -1f)
         {
             if (IsDead) return;
+            float finalDuration = duration > 0f ? duration : _defaultStunDuration;
             if (_stunCoroutine != null) StopCoroutine(_stunCoroutine);
-            _stunCoroutine = StartCoroutine(StunRoutine(duration));
+            _stunCoroutine = StartCoroutine(StunRoutine(finalDuration));
         }
 
         private IEnumerator StunRoutine(float duration)
@@ -683,6 +854,19 @@ namespace MythOfGuotaji.Actor
             {
                 Destroy(_chargingAuraInstance);
                 _chargingAuraInstance = null;
+            }
+
+            var pStats = Data.GameDataManager.Instance?.PlayerStats;
+            if (pStats != null)
+            {
+                if (pStats.deathVfxPrefab != null)
+                {
+                    Core.VFXManager.Instance?.Spawn(pStats.deathVfxPrefab, transform.position + Vector3.up * 0.5f, Quaternion.identity, scale: 1.5f, autoDestroyTime: 2.0f);
+                }
+                if (pStats.deathSoundPrefab != null)
+                {
+                    Core.VFXManager.Instance?.PlaySoundPrefab(pStats.deathSoundPrefab, transform.position);
+                }
             }
 
             SetAnimatorTriggerSafe(AnimHashDeath);
@@ -743,6 +927,10 @@ namespace MythOfGuotaji.Actor
             ResetAnimatorTriggerSafe(AnimHashDeath);
             ResetAnimatorTriggerSafe(AnimHashDamage);
             ResetAnimatorTriggerSafe(AnimHashJump);
+            ResetAnimatorTriggerSafe(AnimHashStart5Arrow);
+            ResetAnimatorTriggerSafe(AnimHashStartCharge);
+            ResetAnimatorTriggerSafe(AnimHashShotCharge);
+            ResetAnimatorTriggerSafe(AnimHashStartDagger);
             SetAnimatorBoolSafe(AnimHashIsInteracting, false);
             _animator.SetFloat(AnimHashMoveSpeed, 0f);
 
@@ -880,6 +1068,136 @@ namespace MythOfGuotaji.Actor
             float actualHealed = _currentHp - prevHp;
             Debug.Log($"<color=green><b>[거타지 체력 회복]</b> +{actualHealed:F0} HP (현재: {_currentHp:F0}/{_maxHp})</color>");
             Core.VFXManager.Instance?.SpawnHealBuff(transform);
+            var pStats = Data.GameDataManager.Instance?.PlayerStats;
+            if (pStats != null && pStats.heartPickupSoundPrefab != null)
+            {
+                Core.VFXManager.Instance?.PlaySoundPrefab(pStats.heartPickupSoundPrefab, transform.position);
+            }
         }
+
+        #region Weapon Models & Socket Management
+        public void EquipBow(string bowId)
+        {
+            if (_bow != null) _bow.EquipBow(bowId);
+            SetupWeaponModels();
+        }
+
+        public void EquipDagger(string daggerId)
+        {
+            if (_dagger != null) _dagger.EquipDagger(daggerId);
+            SetupWeaponModels();
+        }
+
+        public void SetupWeaponModels()
+        {
+            if (_leftHandBone == null)
+            {
+                _leftHandBone = FindHandBone(HumanBodyBones.LeftHand, new[] { "Hand.L", "Hand_L", "LeftHand", "Left_Hand", "hand_l", "hand.l", "L_Hand", "HandL" });
+            }
+            if (_rightHandBone == null)
+            {
+                _rightHandBone = FindHandBone(HumanBodyBones.RightHand, new[] { "Hand.R", "Hand_R", "RightHand", "Right_Hand", "hand_r", "hand.r", "R_Hand", "HandR" });
+            }
+
+            // 활 모델 인스턴스화
+            if (_bowModelInstance != null) Destroy(_bowModelInstance);
+            GameObject bowPrefab = null;
+            if (GameDataManager.Instance != null && GameDataManager.Instance.WeaponStats != null)
+            {
+                string bowId = _bow != null ? _bow.CurrentBowId : "Bow_00";
+                var bowEntry = GameDataManager.Instance.WeaponStats.GetBow(bowId);
+                if (bowEntry != null) bowPrefab = bowEntry.modelPrefab;
+            }
+            if (bowPrefab == null) bowPrefab = Resources.Load<GameObject>("Prefabs/BowSample");
+
+            if (bowPrefab != null && _leftHandBone != null)
+            {
+                _bowModelInstance = Instantiate(bowPrefab, _leftHandBone);
+                _bowModelInstance.name = "Equipped_BowModel";
+                _bowModelInstance.transform.localPosition = Vector3.zero;
+                _bowModelInstance.transform.localRotation = Quaternion.identity;
+                _bowModelInstance.SetActive(false);
+            }
+
+            // 단검 모델 인스턴스화
+            if (_daggerModelInstance != null) Destroy(_daggerModelInstance);
+            GameObject daggerPrefab = null;
+            if (GameDataManager.Instance != null && GameDataManager.Instance.WeaponStats != null)
+            {
+                string daggerId = _dagger != null ? _dagger.CurrentDaggerId : "Dagger_00";
+                var daggerEntry = GameDataManager.Instance.WeaponStats.GetDagger(daggerId);
+                if (daggerEntry != null) daggerPrefab = daggerEntry.modelPrefab;
+            }
+            if (daggerPrefab == null) daggerPrefab = Resources.Load<GameObject>("Prefabs/DaggerSample");
+
+            if (daggerPrefab != null && _rightHandBone != null)
+            {
+                _daggerModelInstance = Instantiate(daggerPrefab, _rightHandBone);
+                _daggerModelInstance.name = "Equipped_DaggerModel";
+                _daggerModelInstance.transform.localPosition = Vector3.zero;
+                _daggerModelInstance.transform.localRotation = Quaternion.identity;
+                _daggerModelInstance.SetActive(false);
+            }
+        }
+
+        private Transform FindHandBone(HumanBodyBones boneType, string[] candidateNames)
+        {
+            if (_animator != null && _animator.isHuman)
+            {
+                var b = _animator.GetBoneTransform(boneType);
+                if (b != null) return b;
+            }
+            var allTransforms = GetComponentsInChildren<Transform>(true);
+            foreach (var name in candidateNames)
+            {
+                foreach (var t in allTransforms)
+                {
+                    if (t.name.IndexOf(name, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return t;
+                    }
+                }
+            }
+            var socket = new GameObject(boneType.ToString() + "_Socket").transform;
+            socket.SetParent(transform, false);
+            socket.localPosition = boneType == HumanBodyBones.LeftHand ? new Vector3(-0.35f, 0.8f, 0.2f) : new Vector3(0.35f, 0.8f, 0.2f);
+            return socket;
+        }
+
+        public void ShowBowModel(float duration = 0.5f)
+        {
+            if (_bowModelInstance == null) SetupWeaponModels();
+            if (_bowModelInstance == null) return;
+            if (_bowModelVisibleCoroutine != null) StopCoroutine(_bowModelVisibleCoroutine);
+            _bowModelVisibleCoroutine = StartCoroutine(RoutineShowModel(_bowModelInstance, duration));
+        }
+
+        public void SetBowModelActive(bool active)
+        {
+            if (_bowModelInstance == null && active) SetupWeaponModels();
+            if (_bowModelInstance == null) return;
+            if (_bowModelVisibleCoroutine != null)
+            {
+                StopCoroutine(_bowModelVisibleCoroutine);
+                _bowModelVisibleCoroutine = null;
+            }
+            _bowModelInstance.SetActive(active);
+        }
+
+        public void ShowDaggerModel(float duration = 0.35f)
+        {
+            if (_daggerModelInstance == null) SetupWeaponModels();
+            if (_daggerModelInstance == null) return;
+            if (_daggerModelVisibleCoroutine != null) StopCoroutine(_daggerModelVisibleCoroutine);
+            _daggerModelVisibleCoroutine = StartCoroutine(RoutineShowModel(_daggerModelInstance, duration));
+        }
+
+        private System.Collections.IEnumerator RoutineShowModel(GameObject modelObj, float duration)
+        {
+            if (modelObj != null) modelObj.SetActive(true);
+            yield return new WaitForSeconds(duration);
+            if (modelObj != null) modelObj.SetActive(false);
+        }
+        #endregion
     }
 }

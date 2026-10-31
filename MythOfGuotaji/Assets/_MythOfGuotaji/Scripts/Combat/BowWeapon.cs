@@ -12,11 +12,15 @@ namespace MythOfGuotaji.Combat
     public class BowWeapon : MonoBehaviour
     {
         [Header("Weapon Config")]
+        [SerializeField] private string _currentBowId = "Bow_00";
         [SerializeField] private GameObject _normalArrowPrefab;
         [SerializeField] private GameObject _chargedArrowPrefab;
+        [SerializeField] private GameObject _fireSoundPrefab;
+        [SerializeField] private GameObject _chargedFireSoundPrefab;
         [SerializeField] private Transform _firePoint;
         [SerializeField] private float _baseDamage = 25f;
-        [SerializeField] private float _attackRate = 2.8f; // 초당 발사 횟수
+        [SerializeField] private float _attackRate = 2.8f;
+        [SerializeField] private float _baseAttackRate = 2.8f; // 초당 발사 횟수
         [SerializeField] private float _critChance = 0.15f;
         [SerializeField] private float _critMultiplier = 2.0f;
         [SerializeField] private LayerMask _enemyLayer;
@@ -54,8 +58,12 @@ namespace MythOfGuotaji.Combat
         private bool _isBursting = false;
         private static int _nextVolleyId = 1;
 
+        public string CurrentBowId => _currentBowId;
         public bool CanFire => Time.time >= _lastFireTime + (1f / _attackRate);
         public bool IsBursting => _isBursting;
+        public float AttackRate => _attackRate;
+        public float BaseAttackRate => _baseAttackRate > 0.001f ? _baseAttackRate : 2.8f;
+        public float AttackRateRatio => BaseAttackRate > 0.001f ? Mathf.Max(0.1f, _attackRate / BaseAttackRate) : 1.0f;
         public float NormalRange => _normalRange;
         public float ChargedRange => _chargedRange;
         public float ChargeStartTime => _chargeStartTime;
@@ -71,6 +79,17 @@ namespace MythOfGuotaji.Combat
                 _enemyLayer = ~LayerMask.GetMask("Ignore Raycast");
             }
 
+            string targetBow = "Bow_00";
+            if (Core.GameManager.Instance?.SaveData != null && !string.IsNullOrEmpty(Core.GameManager.Instance.SaveData.equippedBowId))
+            {
+                targetBow = Core.GameManager.Instance.SaveData.equippedBowId;
+            }
+            EquipBow(targetBow);
+        }
+
+        public void EquipBow(string bowId)
+        {
+            _currentBowId = string.IsNullOrEmpty(bowId) ? "Bow_00" : bowId;
             ApplyStatsFromTable();
         }
 
@@ -78,37 +97,64 @@ namespace MythOfGuotaji.Combat
         {
             if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.WeaponStats != null)
             {
-                var bowStats = Data.GameDataManager.Instance.WeaponStats.bow;
-                _baseDamage = bowStats.baseDamage;
-                _attackRate = bowStats.attackRate;
-                _critChance = bowStats.critChance;
-                _critMultiplier = bowStats.critMultiplier;
-                arrowCount = bowStats.baseArrowCount;
-                spreadAngle = bowStats.spreadAngle;
-                pierceCount = bowStats.basePierceCount;
-                knockbackPower = bowStats.knockbackPower;
-                _chargeStartTime = bowStats.chargeStartTime;
-                _maxChargeTime = bowStats.maxChargeTime;
-                _chargeMinRange = bowStats.chargeMinRange;
-                _chargeMaxRange = bowStats.chargeMaxRange;
-                _chargedRange = bowStats.chargeMaxRange;
-                _chargedDamageMultiplier = bowStats.chargeDamageMultiplier;
-                _chargedSpeed = bowStats.chargeProjectileSpeed;
-                _chargedKnockback = bowStats.chargeKnockback;
-                _chargeTelegraphWidth = bowStats.chargeTelegraphWidth;
-                _burstShotCount = bowStats.burstShotCount;
-                _burstTotalDuration = bowStats.burstTotalDuration;
-                _burstCooldown = bowStats.burstCooldown;
-                _multiHitDamageFalloffRatio = bowStats.multiHitDamageFalloffRatio;
+                var bowEntry = Data.GameDataManager.Instance.WeaponStats.GetBow(_currentBowId);
+                if (bowEntry != null)
+                {
+                    var bowStats = bowEntry.stats;
+                    _baseDamage = bowStats.baseDamage;
+                    _attackRate = bowStats.attackRate;
+                    _baseAttackRate = bowStats.attackRate > 0f ? bowStats.attackRate : 2.8f;
+                    _critChance = bowStats.critChance;
+                    _critMultiplier = bowStats.critMultiplier;
+                    arrowCount = bowStats.baseArrowCount;
+                    spreadAngle = bowStats.spreadAngle;
+                    pierceCount = bowStats.basePierceCount;
+                    knockbackPower = bowStats.knockbackPower;
+                    _normalSpeed = bowStats.projectileSpeed > 0f ? bowStats.projectileSpeed : 24f;
+                    _chargeStartTime = bowStats.chargeStartTime;
+                    _maxChargeTime = bowStats.maxChargeTime;
+                    _normalRange = bowStats.normalRange;
+                    _chargeMinRange = bowStats.chargeMinRange;
+                    _chargeMaxRange = bowStats.chargeMaxRange;
+                    _chargedRange = bowStats.chargeMaxRange;
+                    _chargedDamageMultiplier = bowStats.chargeDamageMultiplier;
+                    _chargedSpeed = bowStats.chargeProjectileSpeed;
+                    _chargedKnockback = bowStats.chargeKnockback;
+                    _chargeTelegraphWidth = bowStats.chargeTelegraphWidth;
+                    _burstShotCount = bowStats.burstShotCount;
+                    _burstTotalDuration = bowStats.burstTotalDuration;
+                    _burstCooldown = bowStats.burstCooldown;
+                    _multiHitDamageFalloffRatio = bowStats.multiHitDamageFalloffRatio;
+
+                    if (bowEntry.normalArrowPrefab != null) _normalArrowPrefab = bowEntry.normalArrowPrefab;
+                    if (bowEntry.chargedArrowPrefab != null) _chargedArrowPrefab = bowEntry.chargedArrowPrefab;
+                    if (bowEntry.fireSoundPrefab != null) _fireSoundPrefab = bowEntry.fireSoundPrefab;
+                    if (bowEntry.chargedFireSoundPrefab != null) _chargedFireSoundPrefab = bowEntry.chargedFireSoundPrefab;
+                }
             }
 
-            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            // 폴백: PlayerStatsTable 및 PrefabDatabase 확인
+            if (_normalArrowPrefab == null)
             {
-                if (_normalArrowPrefab == null)
+                var playerTable = Data.GameDataManager.Instance?.PlayerStats;
+                if (playerTable != null && playerTable.defaultArrowPrefab != null)
+                {
+                    _normalArrowPrefab = playerTable.defaultArrowPrefab;
+                }
+                else if (Data.GameDataManager.Instance?.Prefabs != null)
                 {
                     _normalArrowPrefab = Data.GameDataManager.Instance.Prefabs.arrowProjectilePrefab;
                 }
-                if (_chargedArrowPrefab == null)
+            }
+
+            if (_chargedArrowPrefab == null)
+            {
+                var playerTable = Data.GameDataManager.Instance?.PlayerStats;
+                if (playerTable != null && playerTable.defaultChargedArrowPrefab != null)
+                {
+                    _chargedArrowPrefab = playerTable.defaultChargedArrowPrefab;
+                }
+                else if (Data.GameDataManager.Instance?.Prefabs != null)
                 {
                     _chargedArrowPrefab = Data.GameDataManager.Instance.Prefabs.chargedArrowProjectilePrefab;
                 }
@@ -138,17 +184,15 @@ namespace MythOfGuotaji.Combat
         {
             _isBursting = true;
             int totalShots = _burstShotCount > 0 ? _burstShotCount : 5;
-            float totalDuration = _burstTotalDuration > 0f ? _burstTotalDuration : 1.5f;
+            float ratio = AttackRateRatio;
+            float baseDuration = _burstTotalDuration > 0f ? _burstTotalDuration : 1.5f;
+            float totalDuration = baseDuration / ratio;
             float interval = totalShots > 1 ? totalDuration / (totalShots - 1) : totalDuration;
 
             for (int i = 0; i < totalShots; i++)
             {
                 Vector3 aim = getAimDirection != null ? getAimDirection() : transform.forward;
                 SpawnNormalArrowVolley(aim, owner);
-                if (owner != null && owner.TryGetComponent<Actor.PlayerController>(out var player))
-                {
-                    player.TriggerAttackAnimation();
-                }
 
                 if (i < totalShots - 1)
                 {
@@ -177,6 +221,11 @@ namespace MythOfGuotaji.Combat
             aimDirection.Normalize();
 
             int currentVolleyId = _nextVolleyId++;
+
+            if (_fireSoundPrefab != null)
+            {
+                Core.VFXManager.Instance?.PlaySoundPrefab(_fireSoundPrefab, transform.position);
+            }
 
             Vector3 spawnPos = _firePoint != null 
                 ? _firePoint.position 
@@ -229,6 +278,11 @@ namespace MythOfGuotaji.Combat
         public void FireCharged(Vector3 aimDirection, GameObject owner, float range = -1f)
         {
             _lastFireTime = Time.time;
+
+            if (_chargedFireSoundPrefab != null)
+            {
+                Core.VFXManager.Instance?.PlaySoundPrefab(_chargedFireSoundPrefab, transform.position);
+            }
 
             float actualRange = range < 0f ? _chargedRange : Mathf.Clamp(range, 0.2f, _chargedRange);
 
@@ -300,11 +354,7 @@ namespace MythOfGuotaji.Combat
             var visualRend = visual.GetComponent<Renderer>();
             if (visualRend != null)
             {
-                visualRend.material.color = new Color(1f, 0.85f, 0.2f); // 밝은 금빛 화살
-                if (visualRend.material.HasProperty("_BaseColor"))
-                {
-                    visualRend.material.SetColor("_BaseColor", new Color(1f, 0.85f, 0.2f));
-                }
+                visualRend.sharedMaterial = ZhuParabolicProjectile.GetSharedTelegraphMaterial(new Color(1f, 0.85f, 0.2f, 1f)); // 밝은 금빛 화살
             }
 
             if (visual.TryGetComponent<Collider>(out var visualCol))
@@ -341,11 +391,7 @@ namespace MythOfGuotaji.Combat
             if (visualRend != null)
             {
                 // 강렬하게 타오르는 푸른 번개/적황빛 영기 화살
-                visualRend.material.color = new Color(0.2f, 0.85f, 1.0f);
-                if (visualRend.material.HasProperty("_BaseColor"))
-                {
-                    visualRend.material.SetColor("_BaseColor", new Color(0.2f, 0.85f, 1.0f));
-                }
+                visualRend.sharedMaterial = ZhuParabolicProjectile.GetSharedTelegraphMaterial(new Color(0.2f, 0.85f, 1.0f, 1f));
             }
 
             if (visual.TryGetComponent<Collider>(out var visualCol))
@@ -369,6 +415,8 @@ namespace MythOfGuotaji.Combat
         public void SetAttackRate(float rate) => _attackRate = rate;
         public void AddAttackRate(float add) => _attackRate += add;
         public void AddBaseDamage(float add) => _baseDamage += add;
+        public void AddCritChance(float add) => _critChance = Mathf.Clamp01(_critChance + add);
+        public void AddChargeKnockbackMultiplier(float mult) => _chargedKnockback *= (1f + mult);
         public void AddChargeDamageMultiplier(float add) => _chargedDamageMultiplier += add;
         public void AddChargeMaxRange(float add) { _chargeMaxRange += add; _chargedRange += add; }
         public void ReduceChargeDuration(float percent)

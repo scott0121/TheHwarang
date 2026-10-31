@@ -2,16 +2,14 @@ using System.Collections;
 using System.Collections.Generic;
 using MythOfGuotaji.Actor;
 using MythOfGuotaji.Cameras;
-using MythOfGuotaji.Core;
+using MythOfGuotaji.Data;
 using UnityEngine;
 
 namespace MythOfGuotaji.Combat
 {
     /// <summary>
     /// [도깨비 화염술사] 패링 핑퐁 투사체
-    /// - 5m/s 느린 속도로 플레이어를 향해 날아감 (단검으로 쳐내기 쉬운 타이밍)
-    /// - 단검 패링 시 속도 2배, 피해 1.5배로 반사되어 도깨비에게 역직격!
-    /// - 도깨비에게 역직격 시 도깨비의 마법 보호막을 박살내고 3초간 기절(Groggy)
+    /// - 모든 VFX / Sound는 MonsterSkillTable(dokkaebi_fireball)에 직접 등록된 GameObject만 사용
     /// </summary>
     public class DokkaebiFireball : MonoBehaviour, IReflectable
     {
@@ -21,6 +19,8 @@ namespace MythOfGuotaji.Combat
         private float _damage = 12.0f;
         private bool _isReflected = false;
         private float _lifetime = 6.0f;
+        private MonsterSkillEntry _skill;
+        private GameObject _loopSoundObj;
 
         public bool IsFromPlayer => _isReflected;
         public Vector3 Position => transform.position;
@@ -37,9 +37,15 @@ namespace MythOfGuotaji.Combat
         private void OnDisable()
         {
             Projectile.ActiveReflectables.Remove(this);
+            MonsterTableAssetPlayer.StopLoopSound(ref _loopSoundObj);
         }
 
-        public void Initialize(GameObject owner, Vector3 startPos, Vector3 dir, float damage = 12f, float speed = 5f)
+        private void OnDestroy()
+        {
+            MonsterTableAssetPlayer.StopLoopSound(ref _loopSoundObj);
+        }
+
+        public void Initialize(GameObject owner, Vector3 startPos, Vector3 dir, float damage = 12f, float speed = 5f, MonsterSkillEntry skill = null)
         {
             _owner = owner;
             transform.position = startPos;
@@ -47,6 +53,17 @@ namespace MythOfGuotaji.Combat
             _damage = damage;
             _speed = speed;
             _isReflected = false;
+            _skill = skill ?? (GameDataManager.Instance?.MonsterSkills?.GetSkill("dokkaebi_fireball"));
+            if (_skill != null)
+            {
+                ParryType = _skill.projectileParryType;
+            }
+
+            if (_skill != null && _skill.enableLoopSound && _skill.loopSoundPrefab != null)
+            {
+                _loopSoundObj = MonsterTableAssetPlayer.StartLoopSound(_skill.loopSoundPrefab, transform, startPos);
+            }
+
             Destroy(gameObject, _lifetime);
         }
 
@@ -71,9 +88,10 @@ namespace MythOfGuotaji.Combat
 
             transform.rotation = Quaternion.LookRotation(_direction);
 
-            // 반사 시 황금빛/청록빛 파티클 스파크
-            VFXManager.Instance?.SpawnDaggerParrySpark(transform.position);
-            Debug.Log("<color=gold><b>[도깨비불 패링 성공!]</b> 화염구를 2배 속도로 반사하여 도깨비에게 되돌려 보냅니다!</color>");
+            if (_skill != null && _skill.parryVfxPrefab != null)
+            {
+                MonsterTableAssetPlayer.SpawnVfx(_skill.parryVfxPrefab, transform.position, Quaternion.identity);
+            }
         }
 
         private void Update()
@@ -81,21 +99,23 @@ namespace MythOfGuotaji.Combat
             Vector3 move = _direction * (_speed * Time.deltaTime);
             transform.position += move;
 
-            // 충돌 검사
             float checkRadius = 0.6f;
             Collider[] hits = Physics.OverlapSphere(transform.position, checkRadius);
             foreach (var col in hits)
             {
                 if (!_isReflected)
                 {
-                    // 플레이어 타격
-                    if (col.CompareTag("Player") || col.TryGetComponent<PlayerController>(out var player))
+                    if (col.CompareTag("Player") || col.TryGetComponent<PlayerController>(out _))
                     {
                         var pc = col.GetComponentInParent<PlayerController>();
                         if (pc != null && !pc.IsDead)
                         {
                             pc.TakeDamage(new DamageInfo(_damage, false, transform.position, _direction, 2f, ElementType.Fire, _owner));
-                            VFXManager.Instance?.Spawn("HCFX_Explosion_02", transform.position, Quaternion.identity);
+                            if (_skill != null)
+                            {
+                                MonsterTableAssetPlayer.SpawnVfx(_skill.impactVfxPrefab, transform.position, Quaternion.identity);
+                                MonsterTableAssetPlayer.PlayOneShotSound(_skill.impactSoundPrefab, transform.position);
+                            }
                             Destroy(gameObject);
                             return;
                         }
@@ -103,21 +123,21 @@ namespace MythOfGuotaji.Combat
                 }
                 else
                 {
-                    // 반사된 상태: 몬스터 역직격
-                    if (col.TryGetComponent<MonsterAI>(out var mon) || col.CompareTag("Monster"))
+                    if (col.TryGetComponent<MonsterAI>(out _) || col.CompareTag("Monster"))
                     {
                         var targetMon = col.GetComponentInParent<MonsterAI>();
-                        if (targetMon != null && !targetMon.IsDead && targetMon.gameObject != _owner?.gameObject && _owner != null)
-                        {
-                            // 다른 몬스터
-                        }
                         if (targetMon != null && !targetMon.IsDead)
                         {
-                            targetMon.TakeDamage(new DamageInfo(_damage, true, transform.position, _direction, 4f, ElementType.Fire, null, isReflected: true));
-                            targetMon.ApplyStun(3.0f); // 3초간 그로기 기절!
+                            float critChance1 = DaggerWeapon.Instance != null ? DaggerWeapon.Instance.CritChance : 0.15f;
+                            bool isCrit1 = UnityEngine.Random.value < critChance1;
+                            targetMon.TakeDamage(new DamageInfo(_damage, isCrit1, transform.position, _direction, 4f, ElementType.Fire, null, isReflected: true));
+                            targetMon.ApplyStun(3.0f);
                             QuarterViewCamera.Instance?.TriggerShake(0.5f, 0.25f);
-                            VFXManager.Instance?.Spawn("HCFX_Flash_01", targetMon.transform.position, Quaternion.identity, scale: 2.0f);
-                            Debug.Log("<color=lime><b>[보호막 분쇄!]</b> 반사된 도깨비불이 도깨비를 강타하여 3초간 기절시켰습니다!</color>");
+                            if (_skill != null)
+                            {
+                                MonsterTableAssetPlayer.SpawnVfx(_skill.impactVfxPrefab, targetMon.transform.position, Quaternion.identity, 2.0f);
+                                MonsterTableAssetPlayer.PlayOneShotSound(_skill.impactSoundPrefab, targetMon.transform.position);
+                            }
                             Destroy(gameObject);
                             return;
                         }
@@ -129,6 +149,7 @@ namespace MythOfGuotaji.Combat
 
     /// <summary>
     /// [사방신 토템] 고정 포대 회전 탄환 (패링 가능)
+    /// - 모든 VFX / Sound는 MonsterSkillTable(totem_turret_barrage)에 직접 등록된 GameObject만 사용
     /// </summary>
     public class TotemEnergyOrb : MonoBehaviour, IReflectable
     {
@@ -137,6 +158,8 @@ namespace MythOfGuotaji.Combat
         private float _speed = 6.0f;
         private float _damage = 8.0f;
         private bool _isReflected = false;
+        private MonsterSkillEntry _skill;
+        private GameObject _loopSoundObj;
 
         public bool IsFromPlayer => _isReflected;
         public Vector3 Position => transform.position;
@@ -154,6 +177,12 @@ namespace MythOfGuotaji.Combat
         private void OnDisable()
         {
             Projectile.ActiveReflectables.Remove(this);
+            MonsterTableAssetPlayer.StopLoopSound(ref _loopSoundObj);
+        }
+
+        private void OnDestroy()
+        {
+            MonsterTableAssetPlayer.StopLoopSound(ref _loopSoundObj);
         }
 
         public void ApplyTopDepthPriority()
@@ -175,7 +204,7 @@ namespace MythOfGuotaji.Combat
             }
         }
 
-        public void Initialize(GameObject owner, Vector3 startPos, Vector3 dir, float damage = 8f, float speed = 6f)
+        public void Initialize(GameObject owner, Vector3 startPos, Vector3 dir, float damage = 8f, float speed = 6f, MonsterSkillEntry skill = null)
         {
             _owner = owner;
             transform.position = startPos;
@@ -183,9 +212,19 @@ namespace MythOfGuotaji.Combat
             _damage = damage;
             _speed = speed;
             _isReflected = false;
+            _skill = skill ?? (GameDataManager.Instance?.MonsterSkills?.GetSkill("totem_turret_barrage"));
+            if (_skill != null)
+            {
+                ParryType = _skill.projectileParryType;
+            }
+
+            if (_skill != null && _skill.enableLoopSound && _skill.loopSoundPrefab != null)
+            {
+                _loopSoundObj = MonsterTableAssetPlayer.StartLoopSound(_skill.loopSoundPrefab, transform, startPos);
+            }
+
             Destroy(gameObject, 5.0f);
 
-            // 강화 투사체(황금색) 비주얼 보장
             ApplyEnhancedGoldenVisual();
             ApplyTopDepthPriority();
         }
@@ -194,12 +233,12 @@ namespace MythOfGuotaji.Combat
         {
             var rends = GetComponentsInChildren<Renderer>(true);
             Color gold = new Color(1.0f, 0.82f, 0.1f, 0.95f);
+            Material sharedGoldMat = ZhuParabolicProjectile.GetSharedTelegraphMaterial(gold);
             foreach (var r in rends)
             {
-                if (r != null && r.material != null)
+                if (r != null && sharedGoldMat != null)
                 {
-                    r.material.color = gold;
-                    if (r.material.HasProperty("_BaseColor")) r.material.SetColor("_BaseColor", gold);
+                    r.sharedMaterial = sharedGoldMat;
                 }
             }
         }
@@ -215,7 +254,10 @@ namespace MythOfGuotaji.Combat
             else _direction = -_direction;
 
             transform.rotation = Quaternion.LookRotation(_direction);
-            VFXManager.Instance?.SpawnDaggerParrySpark(transform.position);
+            if (_skill != null && _skill.parryVfxPrefab != null)
+            {
+                MonsterTableAssetPlayer.SpawnVfx(_skill.parryVfxPrefab, transform.position, Quaternion.identity);
+            }
         }
 
         private void Update()
@@ -233,6 +275,11 @@ namespace MythOfGuotaji.Combat
                         if (pc != null && !pc.IsDead)
                         {
                             pc.TakeDamage(new DamageInfo(_damage, false, transform.position, _direction, 1.5f, ElementType.Lightning, _owner));
+                            if (_skill != null)
+                            {
+                                MonsterTableAssetPlayer.SpawnVfx(_skill.impactVfxPrefab, transform.position, Quaternion.identity);
+                                MonsterTableAssetPlayer.PlayOneShotSound(_skill.impactSoundPrefab, transform.position);
+                            }
                             Destroy(gameObject);
                             return;
                         }
@@ -240,25 +287,35 @@ namespace MythOfGuotaji.Combat
                 }
                 else
                 {
-                    if (col.TryGetComponent<MonsterAI>(out var mon) || col.CompareTag("Monster"))
+                    if (col.TryGetComponent<MonsterAI>(out _) || col.CompareTag("Monster"))
                     {
                         var targetMon = col.GetComponentInParent<MonsterAI>();
                         if (targetMon != null && !targetMon.IsDead)
                         {
-                            targetMon.TakeDamage(new DamageInfo(_damage, true, transform.position, _direction, 3f, ElementType.Lightning, null, isReflected: true));
+                            float critChance2 = DaggerWeapon.Instance != null ? DaggerWeapon.Instance.CritChance : 0.15f;
+                            bool isCrit2 = UnityEngine.Random.value < critChance2;
+                            targetMon.TakeDamage(new DamageInfo(_damage, isCrit2, transform.position, _direction, 3f, ElementType.Lightning, null, isReflected: true));
+                            if (_skill != null)
+                            {
+                                MonsterTableAssetPlayer.SpawnVfx(_skill.impactVfxPrefab, transform.position, Quaternion.identity);
+                                MonsterTableAssetPlayer.PlayOneShotSound(_skill.impactSoundPrefab, transform.position);
+                            }
                             Destroy(gameObject);
                             return;
                         }
                     }
                 }
 
-                // 벽/장애물 충돌 검사
                 bool isWall = col.gameObject.name.Contains("Wall") ||
                               col.gameObject.name.Contains("Pillar") ||
                               col.gameObject.name.Contains("Door");
                 if (isWall)
                 {
-                    VFXManager.Instance?.Spawn("HCFX_Sparks_01", transform.position, Quaternion.identity);
+                    if (_skill != null)
+                    {
+                        MonsterTableAssetPlayer.SpawnVfx(_skill.impactVfxPrefab, transform.position, Quaternion.identity);
+                        MonsterTableAssetPlayer.PlayOneShotSound(_skill.impactSoundPrefab, transform.position);
+                    }
                     Destroy(gameObject);
                     return;
                 }
@@ -267,36 +324,67 @@ namespace MythOfGuotaji.Combat
     }
 
     /// <summary>
-    /// [요선 거미] 영혼 거미줄 견인 사슬
-    /// - 플레이어를 거미 쪽으로 끌어당김
-    /// - 슬라이딩(대시) 무적으로 즉시 절단 탈출 가능
+    /// [요선 거미] 영혼 거미줄 견인 사슬 및 트레일 연결
+    /// - 스킬 발동 시 일정 시간동안 거미와 플레이어를 트레일(LineRenderer / TrailVFX)로 실시간 연결
+    /// - 모든 VFX / Sound는 MonsterSkillTable(spider_web_tether)에 직접 등록된 GameObject만 사용
     /// </summary>
     public class SpiderWebTether : MonoBehaviour
     {
         private MonsterAI _spider;
         private PlayerController _player;
-        private float _pullDuration = 2.0f;
-        private float _pullSpeed = 3.5f;
+        private float _pullDuration = 2.5f;
+        private float _pullSpeed = 4.0f;
         private LineRenderer _line;
+        private MonsterSkillEntry _skill;
+        private GameObject _loopSoundObj;
+        private GameObject _trailVfxObj;
 
-        public void Attach(MonsterAI spider, PlayerController player, float duration = 2.0f, float speed = 3.5f)
+        public void Attach(MonsterAI spider, PlayerController player, float duration = 2.5f, float speed = 4.0f, MonsterSkillEntry skill = null)
         {
             _spider = spider;
             _player = player;
+            _skill = skill ?? (GameDataManager.Instance?.MonsterSkills?.GetSkill("spider_web_tether"));
+
+            if (_skill != null)
+            {
+                if (_skill.aoeRadius > 0f) duration = _skill.aoeRadius;
+                if (_skill.projectileSpeed > 0f) speed = _skill.projectileSpeed;
+            }
+
             _pullDuration = duration;
             _pullSpeed = speed;
 
+            if (_skill != null && _skill.enableLoopSound && _skill.loopSoundPrefab != null)
+            {
+                _loopSoundObj = MonsterTableAssetPlayer.StartLoopSound(_skill.loopSoundPrefab, true, transform);
+            }
+
+            // 라인 렌더러 / 트레일 세팅
             _line = gameObject.GetComponent<LineRenderer>();
             if (_line == null) _line = gameObject.AddComponent<LineRenderer>();
+            _line.useWorldSpace = true;
+            _line.alignment = LineAlignment.View;
+            _line.textureMode = LineTextureMode.Tile;
+            _line.positionCount = 2;
+
+            Color tetherCol = _skill != null ? _skill.telegraphColor : new Color(0.85f, 0.25f, 0.85f, 0.85f);
+            float width = _skill != null && _skill.dashWidth > 0f ? _skill.dashWidth : 0.12f;
+            _line.startWidth = width;
+            _line.endWidth = width;
+            _line.startColor = tetherCol;
+            _line.endColor = new Color(tetherCol.r, tetherCol.g, tetherCol.b, tetherCol.a * 0.7f);
+
             if (_line.sharedMaterial == null)
             {
-                _line.material = new Material(Shader.Find("Sprites/Default"));
+                _line.sharedMaterial = ZhuParabolicProjectile.GetSharedTelegraphMaterial(tetherCol);
             }
-            _line.startColor = new Color(0.9f, 0.3f, 0.9f, 0.8f);
-            _line.endColor = new Color(0.6f, 0.1f, 0.7f, 0.8f);
-            _line.startWidth = 0.08f;
-            _line.endWidth = 0.08f;
-            _line.positionCount = 2;
+
+            // 트레일 이펙트 프리팹이 등록되어 있다면 생성하여 연결선 상에 부착
+            if (_skill != null && _skill.trailVfxPrefab != null)
+            {
+                Vector3 midPoint = (_spider.transform.position + _player.transform.position) * 0.5f + Vector3.up * 0.8f;
+                _trailVfxObj = Instantiate(_skill.trailVfxPrefab, midPoint, Quaternion.identity, transform);
+            }
 
             StartCoroutine(PullRoutine());
         }
@@ -304,7 +392,6 @@ namespace MythOfGuotaji.Combat
         private IEnumerator PullRoutine()
         {
             float elapsed = 0f;
-            Debug.Log("<color=magenta>[요선 거미] 영혼 거미줄에 결박되었습니다! 슬라이딩으로 끊어내세요!</color>");
 
             while (elapsed < _pullDuration)
             {
@@ -313,78 +400,105 @@ namespace MythOfGuotaji.Combat
                     break;
                 }
 
-                // [탈출 기믹]: 슬라이딩(대시) 발동 시 사슬 즉시 절단!
-                if (_player.IsDashing)
+                Vector3 spiderPos = _spider.transform.position + Vector3.up * 0.7f;
+                Vector3 playerPos = _player.transform.position + Vector3.up * 0.8f;
+
+                // 매 프레임 거미와 플레이어 사이를 트레일(라인)로 실시간 연결
+                if (_line != null)
                 {
-                    Debug.Log("<color=cyan><b>[사슬 절단!]</b> 슬라이딩 무적 대시로 거미줄을 끊고 탈출했습니다!</color>");
-                    VFXManager.Instance?.Spawn("HCFX_Slash_01", _player.transform.position + Vector3.up * 0.8f, Quaternion.identity);
+                    _line.SetPosition(0, spiderPos);
+                    _line.SetPosition(1, playerPos);
+                }
+
+                if (_trailVfxObj != null)
+                {
+                    _trailVfxObj.transform.position = Vector3.Lerp(spiderPos, playerPos, Mathf.PingPong(elapsed * 2.5f, 1f));
+                    Vector3 diff = playerPos - spiderPos;
+                    if (diff.sqrMagnitude > 0.001f)
+                    {
+                        _trailVfxObj.transform.rotation = Quaternion.LookRotation(diff.normalized);
+                    }
+                }
+
+                // 슬라이딩(대시) 또는 무적 발동 시 영혼 사슬 즉시 절단 탈출
+                if (_player.IsDashing || _player.IsInvincible)
+                {
+                    if (_skill != null)
+                    {
+                        MonsterTableAssetPlayer.SpawnVfx(_skill.impactVfxPrefab, playerPos, Quaternion.identity);
+                        MonsterTableAssetPlayer.PlayOneShotSound(_skill.impactSoundPrefab, playerPos);
+                    }
                     break;
                 }
 
-                // 견인 물리 이동
-                Vector3 toSpider = (_spider.transform.position - _player.transform.position).normalized;
+                // 플레이어를 거미 쪽으로 부드럽게 견인
+                Vector3 toSpider = (_spider.transform.position - _player.transform.position);
                 toSpider.y = 0f;
-                _player.GetComponent<CharacterController>()?.Move(toSpider * (_pullSpeed * Time.deltaTime));
-
-                // 라인 렌더러 갱신
-                if (_line != null)
+                if (toSpider.magnitude > 0.5f)
                 {
-                    _line.SetPosition(0, _spider.transform.position + Vector3.up * 0.8f);
-                    _line.SetPosition(1, _player.transform.position + Vector3.up * 0.8f);
+                    _player.GetComponent<CharacterController>()?.Move(toSpider.normalized * (_pullSpeed * Time.deltaTime));
                 }
 
                 elapsed += Time.deltaTime;
                 yield return null;
             }
 
+            MonsterTableAssetPlayer.StopLoopSound(ref _loopSoundObj);
+            if (_trailVfxObj != null) Destroy(_trailVfxObj);
             Destroy(gameObject);
+        }
+
+        private void OnDestroy()
+        {
+            MonsterTableAssetPlayer.StopLoopSound(ref _loopSoundObj);
+            if (_trailVfxObj != null) Destroy(_trailVfxObj);
         }
     }
 
     /// <summary>
     /// [진흙 이괴] 늪지 슬로우 장판
-    /// - 3m 범위 내 플레이어 이동속도 60% 감속
+    /// - 모든 VFX / Sound는 MonsterSkillTable(mud_puddle)에 직접 등록된 GameObject만 사용
     /// </summary>
     public class MudPuddleZone : MonoBehaviour
     {
         private float _duration = 4.0f;
-        private float _slowFactor = 0.4f; // 이동속도 40%로 감소 (60% 감속)
+        private float _slowFactor = 0.4f;
         private float _radius = 3.0f;
+        private MonsterSkillEntry _skill;
+        private GameObject _loopSoundObj;
 
-        public void Initialize(Vector3 pos, float radius = 3.0f, float duration = 4.0f)
+        public void Initialize(Vector3 pos, float radius = 3.0f, float duration = 4.0f, MonsterSkillEntry skill = null)
         {
             transform.position = new Vector3(pos.x, 0.06f, pos.z);
             _radius = radius;
             _duration = duration;
+            _skill = skill ?? (GameDataManager.Instance?.MonsterSkills?.GetSkill("mud_puddle"));
 
-            // 프리팹 내 기존 시각적 바닥 실린더 확인 또는 생성
+            if (_skill != null && _skill.enableLoopSound && _skill.loopSoundPrefab != null)
+            {
+                _loopSoundObj = MonsterTableAssetPlayer.StartLoopSound(_skill.loopSoundPrefab, transform, transform.position);
+            }
+
             var existingVisual = transform.Find("MudVisual");
-            GameObject cyl;
             if (existingVisual != null)
             {
-                cyl = existingVisual.gameObject;
-            }
-            else
-            {
-                cyl = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                cyl.name = "MudVisual";
-                cyl.transform.SetParent(transform, false);
-                cyl.transform.localPosition = Vector3.zero;
-                var col = cyl.GetComponent<Collider>();
-                if (col != null) Destroy(col);
-            }
-            cyl.transform.localScale = new Vector3(radius * 2f, 0.01f, radius * 2f);
+                GameObject cyl = existingVisual.gameObject;
+                cyl.transform.localScale = new Vector3(radius * 2f, 0.01f, radius * 2f);
 
-            var mr = cyl.GetComponent<MeshRenderer>();
-            if (mr != null)
-            {
-                var mat = new Material(Shader.Find("Sprites/Default"));
-                mat.color = new Color(0.35f, 0.25f, 0.12f, 0.65f); // 진흙색
-                mr.material = mat;
-                mr.sortingOrder = 40;
+                var mr = cyl.GetComponent<MeshRenderer>();
+                if (mr != null)
+                {
+                    mr.sharedMaterial = ZhuParabolicProjectile.GetSharedTelegraphMaterial(new Color(0.35f, 0.25f, 0.12f, 0.65f));
+                    mr.sortingOrder = 40;
+                }
             }
 
             Destroy(gameObject, duration);
+        }
+
+        private void OnDestroy()
+        {
+            MonsterTableAssetPlayer.StopLoopSound(ref _loopSoundObj);
         }
 
         private void Update()
@@ -395,8 +509,7 @@ namespace MythOfGuotaji.Combat
                 float dist = Vector3.Distance(new Vector3(transform.position.x, 0f, transform.position.z), new Vector3(player.transform.position.x, 0f, player.transform.position.z));
                 if (dist <= _radius)
                 {
-                    // 늪지 감속 효과 부여 (매 프레임)
-                    player.ApplyKnockback(Vector3.zero); // 넉백 안정화
+                    player.ApplyMoveSpeedMultiplier(_slowFactor, 0.2f);
                 }
             }
         }

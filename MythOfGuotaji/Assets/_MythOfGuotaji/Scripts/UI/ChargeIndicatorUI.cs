@@ -196,7 +196,7 @@ namespace MythOfGuotaji.UI
             var fillRend = fillObj.GetComponent<Renderer>();
             if (fillRend != null)
             {
-                _aimBoxMaterial = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
+                _aimBoxMaterial = new Material(Actor.ExpGem.ResolveSafeShader("Universal Render Pipeline/Unlit", "Universal Render Pipeline/Lit", "Sprites/Default", "Unlit/Color"));
                 Color aimColor = new Color(0.15f, 0.85f, 1.0f, 0.40f);
                 _aimBoxMaterial.color = aimColor;
                 if (_aimBoxMaterial.HasProperty("_BaseColor")) _aimBoxMaterial.SetColor("_BaseColor", aimColor);
@@ -220,7 +220,7 @@ namespace MythOfGuotaji.UI
             var r = line.GetComponent<Renderer>();
             if (r != null)
             {
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
+                var mat = new Material(Actor.ExpGem.ResolveSafeShader("Universal Render Pipeline/Unlit", "Universal Render Pipeline/Lit", "Sprites/Default", "Unlit/Color"));
                 Color borderCol = new Color(0.35f, 0.95f, 1.0f, 0.85f);
                 mat.color = borderCol;
                 if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", borderCol);

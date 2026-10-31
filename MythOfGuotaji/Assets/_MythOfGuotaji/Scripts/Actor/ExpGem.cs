@@ -31,6 +31,28 @@ namespace MythOfGuotaji.Actor
         private Renderer _renderer;
         private static Material _gemMaterial;
         private static Mesh _diamondMesh;
+        private static Material s_sharedDefaultGemMat;
+        private static MaterialPropertyBlock s_gemPropBlock;
+        private static readonly int s_baseColorPropId = Shader.PropertyToID("_BaseColor");
+        private static readonly int s_colorPropId = Shader.PropertyToID("_Color");
+
+        public static Shader ResolveSafeShader(params string[] preferredShaders)
+        {
+            if (preferredShaders != null)
+            {
+                for (int i = 0; i < preferredShaders.Length; i++)
+                {
+                    if (string.IsNullOrEmpty(preferredShaders[i])) continue;
+                    var s = Shader.Find(preferredShaders[i]);
+                    if (s != null) return s;
+                }
+            }
+            return Shader.Find("Universal Render Pipeline/Lit")
+                ?? Shader.Find("Universal Render Pipeline/Unlit")
+                ?? Shader.Find("Sprites/Default")
+                ?? Shader.Find("Unlit/Color")
+                ?? Shader.Find("Standard");
+        }
 
         public int ExpValue => _expValue;
         public bool IsVacuuming => _isVacuuming;
@@ -180,9 +202,13 @@ namespace MythOfGuotaji.Actor
             var r = fx.GetComponentInChildren<Renderer>();
             if (r != null)
             {
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
-                mat.color = _expValue >= 2 ? new Color(1f, 0.85f, 0.2f, 0.9f) : new Color(0.2f, 0.95f, 0.85f, 0.9f);
-                r.material = mat;
+                var fxShader = ResolveSafeShader("Universal Render Pipeline/Unlit", "Universal Render Pipeline/Lit", "Sprites/Default", "Unlit/Color");
+                var mat = fxShader != null ? new Material(fxShader) : (s_sharedDefaultGemMat != null ? new Material(s_sharedDefaultGemMat) : null);
+                if (mat != null)
+                {
+                    mat.color = _expValue >= 2 ? new Color(1f, 0.85f, 0.2f, 0.9f) : new Color(0.2f, 0.95f, 0.85f, 0.9f);
+                    r.material = mat;
+                }
             }
 
             Destroy(fx, 0.22f);
@@ -291,10 +317,31 @@ namespace MythOfGuotaji.Actor
                 _ => new Color(0.1f, 0.95f, 0.75f)     // 기본: 영혼 에메랄드/청록
             };
 
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Unlit/Color"));
-            mat.color = gemColor;
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", gemColor);
-            _renderer.material = mat;
+            // 1. 머티리얼이 아직 없거나 셰이더가 누락된 경우 안전한 셰이더로 공유 머티리얼 1회 생성
+            if (s_sharedDefaultGemMat == null)
+            {
+                var shader = ResolveSafeShader("Universal Render Pipeline/Unlit", "Universal Render Pipeline/Lit", "Sprites/Default", "Unlit/Color");
+                if (shader != null)
+                {
+                    s_sharedDefaultGemMat = new Material(shader) { name = "Runtime_ExpGem_SharedMat" };
+                }
+            }
+
+            if (_renderer.sharedMaterial == null && s_sharedDefaultGemMat != null)
+            {
+                _renderer.sharedMaterial = s_sharedDefaultGemMat;
+            }
+
+            // 2. 머티리얼 인스턴스를 매번 new하지 않고 MaterialPropertyBlock을 사용하여 가비지 0B 달성
+            if (s_gemPropBlock == null)
+            {
+                s_gemPropBlock = new MaterialPropertyBlock();
+            }
+
+            _renderer.GetPropertyBlock(s_gemPropBlock);
+            s_gemPropBlock.SetColor(s_baseColorPropId, gemColor);
+            s_gemPropBlock.SetColor(s_colorPropId, gemColor);
+            _renderer.SetPropertyBlock(s_gemPropBlock);
         }
 
         /// <summary>

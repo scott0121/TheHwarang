@@ -32,6 +32,14 @@ namespace MythOfGuotaji.Data
         public float extraLoopRatio = 0.1f;
         [Tooltip("적용할 맵 스킨 테이블 카테고리 인덱스 (0: Base, 1: ...)")]
         public int skinCategoryIndex = 0;
+
+        [Header("Monster Spawn & Level Policy")]
+        [Tooltip("스테이지별 몬스터 소환 규정 테이블 SO 연결")]
+        public DungeonMonsterTableSO monsterTable;
+        [Tooltip("스테이지 몬스터 식별 키 (예: Stage00, Stage01)")]
+        public string stageMonsterKey = "Stage00";
+        [Tooltip("이 던전 시작 시 기본 몬스터 레벨 (이 수치부터 시작하여 5분마다 +1씩 가산)")]
+        public int monsterLevelStart = 1;
     }
 
     /// <summary>
@@ -43,6 +51,9 @@ namespace MythOfGuotaji.Data
     [CreateAssetMenu(fileName = "DungeonStageTable", menuName = "MythOfGuotaji/DungeonStageTable")]
     public class DungeonStageTableSO : ScriptableObject
     {
+        [Header("Global Monster Table Fallback")]
+        public DungeonMonsterTableSO defaultMonsterTable;
+
         public List<StageDungeonConfig> stages = new()
         {
             new StageDungeonConfig

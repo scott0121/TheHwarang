@@ -1,14 +1,13 @@
 using System.Collections.Generic;
 using MythOfGuotaji.Core;
+using MythOfGuotaji.Data;
 using UnityEngine;
 
 namespace MythOfGuotaji.Combat
 {
     /// <summary>
     /// 화살 및 원거리 투사체 (SphereCast + Trigger 이중 검출, 풀링 및 사거리/관통 지원)
-    /// - 사거리 제한 지원 (일반 화살 15m, 강력한 화살 25m)
-    /// - 무제한 관통 및 적 타격 중복 방지
-    /// - IReflectable 구현: 단검 패링 시 날아오던 각도로 반사
+    /// - 몬스터 투사체의 경우 MonsterSkillTable에서 전달된 직접 참조 VFX/Sound 프리팹을 우선 사용
     /// </summary>
     public class Projectile : MonoBehaviour, IReflectable
     {
@@ -18,8 +17,8 @@ namespace MythOfGuotaji.Combat
         [SerializeField] private float _speed = 24f;
         [SerializeField] private float _lifeTime = 2.5f;
         [SerializeField] private LayerMask _targetLayer;
-        [SerializeField] private float _hitRadius = 0.4f; // 스윕 검출 반경
-        [SerializeField] private float _maxRange = 15f;    // 최대 비행 사거리
+        [SerializeField] private float _hitRadius = 0.4f;
+        [SerializeField] private float _maxRange = 15f;
 
         private DamageInfo _damageInfo;
         private int _pierceCount = 0;
@@ -30,6 +29,10 @@ namespace MythOfGuotaji.Combat
         private bool _isFromPlayer = true;
         private readonly HashSet<int> _hitInstanceIds = new();
         [SerializeField] private ProjectileParryType _parryType = ProjectileParryType.Normal;
+
+        private GameObject _customImpactVfxPrefab;
+        private GameObject _customParryVfxPrefab;
+        private GameObject _customImpactSoundPrefab;
 
         public float MaxRange => _maxRange;
         public float Speed => _speed;
@@ -59,9 +62,6 @@ namespace MythOfGuotaji.Combat
             }
         }
 
-        /// <summary>
-        /// 탄환류의 뎁스를 최우선(sortingOrder 5000, renderQueue 3500)으로 설정하여 모든 바닥/배경/폭발 이펙트 위로 선명하게 표시
-        /// </summary>
         public void ApplyTopDepthPriority()
         {
             var rends = GetComponentsInChildren<Renderer>(true);
@@ -86,21 +86,25 @@ namespace MythOfGuotaji.Combat
             ActiveReflectables.Remove(this);
         }
 
-        /// <summary>
-        /// 단검 패링: 날아오던 각도로 반사하며 플레이어 발사체로 전환 (1.8배속 반사)
-        /// </summary>
+        public void ConfigureSkillAssets(GameObject impactVfxPrefab, GameObject parryVfxPrefab, GameObject impactSoundPrefab)
+        {
+            _customImpactVfxPrefab = impactVfxPrefab;
+            _customParryVfxPrefab = parryVfxPrefab;
+            _customImpactSoundPrefab = impactSoundPrefab;
+        }
+
         public void Reflect(GameObject newAttacker, Vector3? customDirection = null, float damageMultiplier = 1.5f, float speedMultiplier = 1.8f)
         {
             if (_parryType == ProjectileParryType.Unparryable) return;
 
             _isFromPlayer = true;
             _damageInfo.attacker = newAttacker;
-            _damageInfo.amount *= damageMultiplier; // 반사된 투사체 위력 강화
-            _damageInfo.isCritical = true;
+            _damageInfo.amount *= damageMultiplier;
+            float critChance = DaggerWeapon.Instance != null ? DaggerWeapon.Instance.CritChance : 0.15f;
+            _damageInfo.isCritical = UnityEngine.Random.value < critChance;
             _damageInfo.isReflected = true;
             _speed *= speedMultiplier;
 
-            // 날아오던 각도의 정반대 방향으로 반사
             Vector3 reflectDir = customDirection ?? -transform.forward;
             reflectDir.y = 0f;
             if (reflectDir.sqrMagnitude < 0.001f) reflectDir = -transform.forward;
@@ -112,6 +116,11 @@ namespace MythOfGuotaji.Combat
             _hitInstanceIds.Clear();
             _targetLayer = ~LayerMask.GetMask("Ignore Raycast");
 
+            if (_customParryVfxPrefab != null)
+            {
+                MonsterTableAssetPlayer.SpawnVfx(_customParryVfxPrefab, transform.position, Quaternion.identity);
+            }
+
             var rend = GetComponentInChildren<Renderer>();
             if (rend != null && rend.material != null)
             {
@@ -119,8 +128,6 @@ namespace MythOfGuotaji.Combat
                 rend.material.color = reflectCol;
                 if (rend.material.HasProperty("_BaseColor")) rend.material.SetColor("_BaseColor", reflectCol);
             }
-
-            Debug.Log($"<color=yellow><b>[투사체 반사 성공!]</b> {gameObject.name}이(가) {speedMultiplier:F1}배속으로 튕겨져 적을 향해 날아갑니다!</color>");
         }
 
         public void ApplyParryTypeVisual()
@@ -128,9 +135,9 @@ namespace MythOfGuotaji.Combat
             var rends = GetComponentsInChildren<Renderer>(true);
             Color typeColor = _parryType switch
             {
-                ProjectileParryType.Enhanced => new Color(1.0f, 0.82f, 0.1f, 1f),      // 황금색 (강화 투사체)
-                ProjectileParryType.Unparryable => new Color(0.95f, 0.18f, 0.18f, 1f),  // 붉은색 (패링불가 투사체)
-                _ => new Color(0.2f, 0.95f, 0.35f, 1f)                                  // 푸른색 / 초록색 (기본 투사체)
+                ProjectileParryType.Enhanced => new Color(1.0f, 0.82f, 0.1f, 1f),
+                ProjectileParryType.Unparryable => new Color(0.95f, 0.18f, 0.18f, 1f),
+                _ => new Color(0.2f, 0.95f, 0.35f, 1f)
             };
 
             foreach (var r in rends)
@@ -156,6 +163,9 @@ namespace MythOfGuotaji.Combat
             _spawnTime = Time.time;
             _spawnPos = transform.position;
             _hitInstanceIds.Clear();
+            _customImpactVfxPrefab = null;
+            _customParryVfxPrefab = null;
+            _customImpactSoundPrefab = null;
 
             _isFromPlayer = _damageInfo.attacker != null &&
                             (_damageInfo.attacker.CompareTag("Player") ||
@@ -174,7 +184,6 @@ namespace MythOfGuotaji.Combat
             Vector3 startPos = transform.position;
             Vector3 nextPos = startPos + transform.forward * moveDist;
 
-            // 0. 적(몬스터) 발사체일 경우 플레이어와의 근접 직격 검사 (신뢰성 보장)
             if (!_isFromPlayer)
             {
                 var player = Actor.PlayerController.Instance != null ? Actor.PlayerController.Instance : FindAnyObjectByType<Actor.PlayerController>();
@@ -190,7 +199,6 @@ namespace MythOfGuotaji.Combat
                 }
             }
 
-            // 1. SphereCastAll로 비행 경로 상의 모든 충돌체 스윕 검사
             RaycastHit[] hits = Physics.SphereCastAll(startPos, _hitRadius, transform.forward, moveDist, _targetLayer, QueryTriggerInteraction.Ignore);
 
             if (hits != null && hits.Length > 0)
@@ -208,7 +216,6 @@ namespace MythOfGuotaji.Combat
                         bool isTargetPlayer = hit.collider.CompareTag("Player") || hit.collider.GetComponentInParent<Actor.PlayerController>() != null;
                         bool isTargetMonster = hit.collider.CompareTag("Monster") || hit.collider.GetComponentInParent<Actor.MonsterAI>() != null;
 
-                        // 아군 오사 방지: 플레이어 발사체는 몬스터만 타격, 몬스터 발사체는 플레이어만 타격
                         if (_isFromPlayer && !isTargetMonster) continue;
                         if (!_isFromPlayer && !isTargetPlayer) continue;
 
@@ -217,7 +224,6 @@ namespace MythOfGuotaji.Combat
                     }
                     else if (!hit.collider.isTrigger)
                     {
-                        // 벽 등 비트리거 지형 충돌
                         Recycle();
                         return;
                     }
@@ -226,7 +232,6 @@ namespace MythOfGuotaji.Combat
 
             transform.position = nextPos;
 
-            // 2. 최대 비행 사거리 도달 또는 수명 초과 시 풀 반환
             float traveledDist = Vector3.Distance(_spawnPos, transform.position);
             if (traveledDist >= _maxRange || Time.time - _spawnTime >= _lifeTime)
             {
@@ -252,9 +257,6 @@ namespace MythOfGuotaji.Combat
             }
         }
 
-        /// <summary>
-        /// 타깃 타격 처리. 관통 소진 등으로 투사체가 파괴되어야 하면 true 반환.
-        /// </summary>
         private bool OnHitTarget(GameObject target, Vector3 hitPoint, Vector3 hitDirection)
         {
             int targetId = target.GetHashCode();
@@ -268,17 +270,15 @@ namespace MythOfGuotaji.Combat
                 _damageInfo.hitDirection = hitDirection;
                 damageable.TakeDamage(_damageInfo);
 
-                // 피격 VFX 연출 (독성 탄환은 독물 튐, 일반/차징은 히트 스파크)
-                if (_damageInfo.element == ElementType.Poison)
+                if (_customImpactVfxPrefab != null || _customImpactSoundPrefab != null)
                 {
-                    Core.VFXManager.Instance?.SpawnVenomSplash(hitPoint);
+                    MonsterTableAssetPlayer.SpawnVfx(_customImpactVfxPrefab, hitPoint, Quaternion.identity);
+                    MonsterTableAssetPlayer.PlayOneShotSound(_customImpactSoundPrefab, hitPoint);
                 }
-                else
+                else if (_isFromPlayer)
                 {
                     Core.VFXManager.Instance?.SpawnHitImpact(hitPoint, hitDirection, _damageInfo.isCritical);
                 }
-
-                Debug.Log($"<color=orange>[화살 적중!] {target.name}에게 {_damageInfo.amount:F0} 피해! (치명타: {_damageInfo.isCritical}, 무제한 관통: {_unlimitedPierce})</color>");
             }
 
             if (!_unlimitedPierce)

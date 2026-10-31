@@ -34,6 +34,17 @@ namespace MythOfGuotaji.Dungeon
         [SerializeField] private bool _hasEverBeenOpened = false;
         [SerializeField] private float _lastOpenedTime = -999f;
         [SerializeField] private bool _wasClosedByCombat = false;
+        private DoorSocket _cachedSocket;
+        private RoomController _cachedParentRoom;
+        private PlayerController _cachedPlayerCtrl;
+        private float _doorCheckTimer = 0f;
+        private bool _openedDuringCombat = false;
+
+        public bool OpenedDuringCombat
+        {
+            get => _openedDuringCombat;
+            set => _openedDuringCombat = value;
+        }
 
         private Vector3 _closedPosLeft;
         private Vector3 _closedPosRight;
@@ -65,6 +76,8 @@ namespace MythOfGuotaji.Dungeon
 
         private void Start()
         {
+            _cachedSocket = GetComponentInParent<DoorSocket>();
+            _cachedParentRoom = GetComponentInParent<RoomController>();
             FindPlayer();
         }
 
@@ -140,7 +153,7 @@ namespace MythOfGuotaji.Dungeon
             var rend = go.GetComponent<Renderer>();
             if (rend != null)
             {
-                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+                var shader = Actor.ExpGem.ResolveSafeShader("Universal Render Pipeline/Lit", "Universal Render Pipeline/Unlit", "Sprites/Default", "Standard"); var mat = shader != null ? new Material(shader) : (rend.sharedMaterial != null ? new Material(rend.sharedMaterial) : null);
                 mat.color = color;
                 if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
                 rend.material = mat;
@@ -193,9 +206,10 @@ namespace MythOfGuotaji.Dungeon
             _isOpen = true;
             _hasEverBeenOpened = true;
             _wasClosedByCombat = false;
+            _openedDuringCombat = true;
             _lastOpenedTime = Time.time;
 
-            var socket = GetComponentInParent<DoorSocket>();
+            var socket = _cachedSocket;
             if (socket != null && socket.CurrentState != DoorState.BossLock)
             {
                 socket.SetState(DoorState.Open);
@@ -216,7 +230,7 @@ namespace MythOfGuotaji.Dungeon
             _hasEverBeenOpened = true;
             _wasClosedByCombat = false;
 
-            var socket = GetComponentInParent<DoorSocket>();
+            var socket = _cachedSocket;
             if (socket != null && socket.CurrentState == DoorState.CombatLock)
             {
                 socket.SetState(DoorState.Open);
@@ -224,15 +238,18 @@ namespace MythOfGuotaji.Dungeon
         }
 
         /// <summary>
-        /// [규칙 9]: 새로운 방에 진입해서 전투가 시작되면 그 방에서 나가는 퇴로는 전투 중에 막힘
+        /// [문 닫히는 규칙]:
+        /// - 전투가 시작되면, 이 전투가 시작되기 3초 이내에 열린 문 이외에 모든 이전에 열었던 문은 자동으로 닫힌다.
+        /// - 현재 진행 중인 전투 직전에 연 문(CombatTriggerDoor) 및 전투 중 관통되어 열린 문(OpenedDuringCombat)은 닫히지 않는다.
+        /// - 플레이어가 문 근처에 있더라도 후퇴 방지를 위해 반드시 닫힌다.
         /// </summary>
         public void CloseByCombat()
         {
             if (_isPermanentlyOpen) return;
 
-            // [사용자 핵심 규칙]: 방금 열려 전투를 발생시킨 문은 해당 전투 종료 시까지 절대 닫히지 않음!
-            var socket = GetComponentInParent<DoorSocket>();
-            var parentRoom = GetComponentInParent<RoomController>();
+            // [사용자 핵심 규칙 1]: 현재 진행 중인 전투 직전에 연 문은 해당 전투 종료 시까지 절대 닫히지 않음
+            var socket = _cachedSocket;
+            var parentRoom = _cachedParentRoom;
             if (socket != null && parentRoom != null && MazeGenerator.Instance != null)
             {
                 Vector2Int pA = parentRoom.GridPosition;
@@ -243,15 +260,14 @@ namespace MythOfGuotaji.Dungeon
                 }
             }
 
-            // [안전장치 1]: 문이 열린 지 3.0초 이내라면 개방 유예(Grace Period) 적용으로 절대 닫히지 않음 (열리자마자 닫힘 원천 차단)
+            // [사용자 핵심 규칙 2]: 전투 중에 열린 문 (방을 여러 개 관통하는 경우 포함)은 전투 끝날 때까지 닫히지 않음
+            if (_openedDuringCombat) return;
+
+            // [사용자 핵심 규칙 3]: 전투 시작 3초 이내에 열린 문 이외의 모든 이전에 열었던 문은 닫힘
             if (Time.time - _lastOpenedTime < 3.0f) return;
 
-            // [안전장치 2]: 플레이어나 요괴가 문턱에 있거나 플레이어가 문 근처(6.0m 이내)에 있는 경우 단절 방지를 위해 닫지 않음
-            if (IsActorInDoorway(3.0f)) return;
-            if (_playerTransform != null && Vector3.Distance(transform.position, _playerTransform.position) <= 6.0f)
-            {
-                return;
-            }
+            // 문턱 한가운데(1.2m 이내)에 플레이어나 몬스터가 물리적으로 끼이는 것 방지
+            if (IsActorInDoorway(1.2f)) return;
 
             if (_isOpen)
             {
@@ -263,26 +279,27 @@ namespace MythOfGuotaji.Dungeon
                     socket.SetState(DoorState.CombatLock);
                 }
 
-                Debug.Log($"<color=orange>[DungeonAutoDoor] 전투 중 퇴로 차단을 위해 문이 닫혔습니다. ({gameObject.name})</color>");
+                Debug.Log($"<color=orange>[DungeonAutoDoor] 전투 중 후퇴 차단을 위해 문이 닫혔습니다. ({gameObject.name})</color>");
             }
         }
 
         /// <summary>
-        /// [규칙 10]: 전투가 종료된 뒤에는 한번 열었던 문은 모두 다시 열림
+        /// [전투 종료 시 규칙]: 전투가 종료되면 한번 열었던 문 중 전투 시작 시 닫힌 문은 모두 다시 열린다.
         /// </summary>
         public void ReopenAfterCombat()
         {
-            if (_hasEverBeenOpened)
+            _openedDuringCombat = false;
+            if (_hasEverBeenOpened && _wasClosedByCombat)
             {
                 _isOpen = true;
                 _wasClosedByCombat = false;
 
-                var socket = GetComponentInParent<DoorSocket>();
+                var socket = _cachedSocket;
                 if (socket != null && socket.CurrentState == DoorState.CombatLock)
                 {
                     socket.SetState(DoorState.Open);
                 }
-                Debug.Log($"<color=lime>[DungeonAutoDoor] 전투 종료! 한번 열렸던 문이 다시 열렸습니다. ({gameObject.name})</color>");
+                Debug.Log($"<color=lime>[DungeonAutoDoor] 전투 종료! 전투 시작 시 닫혔던 문이 다시 열렸습니다. ({gameObject.name})</color>");
             }
         }
 
@@ -341,14 +358,24 @@ namespace MythOfGuotaji.Dungeon
                 if (_playerTransform == null) return;
             }
 
+
+            // 거리 및 잠금 상태 검사는 0.08초 간격으로 쓰로틀링 (매 프레임 무거운 GetComponent 및 방 순회 제거)
+            _doorCheckTimer -= Time.deltaTime;
+            if (_doorCheckTimer > 0f) return;
+            _doorCheckTimer = 0.08f;
+
+            if (_cachedPlayerCtrl == null) _cachedPlayerCtrl = _playerTransform.GetComponent<PlayerController>();
+            if (_cachedSocket == null) _cachedSocket = GetComponentInParent<DoorSocket>();
+            if (_cachedParentRoom == null) _cachedParentRoom = GetComponentInParent<RoomController>();
+
             float dist = Vector3.Distance(transform.position, _playerTransform.position);
-            var playerCtrl = _playerTransform.GetComponent<PlayerController>();
+            var playerCtrl = _cachedPlayerCtrl;
             bool isPlayerInCombat = (playerCtrl != null && playerCtrl.IsInCombat) ||
                                     (MazeGenerator.Instance != null && MazeGenerator.Instance.HasAnyActiveCombat());
 
             if (!_isUnlocking)
             {
-                var socket = GetComponentInParent<DoorSocket>();
+                var socket = _cachedSocket;
                 bool isLockedMidBossExit = (_doorType == DungeonDoorType.LockedDoor && !_isKeyUnlocked) ||
                                            (socket != null && socket.CurrentState == DoorState.BossLock && !_isKeyUnlocked);
 
@@ -360,7 +387,7 @@ namespace MythOfGuotaji.Dungeon
                     {
                         bool hasKey = GameManager.Instance != null && GameManager.Instance.HasBossKey;
                         // 중간보스방 자체의 전투가 끝났는지 확인 (다른 방의 몬스터로 인한 소프트락 원천 차단)
-                        var parentRoom = GetComponentInParent<RoomController>();
+                        var parentRoom = _cachedParentRoom;
                         bool isKeyRoomCombatActive = parentRoom != null && parentRoom.RoomType == RoomType.KeyRoom &&
                                                      parentRoom.IsEncounterActive && parentRoom.LivingMonsterCount > 0;
 
@@ -399,6 +426,22 @@ namespace MythOfGuotaji.Dungeon
                     // - 이미 열렸던 문: 플레이어가 문 앞에 직접 다가왔다면 통과 허용
                     bool canOpenByProximity = (dist <= _detectDistance);
 
+                    // [후퇴 금지]: 전투 진행 중에는 닫힌 문(후퇴 경로)에 다가가도 열리지 않음
+                    // 단! 교전 중인 몬스터와 플레이어 사이의 문(진행 경로)인 경우는 단절 방지를 위해 접근 시 개방 허용
+                    if (isPlayerInCombat && (_wasClosedByCombat || (socket != null && socket.CurrentState == DoorState.CombatLock)))
+                    {
+                        bool isConnectingToCombat = false;
+                        if (DungeonRuntimeManager.Instance != null && socket != null && _cachedParentRoom != null)
+                        {
+                            isConnectingToCombat = DungeonRuntimeManager.Instance.IsDoorConnectingToActiveCombat(_cachedParentRoom.GridPosition, socket.Direction);
+                        }
+
+                        if (!isConnectingToCombat)
+                        {
+                            canOpenByProximity = false;
+                        }
+                    }
+
                     if (canOpenByProximity)
                     {
                         if (!_isOpen)
@@ -407,6 +450,10 @@ namespace MythOfGuotaji.Dungeon
                             _hasEverBeenOpened = true;
                             _wasClosedByCombat = false;
                             _lastOpenedTime = Time.time;
+                            if (isPlayerInCombat)
+                            {
+                                _openedDuringCombat = true;
+                            }
                             if (socket != null)
                             {
                                 socket.SetState(DoorState.Open);

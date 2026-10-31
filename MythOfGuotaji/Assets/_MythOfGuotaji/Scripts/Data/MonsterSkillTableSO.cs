@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MythOfGuotaji.Actor;
 using UnityEngine;
 
 namespace MythOfGuotaji.Data
@@ -28,8 +29,272 @@ namespace MythOfGuotaji.Data
     }
 
     /// <summary>
+    /// 테이블에 직접 등록된 사운드 및 VFX GameObject 재생 유틸리티
+    /// - 1회성 사운드: GameObject 인스턴스화 후 AudioSource 클립 종료 시점까지 체크하여 재생 후 자동 파괴
+    /// - 루프 사운드: 별도 활성화 플래그 및 루프 GameObject를 통해 지속 재생 및 상태 종료 시 정지/파괴
+    /// </summary>
+    public static class MonsterTableAssetPlayer
+    {
+        /// <summary>
+        /// 테이블에 등록된 VFX GameObject를 생성하고 파티클 종료 시 자동 정리
+        /// </summary>
+        public static GameObject SpawnVfx(GameObject vfxPrefab, Vector3 position, Quaternion rotation, Transform parent = null, float fallbackLifetime = 2.5f)
+        {
+            if (vfxPrefab == null) return null;
+
+            GameObject instance = parent != null
+                ? UnityEngine.Object.Instantiate(vfxPrefab, position, rotation, parent)
+                : UnityEngine.Object.Instantiate(vfxPrefab, position, rotation);
+
+            float maxLifetime = 0f;
+            var particles = instance.GetComponentsInChildren<ParticleSystem>(true);
+            for (int i = 0; i < particles.Length; i++)
+            {
+                var ps = particles[i];
+                if (ps == null) continue;
+                var main = ps.main;
+                if (main.loop)
+                {
+                    maxLifetime = Mathf.Max(maxLifetime, fallbackLifetime);
+                }
+                else
+                {
+                    float duration = main.duration + main.startLifetime.constantMax;
+                    if (duration > maxLifetime) maxLifetime = duration;
+                }
+            }
+
+            if (maxLifetime <= 0.05f)
+            {
+                maxLifetime = fallbackLifetime;
+            }
+
+            UnityEngine.Object.Destroy(instance, maxLifetime + 0.1f);
+            return instance;
+        }
+
+        /// <summary>
+        /// 테이블에 등록된 VFX GameObject를 생성하고 지정된 지속시간 후 자동 정리
+        /// </summary>
+        public static GameObject SpawnVfx(GameObject vfxPrefab, Vector3 position, Quaternion rotation, float fallbackLifetime)
+        {
+            return SpawnVfx(vfxPrefab, position, rotation, null, fallbackLifetime);
+        }
+
+        /// <summary>
+        /// 테이블에 등록된 1회성 사운드 GameObject를 생성하고 해당 클립 종료 시까지 체크하여 플레이 후 자동 제거
+        /// </summary>
+        public static GameObject PlayOneShotSound(GameObject soundPrefab, Vector3 position, Transform followTarget = null)
+        {
+            if (soundPrefab == null) return null;
+
+            GameObject soundGo = UnityEngine.Object.Instantiate(soundPrefab, position, Quaternion.identity);
+            soundGo.name = $"[OneShotSound_{soundPrefab.name}]";
+
+            var tracker = soundGo.GetComponent<OneShotSoundTracker>();
+            if (tracker == null)
+            {
+                tracker = soundGo.AddComponent<OneShotSoundTracker>();
+            }
+            tracker.Initialize(followTarget);
+            return soundGo;
+        }
+
+        /// <summary>
+        /// 테이블에 별도 세팅된 루프 사운드 GameObject를 시작하여 인스턴스를 반환 (enableLoop이 true이고 프리팹이 할당된 경우에만 작동)
+        /// </summary>
+        public static GameObject StartLoopSound(GameObject loopSoundPrefab, bool enableLoop, Transform ownerTransform = null)
+        {
+            GameObject instance = null;
+            return StartLoopSound(loopSoundPrefab, enableLoop, ownerTransform, ref instance);
+        }
+
+        /// <summary>
+        /// 테이블에 별도 세팅된 루프 사운드 GameObject를 지정 위치에서 시작하여 인스턴스를 반환
+        /// </summary>
+        public static GameObject StartLoopSound(GameObject loopSoundPrefab, bool enableLoop, Vector3 position, Transform ownerTransform = null)
+        {
+            if (!enableLoop || loopSoundPrefab == null)
+            {
+                return null;
+            }
+
+            GameObject activeLoopInstance = ownerTransform != null
+                ? UnityEngine.Object.Instantiate(loopSoundPrefab, position, Quaternion.identity, ownerTransform)
+                : UnityEngine.Object.Instantiate(loopSoundPrefab, position, Quaternion.identity);
+
+            activeLoopInstance.name = $"[LoopSound_{loopSoundPrefab.name}]";
+
+            var sources = activeLoopInstance.GetComponentsInChildren<AudioSource>(true);
+            for (int i = 0; i < sources.Length; i++)
+            {
+                var src = sources[i];
+                if (src == null) continue;
+                src.loop = true;
+                if (src.clip != null && !src.isPlaying)
+                {
+                    src.Play();
+                }
+            }
+
+            return activeLoopInstance;
+        }
+
+        /// <summary>
+        /// 테이블에 별도 세팅된 루프 사운드 GameObject를 시작 (enableLoop이 true이고 프리팹이 할당된 경우에만 작동)
+        /// </summary>
+        public static GameObject StartLoopSound(GameObject loopSoundPrefab, bool enableLoop, Transform ownerTransform, ref GameObject activeLoopInstance)
+        {
+            if (!enableLoop || loopSoundPrefab == null)
+            {
+                StopLoopSound(ref activeLoopInstance);
+                return null;
+            }
+
+            if (activeLoopInstance != null)
+            {
+                return activeLoopInstance;
+            }
+
+            Vector3 spawnPos = ownerTransform != null ? ownerTransform.position : Vector3.zero;
+            activeLoopInstance = ownerTransform != null
+                ? UnityEngine.Object.Instantiate(loopSoundPrefab, spawnPos, Quaternion.identity, ownerTransform)
+                : UnityEngine.Object.Instantiate(loopSoundPrefab, spawnPos, Quaternion.identity);
+
+            activeLoopInstance.name = $"[LoopSound_{loopSoundPrefab.name}]";
+
+            var sources = activeLoopInstance.GetComponentsInChildren<AudioSource>(true);
+            for (int i = 0; i < sources.Length; i++)
+            {
+                var src = sources[i];
+                if (src == null) continue;
+                src.loop = true;
+                if (src.clip != null && !src.isPlaying)
+                {
+                    src.Play();
+                }
+            }
+
+            return activeLoopInstance;
+        }
+
+        /// <summary>
+        /// 실행 중인 루프 사운드 GameObject를 즉시 정지 및 파괴
+        /// </summary>
+        public static void StopLoopSound(GameObject activeLoopInstance)
+        {
+            if (activeLoopInstance == null) return;
+            StopLoopSound(ref activeLoopInstance);
+        }
+
+        /// <summary>
+        /// 실행 중인 루프 사운드 GameObject를 즉시 정지 및 파괴하고 참조를 null로 초기화
+        /// </summary>
+        public static void StopLoopSound(ref GameObject activeLoopInstance)
+        {
+            if (activeLoopInstance == null) return;
+
+            var sources = activeLoopInstance.GetComponentsInChildren<AudioSource>(true);
+            for (int i = 0; i < sources.Length; i++)
+            {
+                if (sources[i] != null && sources[i].isPlaying)
+                {
+                    sources[i].Stop();
+                }
+            }
+
+            UnityEngine.Object.Destroy(activeLoopInstance);
+            activeLoopInstance = null;
+        }
+    }
+
+    /// <summary>
+    /// 1회성 사운드 GameObject의 AudioSource 클립 재생 상태를 매 프레임 체크하여 클립 종료 시점에 오브젝트를 자동 파괴하는 컴포넌트
+    /// </summary>
+    public class OneShotSoundTracker : MonoBehaviour
+    {
+        private AudioSource[] _sources;
+        private Transform _followTarget;
+        private float _fallbackEndTime;
+        private bool _initialized;
+
+        public void Initialize(Transform followTarget)
+        {
+            _followTarget = followTarget;
+            _sources = GetComponentsInChildren<AudioSource>(true);
+
+            float maxClipDuration = 0f;
+            bool hasValidClip = false;
+
+            if (_sources != null)
+            {
+                for (int i = 0; i < _sources.Length; i++)
+                {
+                    var src = _sources[i];
+                    if (src == null) continue;
+
+                    src.loop = false;
+                    if (src.clip != null)
+                    {
+                        hasValidClip = true;
+                        if (!src.isPlaying)
+                        {
+                            src.Play();
+                        }
+                        float pitch = Mathf.Abs(src.pitch) > 0.01f ? Mathf.Abs(src.pitch) : 1.0f;
+                        float clipDuration = src.clip.length / pitch;
+                        if (clipDuration > maxClipDuration)
+                        {
+                            maxClipDuration = clipDuration;
+                        }
+                    }
+                }
+            }
+
+            if (!hasValidClip)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            _fallbackEndTime = Time.time + maxClipDuration + 0.1f;
+            _initialized = true;
+        }
+
+        private void Update()
+        {
+            if (!_initialized) return;
+
+            if (_followTarget != null)
+            {
+                transform.position = _followTarget.position;
+            }
+
+            bool anyPlaying = false;
+            if (_sources != null)
+            {
+                for (int i = 0; i < _sources.Length; i++)
+                {
+                    var src = _sources[i];
+                    if (src != null && src.isPlaying)
+                    {
+                        anyPlaying = true;
+                        break;
+                    }
+                }
+            }
+
+            // 모든 클립 재생이 끝났거나 최대 클립 길이에 도달한 경우 즉시 정리
+            if (!anyPlaying || Time.time >= _fallbackEndTime)
+            {
+                Destroy(gameObject);
+            }
+        }
+    }
+
+    /// <summary>
     /// 몬스터 공격 패턴 구조화 엔트리
-    /// - 여러 몬스터가 동일/유사한 스킬을 공유하고 재사용할 수 있도록 독립 테이블로 설계
+    /// - 모든 VFX / Telegraph / Projectile / Sound를 문자열이 아닌 직접 GameObject 참조로 통일
     /// </summary>
     [Serializable]
     public class MonsterSkillEntry
@@ -75,6 +340,12 @@ namespace MythOfGuotaji.Data
         [Tooltip("전조 장판 형태 (None, Line, Circle, Sector, Box)")]
         public string telegraphShape = "Circle";
 
+        [Tooltip("전조 장판 표시 색상")]
+        public Color telegraphColor = new Color(1.0f, 0.25f, 0.15f, 0.65f);
+
+        [Tooltip("단검 패링(튕겨내기) 가능 여부")]
+        public bool isParryable = false;
+
         [Tooltip("타격/폭발/장판 반경 (m)")]
         public float aoeRadius = 1.5f;
 
@@ -83,6 +354,12 @@ namespace MythOfGuotaji.Data
 
         [Tooltip("공격 후 이동 불가 후딜레이 시간 (초)")]
         public float postAttackDelay = 0.3f;
+
+        // 하위 호환 및 편의 접근자 (maxRange, aoeAngle, postAttackDelay 연동)
+        public float range { get => maxRange; set => maxRange = value; }
+        public float angle { get => aoeAngle; set => aoeAngle = value; }
+        public float recoveryTime { get => postAttackDelay; set => postAttackDelay = value; }
+        public float windupTime { get => telegraphDuration; set => telegraphDuration = value; }
 
         [Header("돌진 및 기동 (Dash / Charge)")]
         [Tooltip("돌진 이동 거리 (m)")]
@@ -116,27 +393,104 @@ namespace MythOfGuotaji.Data
         [Tooltip("관통 횟수 (0이면 단일 적중 소멸)")]
         public int pierceCount = 0;
 
-        [Tooltip("투사체 프리팹 리소스 이름")]
-        public string projectilePrefabName = "";
-
         [Tooltip("투사체의 패링 분류 (Normal: 기본 푸른/초록 패링가능, Enhanced: 강화 황금색 2배피해, Unparryable: 패링불가 붉은색)")]
         public Combat.ProjectileParryType projectileParryType = Combat.ProjectileParryType.Normal;
 
-        [Header("비주얼 및 사운드 (VFX / SFX)")]
-        [Tooltip("시전 전조 장판 이펙트 이름")]
-        public string telegraphVFX = "";
+        [Header("직접 게임오브젝트 참조 (Projectile / Telegraph / VFX)")]
+        [Tooltip("투사체 또는 소환 스킬 오브젝트 프리팹 (직접 GameObject 등록)")]
+        public GameObject projectilePrefab;
 
-        [Tooltip("시전/발사구 머즐 이펙트 이름")]
-        public string castVFX = "";
+        [Tooltip("파편/보조 투사체 프리팹 (예: 바위 파괴 시 튀는 RockShard 등 직접 GameObject 등록)")]
+        public GameObject subProjectilePrefab;
 
-        [Tooltip("비행/돌진 궤적 트레일 이펙트 이름")]
-        public string trailVFX = "";
+        [Tooltip("시전 전조 장판(Telegraph) 프리팹 (직접 GameObject 등록)")]
+        public GameObject telegraphPrefab;
 
-        [Tooltip("적중/착지/폭발 충격 이펙트 이름")]
-        public string impactVFX = "";
+        [Tooltip("시전/발사구 머즐 이펙트 프리팹 (직접 GameObject 등록)")]
+        public GameObject castVfxPrefab;
 
-        [Tooltip("사운드 큐 이름")]
-        public string soundCue = "";
+        [Tooltip("비행/돌진 궤적 트레일 이펙트 프리팹 (직접 GameObject 등록)")]
+        public GameObject trailVfxPrefab;
+
+        [Tooltip("적중/착지/폭발 충격 이펙트 프리팹 (직접 GameObject 등록)")]
+        public GameObject impactVfxPrefab;
+
+        [Tooltip("단검 패링/반사 성공 시 스파크 이펙트 프리팹 (직접 GameObject 등록)")]
+        public GameObject parryVfxPrefab;
+
+        [Header("직접 게임오브젝트 참조 (Sound - 1회성 및 루프 별도 세팅)")]
+        [Tooltip("스킬 시전/발사 시 클립 종료까지 1회성으로 재생할 사운드 GameObject")]
+        public GameObject castSoundPrefab;
+
+        [Tooltip("스킬 적중/착탄/폭발 시 클립 종료까지 1회성으로 재생할 사운드 GameObject")]
+        public GameObject impactSoundPrefab;
+
+        [Tooltip("스킬 유지(돌진/비행/회전 등) 중 루프 사운드 사용 여부")]
+        public bool enableLoopSound = false;
+
+        [Tooltip("스킬 유지(돌진/비행/회전 등) 중 반복 재생할 루프 사운드 GameObject")]
+        public GameObject loopSoundPrefab;
+
+        /// <summary>
+        /// 직접 등록된 투사체 프리팹 반환
+        /// </summary>
+        public GameObject GetProjectilePrefab(bool logErrorOnFail = false)
+        {
+            if (projectilePrefab != null) return projectilePrefab;
+            if (logErrorOnFail)
+            {
+                Debug.LogWarning($"[MonsterSkillTable] 스킬 '{skillId}' ({skillName})의 projectilePrefab이 비어 있습니다. MonsterSkillTable.asset에서 GameObject를 연결해주세요.");
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 직접 등록된 보조 투사체/파편 프리팹 반환
+        /// </summary>
+        public GameObject GetSubProjectilePrefab(bool logErrorOnFail = false)
+        {
+            return subProjectilePrefab;
+        }
+
+        /// <summary>
+        /// 직접 등록된 텔레그래프 프리팹 반환
+        /// </summary>
+        public GameObject GetTelegraphPrefab(bool logErrorOnFail = false)
+        {
+            return telegraphPrefab;
+        }
+
+        /// <summary>
+        /// 직접 등록된 시전/머즐 이펙트 프리팹 반환
+        /// </summary>
+        public GameObject GetCastVfxPrefab(bool logErrorOnFail = false)
+        {
+            return castVfxPrefab;
+        }
+
+        /// <summary>
+        /// 직접 등록된 트레일 이펙트 프리팹 반환
+        /// </summary>
+        public GameObject GetTrailVfxPrefab(bool logErrorOnFail = false)
+        {
+            return trailVfxPrefab;
+        }
+
+        /// <summary>
+        /// 직접 등록된 충격/폭발 이펙트 프리팹 반환
+        /// </summary>
+        public GameObject GetImpactVfxPrefab(bool logErrorOnFail = false)
+        {
+            return impactVfxPrefab;
+        }
+
+        /// <summary>
+        /// 직접 등록된 패링 이펙트 프리팹 반환
+        /// </summary>
+        public GameObject GetParryVfxPrefab(bool logErrorOnFail = false)
+        {
+            return parryVfxPrefab;
+        }
     }
 
     /// <summary>
@@ -157,6 +511,30 @@ namespace MythOfGuotaji.Data
             return GetDefaultSkill(skillId);
         }
 
+        public MonsterSkillEntry GetSkillForMonster(MonsterType type)
+        {
+            string skillId = type switch
+            {
+                MonsterType.Minion => "minion_dash",
+                MonsterType.Minion_Archer => "toxic_spit",
+                MonsterType.Minion_BigMon => "turtle_charge",
+                MonsterType.Minion_Zhu => "zhu_parabolic",
+                MonsterType.Elite => "elite_boulder",
+                MonsterType.FoxBoss => "boss_vacuum",
+                MonsterType.Dokkaebi_Fire => "dokkaebi_fireball",
+                MonsterType.Boar_Charger => "boar_charge",
+                MonsterType.Spider_Tether => "spider_web_tether",
+                MonsterType.Mud_Slime => "mud_puddle",
+                MonsterType.Phantom_Fox => "phantom_decoy",
+                MonsterType.Iron_Shield => "iron_shield_stance",
+                MonsterType.Energy_Absorber => "energy_absorb",
+                MonsterType.Bomb_Sparrow => "sparrow_kamikaze",
+                MonsterType.Totem_Turret => "totem_turret_barrage",
+                _ => "minion_dash"
+            };
+            return GetSkill(skillId);
+        }
+
         public static MonsterSkillEntry GetDefaultSkill(string skillId)
         {
             return skillId?.ToLower() switch
@@ -170,88 +548,69 @@ namespace MythOfGuotaji.Data
                     minRange = 1.5f,
                     maxRange = 5.0f,
                     damageMultiplier = 1.0f,
+                    fixedDamage = 6.0f,
                     cooldown = 1.0f,
                     telegraphDuration = 0.3f,
-                    telegraphShape = "Box",
+                    telegraphShape = "StretchBox",
                     aoeRadius = 0.7f,
                     dashDistance = 5.0f,
                     dashSpeed = 16.0f,
                     dashDuration = 0.3f,
                     dashWidth = 0.5f,
-                    knockbackPower = 1.5f,
-                    telegraphVFX = "Telegraph_Rect_5x0.5",
-                    castVFX = "HCFX_Dust_01",
-                    trailVFX = "HCFX_Dust_01",
-                    impactVFX = "HCFX_Dust_FloorHit_01",
-                    soundCue = "Minion_Dash"
+                    knockbackPower = 1.5f
                 },
                 "turtle_charge" => new MonsterSkillEntry
                 {
                     skillId = "turtle_charge",
-                    skillName = "황동 거북 8m 돌진 분쇄",
-                    description = "플레이어를 향해 0.4초 차징 후 8m 거리를 10m/s로 쇄도하여 경로 상의 적을 날려버림",
+                    skillName = "황동 거북 20m 가속 돌진 분쇄",
+                    description = "플레이어를 향해 0.4초 예고 후 20m 거리를 가속 돌진하여 충돌 시 3m 충격파 발생",
                     skillType = MonsterSkillType.TurtleCharge,
                     minRange = 2.0f,
-                    maxRange = 8.0f,
+                    maxRange = 20.0f,
                     damageMultiplier = 1.5f,
-                    fixedDamage = 22.0f,
-                    cooldown = 4.0f,
+                    fixedDamage = 14.0f,
+                    cooldown = 3.5f,
                     telegraphDuration = 0.4f,
-                    telegraphShape = "Box",
-                    aoeRadius = 1.2f,
-                    dashDistance = 8.0f,
+                    telegraphShape = "StretchBox",
+                    aoeRadius = 3.0f,
+                    dashDistance = 20.0f,
                     dashSpeed = 10.0f,
-                    dashDuration = 0.8f,
-                    dashWidth = 1.2f,
-                    knockbackPower = 4.0f,
-                    telegraphVFX = "Telegraph_Rect_8x1.2",
-                    castVFX = "HCFX_Dust_01",
-                    trailVFX = "HCFX_Dust_01",
-                    impactVFX = "HCFX_Dust_FloorHit_01",
-                    soundCue = "Turtle_Charge"
+                    dashDuration = 3.0f,
+                    dashWidth = 1.5f,
+                    knockbackPower = 4.0f
                 },
                 "toxic_spit" => new MonsterSkillEntry
                 {
                     skillId = "toxic_spit",
-                    skillName = "독충 원거리 침사격",
-                    description = "사거리 7.5m에서 6m/s 속도의 독침을 직선 발사하고 거리가 좁혀지면 카이팅 후퇴",
+                    skillName = "맹독충 15m 원거리 독침 사격",
+                    description = "사거리 15m에서 6m/s 속도의 독침을 직선 발사하고 6m 이내 접근 시 카이팅 후퇴",
                     skillType = MonsterSkillType.RangedStraight,
                     minRange = 2.0f,
-                    maxRange = 7.5f,
+                    maxRange = 15.0f,
                     damageMultiplier = 1.0f,
-                    fixedDamage = 8.0f,
-                    cooldown = 2.0f,
+                    fixedDamage = 7.0f,
+                    cooldown = 0.7f,
                     telegraphDuration = 0.3f,
-                    telegraphShape = "Line",
+                    telegraphShape = "TargetCircle",
                     projectileSpeed = 6.0f,
-                    projectileCount = 1,
-                    projectilePrefabName = "Vespomorph_Projectile",
-                    castVFX = "HCFX_Poison_01",
-                    trailVFX = "HCFX_Poison_02",
-                    impactVFX = "HCFX_Poison_01",
-                    soundCue = "Toxic_Shoot"
+                    projectileCount = 1
                 },
                 "zhu_parabolic" => new MonsterSkillEntry
                 {
                     skillId = "zhu_parabolic",
-                    skillName = "Zhu 박격포 포물선 곡사 투척",
-                    description = "벽을 무시하고 플레이어 발밑으로 6m 높이의 붉은 화염구를 포물선으로 투척, 착지 시 2.5m 폭발",
+                    skillName = "Zhu 박격포 20m 포물선 곡사 투척",
+                    description = "벽을 무시하고 플레이어 발밑으로 5m 원형 장판 표시 후 2초간 6m 높이로 곡사 투척, 착지 시 2.5m 대폭발",
                     skillType = MonsterSkillType.RangedParabolic,
                     minRange = 2.5f,
-                    maxRange = 8.5f,
+                    maxRange = 20.0f,
                     damageMultiplier = 1.3f,
-                    fixedDamage = 14.0f,
-                    cooldown = 3.5f,
+                    fixedDamage = 18.0f,
+                    cooldown = 3.0f,
                     telegraphDuration = 0.5f,
-                    telegraphShape = "Circle",
+                    telegraphShape = "TargetCircle",
                     aoeRadius = 2.5f,
-                    flightDuration = 1.8f,
-                    arcHeight = 6.0f,
-                    projectilePrefabName = "Zhu_Parabolic_Projectile",
-                    telegraphVFX = "Telegraph_Circle_Red",
-                    castVFX = "HCFX_Buff_Up",
-                    impactVFX = "HCFX_Splash_01",
-                    soundCue = "Zhu_Launch"
+                    flightDuration = 2.0f,
+                    arcHeight = 6.0f
                 },
                 "elite_boulder" => new MonsterSkillEntry
                 {
@@ -265,15 +624,10 @@ namespace MythOfGuotaji.Data
                     fixedDamage = 18.0f,
                     cooldown = 5.0f,
                     telegraphDuration = 0.6f,
-                    telegraphShape = "Box",
+                    telegraphShape = "StretchBox",
                     aoeRadius = 2.0f,
                     projectileSpeed = 8.0f,
-                    projectilePrefabName = "Boulder_Projectile",
-                    knockbackPower = 5.0f,
-                    telegraphVFX = "Telegraph_Rect_8x2",
-                    castVFX = "HCFX_Dust_01",
-                    impactVFX = "HCFX_Dust_FloorHit_01",
-                    soundCue = "Elite_Boulder"
+                    knockbackPower = 5.0f
                 },
                 "boss_vacuum" => new MonsterSkillEntry
                 {
@@ -287,13 +641,10 @@ namespace MythOfGuotaji.Data
                     fixedDamage = 15.0f,
                     cooldown = 6.0f,
                     telegraphDuration = 0.5f,
-                    telegraphShape = "Circle",
+                    telegraphShape = "StretchArc90",
+                    aoeAngle = 90.0f,
                     aoeRadius = 5.0f,
-                    knockbackPower = -3.0f, // 음수: 끌어당김
-                    telegraphVFX = "Telegraph_Circle_Purple",
-                    castVFX = "HCFX_Portal_01",
-                    impactVFX = "HCFX_Splash_02",
-                    soundCue = "Boss_Vacuum"
+                    knockbackPower = -3.0f
                 },
                 "boss_cleave" => new MonsterSkillEntry
                 {
@@ -307,18 +658,11 @@ namespace MythOfGuotaji.Data
                     fixedDamage = 28.0f,
                     cooldown = 4.0f,
                     telegraphDuration = 0.4f,
-                    telegraphShape = "Sector",
+                    telegraphShape = "StretchArc180",
                     aoeRadius = 3.5f,
-                    aoeAngle = 120.0f,
-                    knockbackPower = 3.0f,
-                    telegraphVFX = "Telegraph_Fan_120",
-                    castVFX = "HCFX_Splash_02",
-                    impactVFX = "HCFX_Slash_01",
-                    soundCue = "Boss_Cleave"
+                    aoeAngle = 180.0f,
+                    knockbackPower = 3.0f
                 },
-                // ==========================================
-                // 신규 기믹형 몬스터 스킬 9종
-                // ==========================================
                 "dokkaebi_fireball" => new MonsterSkillEntry
                 {
                     skillId = "dokkaebi_fireball",
@@ -330,19 +674,15 @@ namespace MythOfGuotaji.Data
                     damageMultiplier = 1.0f,
                     fixedDamage = 12.0f,
                     cooldown = 2.5f,
+                    telegraphShape = "None",
                     projectileSpeed = 5.0f,
-                    aoeRadius = 0.8f,
-                    projectilePrefabName = "Dokkaebi_Fireball_Projectile",
-                    castVFX = "HCFX_ElementOrb_02",
-                    trailVFX = "HCFX_Fire_02",
-                    impactVFX = "HCFX_Explosion_02",
-                    soundCue = "Dokkaebi_Fire"
+                    aoeRadius = 0.8f
                 },
                 "boar_charge" => new MonsterSkillEntry
                 {
                     skillId = "boar_charge",
                     skillName = "저돌맹진 멧돼지 돌진 분쇄",
-                    description = "0.3초간 땅을 구른 뒤 14m/s 속도로 15m를 직선 돌진. 돌진 직전 0.25초 찰나에 단검 패링 시 뒤로 튕겨나가 벽에 충돌하며 기절, 또는 슬라이딩 무적으로 회피",
+                    description = "0.35초 예고 후 14m/s 속도로 15m를 직선 돌진. 돌진 직전 단검 패링 시 벽에 충돌하며 기절, 또는 슬라이딩 무적으로 회피",
                     skillType = MonsterSkillType.TurtleCharge,
                     minRange = 2.5f,
                     maxRange = 15.0f,
@@ -350,17 +690,13 @@ namespace MythOfGuotaji.Data
                     fixedDamage = 16.0f,
                     cooldown = 3.0f,
                     telegraphDuration = 0.35f,
-                    telegraphShape = "Box",
+                    telegraphShape = "StretchBox",
                     dashDistance = 15.0f,
                     dashSpeed = 14.0f,
                     dashDuration = 1.1f,
                     dashWidth = 1.2f,
                     aoeRadius = 1.5f,
-                    knockbackPower = 4.0f,
-                    telegraphVFX = "Telegraph_Rect_15x1.2",
-                    castVFX = "HCFX_Dust_Dash_01",
-                    impactVFX = "HCFX_Dust_FloorHit_02",
-                    soundCue = "Boar_Charge"
+                    knockbackPower = 4.0f
                 },
                 "spider_web_tether" => new MonsterSkillEntry
                 {
@@ -374,12 +710,9 @@ namespace MythOfGuotaji.Data
                     fixedDamage = 8.0f,
                     cooldown = 4.5f,
                     telegraphDuration = 0.3f,
+                    telegraphShape = "TargetConnect",
                     aoeRadius = 1.0f,
-                    knockbackPower = -3.5f, // 견인
-                    telegraphVFX = "Telegraph_Line_Tether",
-                    castVFX = "HCFX_Poison_02",
-                    impactVFX = "HCFX_Poison_01",
-                    soundCue = "Spider_Tether"
+                    knockbackPower = -3.5f
                 },
                 "mud_puddle" => new MonsterSkillEntry
                 {
@@ -393,14 +726,10 @@ namespace MythOfGuotaji.Data
                     fixedDamage = 5.0f,
                     cooldown = 5.0f,
                     telegraphDuration = 0.5f,
-                    telegraphShape = "Circle",
-                    aoeRadius = 3.0f,
-                    telegraphVFX = "Telegraph_Circle_Mud",
-                    castVFX = "HCFX_Poison_01",
-                    impactVFX = "HCFX_Splash_03",
-                    soundCue = "Mud_Puddle"
+                    telegraphShape = "TargetCircle",
+                    aoeRadius = 3.0f
                 },
-                "phantom_decoy" => new MonsterSkillEntry
+                "phantom_decoy" or "phantom_illusion" => new MonsterSkillEntry
                 {
                     skillId = "phantom_decoy",
                     skillName = "환영 여우귀 3방향 분신술",
@@ -410,12 +739,10 @@ namespace MythOfGuotaji.Data
                     maxRange = 10.0f,
                     cooldown = 7.0f,
                     telegraphDuration = 0.1f,
-                    aoeRadius = 2.0f,
-                    castVFX = "HCFX_Flash_01",
-                    impactVFX = "HCFX_Feathers",
-                    soundCue = "Fox_Decoy"
+                    telegraphShape = "None",
+                    aoeRadius = 2.0f
                 },
-                "iron_shield_stance" => new MonsterSkillEntry
+                "iron_shield_stance" or "iron_shield_guard" => new MonsterSkillEntry
                 {
                     skillId = "iron_shield_stance",
                     skillName = "흑철 방패 가드 (풀차징 필수)",
@@ -424,25 +751,21 @@ namespace MythOfGuotaji.Data
                     minRange = 0f,
                     maxRange = 4.0f,
                     cooldown = 2.0f,
-                    aoeAngle = 120.0f,
-                    castVFX = "HCFX_Hit_01",
-                    impactVFX = "HCFX_Hit_02",
-                    soundCue = "Shield_Block"
+                    telegraphShape = "None",
+                    aoeAngle = 120.0f
                 },
-                "energy_absorb" => new MonsterSkillEntry
+                "energy_absorb" or "energy_absorb_surge" => new MonsterSkillEntry
                 {
                     skillId = "energy_absorb",
+                    telegraphShape = "None",
                     skillName = "영력 흡수 괴물 (차징 금지)",
                     description = "강력한 차징 샷을 맞으면 에너지를 흡수하여 체력을 회복하고 1.4배 폭주. 오직 빠른 1단계 일반 연사나 단검 평타로만 피해 누적 처치",
                     skillType = MonsterSkillType.EnergyAbsorb,
                     minRange = 0f,
                     maxRange = 3.0f,
-                    cooldown = 1.5f,
-                    castVFX = "HCFX_Buff_Up",
-                    impactVFX = "HCFX_Energy_01",
-                    soundCue = "Energy_Absorb"
+                    cooldown = 1.5f
                 },
-                "sparrow_kamikaze" => new MonsterSkillEntry
+                "sparrow_kamikaze" or "kamikaze_dive" => new MonsterSkillEntry
                 {
                     skillId = "sparrow_kamikaze",
                     skillName = "자폭 참새 떼 12m/s 급강하",
@@ -453,37 +776,64 @@ namespace MythOfGuotaji.Data
                     damageMultiplier = 1.5f,
                     fixedDamage = 18.0f,
                     cooldown = 1.0f,
+                    telegraphShape = "TargetConnect",
                     dashDistance = 8.0f,
                     dashSpeed = 12.0f,
                     dashDuration = 0.6f,
-                    aoeRadius = 2.0f,
-                    castVFX = "HCFX_Energy_02",
-                    impactVFX = "HCFX_Explosion_02",
-                    soundCue = "Sparrow_Explode"
+                    aoeRadius = 2.0f
                 },
-                "totem_turret_barrage" => new MonsterSkillEntry
+                "totem_turret_barrage" or "turret_quad_barrage" => new MonsterSkillEntry
                 {
                     skillId = "totem_turret_barrage",
                     skillName = "사방신 토템 고정 포대 탄막",
-                    description = "이동하지 않는 고정형 석상. 4방향으로 회전형 영력 탄환을 초당 2발씩 지속 발사. 모든 탄환은 단검으로 패링하여 역폭파 가능",
+                    description = "이동하지 않는 고정형 석상. 4방향으로 회전형 영력 탄환을 지속 발사. 모든 탄환은 단검으로 패링하여 역폭파 가능",
                     skillType = MonsterSkillType.TurretBarrage,
                     minRange = 2.0f,
-                    maxRange = 16.0f,
-                    damageMultiplier = 0.8f,
+                    maxRange = 25.0f,
+                    damageMultiplier = 1.0f,
                     fixedDamage = 8.0f,
-                    cooldown = 1.0f,
-                    projectileSpeed = 6.0f,
-                    projectileCount = 4,
-                    spreadAngle = 90.0f,
-                    projectilePrefabName = "Totem_Energy_Orb",
-                    projectileParryType = Combat.ProjectileParryType.Enhanced, // [강화 투사체]: 황금색, 패링 시 2배 데미지
-                    castVFX = "HCFX_MagicCircle_02",
-                    trailVFX = "HCFX_Energy_03",
-                    impactVFX = "HCFX_Hit_03",
-                    soundCue = "Totem_Fire"
+                    cooldown = 0.6f,
+                    telegraphShape = "None",
+                    projectileSpeed = 7.0f,
+                    projectileCount = 8,
+                    spreadAngle = 45.0f,
+                    projectileParryType = Combat.ProjectileParryType.Enhanced
                 },
                 _ => null
             };
+        }
+
+        public static readonly string[] DefaultSkillIds = new[]
+        {
+            "minion_dash",
+            "toxic_spit",
+            "turtle_charge",
+            "zhu_parabolic",
+            "elite_boulder",
+            "boss_vacuum",
+            "boss_cleave",
+            "dokkaebi_fireball",
+            "boar_charge",
+            "spider_web_tether",
+            "mud_puddle",
+            "phantom_decoy",
+            "iron_shield_stance",
+            "energy_absorb",
+            "sparrow_kamikaze",
+            "totem_turret_barrage"
+        };
+
+        public void PopulateDefaults()
+        {
+            if (skills == null) skills = new List<MonsterSkillEntry>();
+            foreach (var id in DefaultSkillIds)
+            {
+                if (!skills.Exists(s => s != null && s.skillId.Equals(id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var def = GetDefaultSkill(id);
+                    if (def != null) skills.Add(def);
+                }
+            }
         }
     }
 }

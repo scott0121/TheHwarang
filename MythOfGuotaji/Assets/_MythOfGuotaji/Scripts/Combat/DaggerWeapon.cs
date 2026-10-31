@@ -13,6 +13,11 @@ namespace MythOfGuotaji.Combat
     public class DaggerWeapon : MonoBehaviour
     {
         [Header("Dagger Config")]
+        [SerializeField] private string _currentDaggerId = "Dagger_00";
+        [SerializeField] private GameObject _slashVfxPrefab;
+        [SerializeField] private GameObject _parryVfxPrefab;
+        [SerializeField] private GameObject _swingSoundPrefab;
+        [SerializeField] private GameObject _parrySuccessSoundPrefab;
         [SerializeField] private float _baseDamage = 50f;
         [SerializeField] private float _attackRadius = 3.0f; // 근접 베기 반경 (3.0m)
         [SerializeField] private float _attackAngle = 150f;  // 부채꼴 공격 각도 (150도)
@@ -21,22 +26,51 @@ namespace MythOfGuotaji.Combat
         [SerializeField] private bool _canReflectProjectiles = true;
         [SerializeField] private float _reflectDamageMultiplier = 1.5f;
         [SerializeField] private float _reflectSpeedMultiplier = 1.8f;
+        [SerializeField] private float _critChance = 0.15f;
+        [SerializeField] private float _critMultiplier = 2.0f;
         [SerializeField] private LayerMask _enemyLayer;
 
         private float _lastAttackTime = -99f;
         private Coroutine _parryWindowCoroutine;
         private const float ParryWindowDuration = 0.22f; // 단검 휘두르기 모션 중 패링 판정 지속 시간 (약 0.22초)
 
+        public static DaggerWeapon Instance { get; private set; }
+        public static event System.Action<int> OnParrySuccess;
+        public static void NotifyParrySuccess(int count = 1) => OnParrySuccess?.Invoke(count);
+
+        public string CurrentDaggerId => _currentDaggerId;
+        public bool IsParryActive => _parryWindowCoroutine != null;
+        public static bool IsPlayerParrying => Instance != null && Instance.IsParryActive;
+
+        public float CritChance => _critChance;
+        public float Cooldown => _cooldown;
         public bool CanSlash => Time.time >= _lastAttackTime + _cooldown;
         public float CooldownRemaining => Mathf.Max(0f, (_lastAttackTime + _cooldown) - Time.time);
 
         private void Awake()
         {
+            Instance = this;
             if (_enemyLayer.value == 0)
             {
                 _enemyLayer = ~LayerMask.GetMask("Ignore Raycast");
             }
 
+            string targetDagger = "Dagger_00";
+            if (Core.GameManager.Instance?.SaveData != null && !string.IsNullOrEmpty(Core.GameManager.Instance.SaveData.equippedDaggerId))
+            {
+                targetDagger = Core.GameManager.Instance.SaveData.equippedDaggerId;
+            }
+            EquipDagger(targetDagger);
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
+        public void EquipDagger(string daggerId)
+        {
+            _currentDaggerId = string.IsNullOrEmpty(daggerId) ? "Dagger_00" : daggerId;
             ApplyStatsFromTable();
         }
 
@@ -44,15 +78,26 @@ namespace MythOfGuotaji.Combat
         {
             if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.WeaponStats != null)
             {
-                var daggerStats = Data.GameDataManager.Instance.WeaponStats.dagger;
-                _baseDamage = daggerStats.baseDamage;
-                _attackRadius = daggerStats.attackRadius;
-                _attackAngle = daggerStats.attackAngle;
-                _cooldown = daggerStats.cooldown;
-                _knockback = daggerStats.knockback;
-                _canReflectProjectiles = daggerStats.canReflectProjectiles;
-                _reflectDamageMultiplier = daggerStats.reflectDamageMultiplier;
-                _reflectSpeedMultiplier = daggerStats.reflectSpeedMultiplier;
+                var daggerEntry = Data.GameDataManager.Instance.WeaponStats.GetDagger(_currentDaggerId);
+                if (daggerEntry != null)
+                {
+                    var daggerStats = daggerEntry.stats;
+                    _baseDamage = daggerStats.baseDamage;
+                    _attackRadius = daggerStats.attackRadius;
+                    _attackAngle = daggerStats.attackAngle;
+                    _cooldown = daggerStats.cooldown;
+                    _knockback = daggerStats.knockback;
+                    _canReflectProjectiles = daggerStats.canReflectProjectiles;
+                    _reflectDamageMultiplier = daggerStats.reflectDamageMultiplier;
+                    _reflectSpeedMultiplier = daggerStats.reflectSpeedMultiplier;
+                    _critChance = daggerStats.critChance;
+                    _critMultiplier = daggerStats.critMultiplier;
+
+                    if (daggerEntry.slashVfxPrefab != null) _slashVfxPrefab = daggerEntry.slashVfxPrefab;
+                    if (daggerEntry.parryVfxPrefab != null) _parryVfxPrefab = daggerEntry.parryVfxPrefab;
+                    if (daggerEntry.swingSoundPrefab != null) _swingSoundPrefab = daggerEntry.swingSoundPrefab;
+                    if (daggerEntry.parrySuccessSoundPrefab != null) _parrySuccessSoundPrefab = daggerEntry.parrySuccessSoundPrefab;
+                }
             }
         }
 
@@ -68,8 +113,13 @@ namespace MythOfGuotaji.Combat
             center.y = 1.0f; // 몬스터 중심 높이
 
             // 1. 시각적 초승달 검기(Crescent Slash Wave) 및 VFX 참격 플래시 생성
-            CreateSlashVisualEffect(center, aimDirection);
-            Core.VFXManager.Instance?.SpawnDaggerSlash(center, aimDirection, _attackRadius);
+            SpawnSlashVisualEffect(center, aimDirection);
+            // Single VFX handled by SpawnSlashVisualEffect
+
+            if (_swingSoundPrefab != null)
+            {
+                Core.VFXManager.Instance?.PlaySoundPrefab(_swingSoundPrefab, center);
+            }
 
             // 2. 가벼운 타격감 카메라 셰이크
             if (QuarterViewCamera.Instance != null)
@@ -99,9 +149,11 @@ namespace MythOfGuotaji.Combat
                         hitCount++;
                         Vector3 knockDir = toTarget.sqrMagnitude > 0.01f ? toTarget.normalized : aimDirection;
 
+                        bool isCrit = UnityEngine.Random.value < _critChance;
+                        float finalDamage = isCrit ? _baseDamage * _critMultiplier : _baseDamage;
                         DamageInfo dmg = new DamageInfo(
-                            _baseDamage,
-                            false,
+                            finalDamage,
+                            isCrit,
                             col.transform.position,
                             knockDir,
                             _knockback,
@@ -219,7 +271,11 @@ namespace MythOfGuotaji.Combat
 
                 // 6. 반사 실행
                 refTarget.Reflect(owner, null, damageMultiplier, _reflectSpeedMultiplier);
-                Core.VFXManager.Instance?.SpawnDaggerParrySpark(refTarget.Position);
+                Core.VFXManager.Instance?.SpawnDaggerParrySpark(refTarget.Position, _parryVfxPrefab);
+                if (_parrySuccessSoundPrefab != null)
+                {
+                    Core.VFXManager.Instance?.PlaySoundPrefab(_parrySuccessSoundPrefab, refTarget.Position);
+                }
                 reflectedCount++;
             }
 
@@ -229,101 +285,69 @@ namespace MythOfGuotaji.Combat
                 {
                     QuarterViewCamera.Instance.TriggerShake(0.35f, 0.2f);
                 }
-                Debug.Log($"<color=yellow><b>[단검 패링 반사!]</b> {reflectedCount}개의 적 원거리 투사체/마법을 날아오던 각도로 완벽하게 반사했습니다!</color>");
+                OnParrySuccess?.Invoke(reflectedCount);
+                Debug.Log($"<color=yellow><b>[단검 패링 반사!]</b> {reflectedCount}개의 적 원거리 투사체/마법을 날아오던 각도로 완벽하게 반사했습니다! (차징 화살 즉시 완충!)</color>");
             }
 
             return reflectedCount;
         }
 
-        /// <summary>
-        /// 단검을 휘두를 때 전방으로 뻗어 나가는 화려한 청록색 초승달 검기 메쉬 생성 (프리팹 기반)
-        /// </summary>
-        private void CreateSlashVisualEffect(Vector3 center, Vector3 aimDir)
+                private void SpawnSlashVisualEffect(Vector3 center, Vector3 aimDir)
         {
-            GameObject slashPrefab = null;
-            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            GameObject slashPrefab = _slashVfxPrefab;
+            if (slashPrefab == null)
+            {
+                slashPrefab = Resources.Load<GameObject>("VFX/DefaultDaggerFX");
+            }
+            if (slashPrefab == null && Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
             {
                 slashPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.daggerSlashVfxPrefab, "Prefabs/VFX_DaggerSlash");
             }
-            else
+            if (slashPrefab == null)
             {
                 slashPrefab = Resources.Load<GameObject>("Prefabs/VFX_DaggerSlash");
             }
 
-            GameObject slashObj;
             if (slashPrefab != null)
             {
-                slashObj = Instantiate(slashPrefab, center + Vector3.up * 0.1f, Quaternion.LookRotation(aimDir));
-                slashObj.name = "DaggerSlashVFX";
-            }
-            else
-            {
-                slashObj = new GameObject("DaggerSlashVFX");
-                slashObj.transform.position = center + Vector3.up * 0.1f;
-                slashObj.transform.rotation = Quaternion.LookRotation(aimDir);
-            }
-
-            var meshFilter = slashObj.GetComponent<MeshFilter>();
-            if (meshFilter == null) meshFilter = slashObj.AddComponent<MeshFilter>();
-            var meshRend = slashObj.GetComponent<MeshRenderer>();
-            if (meshRend == null) meshRend = slashObj.AddComponent<MeshRenderer>();
-
-            Mesh mesh = new Mesh();
-            int segments = 12;
-            float startAngle = -_attackAngle * 0.5f;
-            float angleStep = _attackAngle / segments;
-            float innerR = 1.0f;
-            float outerR = _attackRadius;
-
-            Vector3[] verts = new Vector3[(segments + 1) * 2];
-            int[] tris = new int[segments * 6];
-            Color[] colors = new Color[verts.Length];
-
-            for (int i = 0; i <= segments; i++)
-            {
-                float currentAngle = startAngle + i * angleStep;
-                Quaternion rot = Quaternion.Euler(0f, currentAngle, 0f);
-                Vector3 dir = rot * Vector3.forward;
-
-                verts[i * 2] = dir * innerR;
-                verts[i * 2 + 1] = dir * outerR;
-
-                float t = Mathf.Sin((float)i / segments * Mathf.PI);
-                colors[i * 2] = new Color(0.9f, 1f, 1f, t * 0.85f);
-                colors[i * 2 + 1] = new Color(0f, 0.9f, 1f, t * 0.95f);
-
-                if (i < segments)
+                Quaternion rot = aimDir.sqrMagnitude > 0.001f ? Quaternion.LookRotation(aimDir) : Quaternion.identity;
+                Vector3 spawnPos = center + aimDir * 0.6f + Vector3.up * 0.1f;
+                if (Core.ObjectPoolManager.Instance != null)
                 {
-                    int baseIdx = i * 2;
-                    int triIdx = i * 6;
-                    tris[triIdx] = baseIdx;
-                    tris[triIdx + 1] = baseIdx + 1;
-                    tris[triIdx + 2] = baseIdx + 2;
-
-                    tris[triIdx + 3] = baseIdx + 1;
-                    tris[triIdx + 4] = baseIdx + 3;
-                    tris[triIdx + 5] = baseIdx + 2;
+                    var slashObj = Core.ObjectPoolManager.Instance.Spawn(slashPrefab, spawnPos, rot);
+                    if (slashObj != null)
+                    {
+                        var pss = slashObj.GetComponentsInChildren<ParticleSystem>(true);
+                        foreach (var ps in pss)
+                        {
+                            ps.Clear();
+                            ps.Play();
+                        }
+                        StartCoroutine(RoutineDespawnSlash(slashObj, slashPrefab.name, 0.8f));
+                    }
+                }
+                else
+                {
+                    var slashObj = Instantiate(slashPrefab, spawnPos, rot);
+                    Destroy(slashObj, 0.8f);
                 }
             }
+        }
 
-            mesh.vertices = verts;
-            mesh.triangles = tris;
-            mesh.colors = colors;
-            mesh.RecalculateNormals();
-
-            meshFilter.mesh = mesh;
-
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit");
-            if (shader == null) shader = Shader.Find("Sprites/Default");
-            if (shader == null) shader = Shader.Find("Standard");
-
-            Material mat = new Material(shader);
-            Color slashColor = new Color(0.1f, 0.95f, 1f, 0.85f);
-            mat.color = slashColor;
-            if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", slashColor);
-            meshRend.material = mat;
-
-            Destroy(slashObj, 0.16f);
+        private System.Collections.IEnumerator RoutineDespawnSlash(GameObject slashObj, string poolKey, float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            if (slashObj != null)
+            {
+                if (Core.ObjectPoolManager.Instance != null)
+                {
+                    Core.ObjectPoolManager.Instance.Despawn(slashObj, poolKey);
+                }
+                else
+                {
+                    Destroy(slashObj);
+                }
+            }
         }
 
         public void AddBaseDamage(float add) => _baseDamage += add;

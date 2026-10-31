@@ -21,6 +21,9 @@ namespace MythOfGuotaji.UI
         [SerializeField] private float _baseHeight = 5.5f;
         [SerializeField] private float _maxVisibleDistance = 32f;
 
+        private static GUIStyle s_levelStyle;
+        private static int s_cachedStyleFontSize = -1;
+
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -81,12 +84,14 @@ namespace MythOfGuotaji.UI
 
             Color prevColor = GUI.color;
 
+            float maxDistSq = _maxVisibleDistance * _maxVisibleDistance;
+
             foreach (var monster in _activeMonsters)
             {
-                if (monster == null || monster.IsDead || !monster.gameObject.activeInHierarchy) continue;
+                if (monster == null || monster.IsDead || !monster.gameObject.activeInHierarchy || monster.IsDormant) continue;
 
                 Vector3 mPos = monster.transform.position;
-                if (_playerTransform != null && Vector3.Distance(playerPos, mPos) > _maxVisibleDistance) continue;
+                if (_playerTransform != null && (playerPos - mPos).sqrMagnitude > maxDistSq) continue;
 
                 // 머리 위 오프셋 (스케일 반영)
                 float headOffset = monster.transform.localScale.y * 1.8f + 0.35f;
@@ -132,15 +137,26 @@ namespace MythOfGuotaji.UI
                 // 4. 레벨업 몬스터 레벨 표시 (1레벨 이상 시 표기)
                 if (monster.Level > 0)
                 {
-                    GUIStyle levelStyle = new GUIStyle(GUI.skin.label)
+                    int targetFontSize = Mathf.Clamp(Mathf.RoundToInt(10f * scale), 9, 14);
+                    if (s_levelStyle == null)
                     {
-                        alignment = TextAnchor.MiddleRight,
-                        fontSize = Mathf.Clamp(Mathf.RoundToInt(10f * scale), 9, 14),
-                        fontStyle = FontStyle.Bold
-                    };
-                    levelStyle.normal.textColor = new Color(1f, 0.85f, 0.2f, 0.95f);
+                        s_levelStyle = new GUIStyle(GUI.skin.label)
+                        {
+                            alignment = TextAnchor.MiddleRight,
+                            fontSize = targetFontSize,
+                            fontStyle = FontStyle.Bold
+                        };
+                        s_levelStyle.normal.textColor = new Color(1f, 0.85f, 0.2f, 0.95f);
+                        s_cachedStyleFontSize = targetFontSize;
+                    }
+                    else if (s_cachedStyleFontSize != targetFontSize)
+                    {
+                        s_levelStyle.fontSize = targetFontSize;
+                        s_cachedStyleFontSize = targetFontSize;
+                    }
+
                     Rect lvlRect = new Rect(x - 38f * scale, y - 3f * scale, 35f * scale, barH + 6f * scale);
-                    GUI.Label(lvlRect, $"Lv.{monster.Level}", levelStyle);
+                    GUI.Label(lvlRect, $"Lv.{monster.Level}", s_levelStyle);
                 }
             }
 

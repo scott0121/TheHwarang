@@ -35,11 +35,14 @@ namespace MythOfGuotaji.Dungeon
         private MazeGrid _grid;
         private readonly Dictionary<Vector2Int, RoomController> _instantiatedRooms = new();
         private Transform _dungeonRoot;
+        private DungeonRuntimeManager _runtimeManager;
+        private Vector2Int _playerCurrentRoom = Vector2Int.zero;
 
         public Transform DungeonRoot => _dungeonRoot;
         public MazeGrid Grid => _grid;
         public float RoomSize => _roomSize;
         public IReadOnlyDictionary<Vector2Int, RoomController> InstantiatedRooms => _instantiatedRooms;
+        public DungeonRuntimeManager RuntimeManager => _runtimeManager;
 
         public RoomController GetRoomAt(Vector2Int pos)
         {
@@ -135,6 +138,11 @@ namespace MythOfGuotaji.Dungeon
 
             // 10. 보스방/열쇠방 무결성 최종 검증 (보스 및 열쇠를 가진 정예 몬스터 100% 보장)
             EnsureSpecialRoomsAndMonsters();
+
+            // 11. 런타임 및 던전 플레이 관리자 초기화
+            _runtimeManager = GetComponent<DungeonRuntimeManager>();
+            if (_runtimeManager == null) _runtimeManager = gameObject.AddComponent<DungeonRuntimeManager>();
+            _runtimeManager.Initialize(_grid, _instantiatedRooms, _roomSize);
 
             if (GameManager.Instance != null)
             {
@@ -325,8 +333,8 @@ namespace MythOfGuotaji.Dungeon
             }
 
             // 5. 검증 (BFS)
-            int d1 = CalculateShortestPathLength(grid, startPos, midBossPos);
-            int d2 = CalculateShortestPathLength(grid, midBossPos, bossPos);
+            int d1 = DungeonFlowValidator.CalculateShortestPathLength(grid, startPos, midBossPos);
+            int d2 = DungeonFlowValidator.CalculateShortestPathLength(grid, midBossPos, bossPos);
 
             if (d1 - 1 < cfg.minRoomsBlock1)
             {
@@ -340,7 +348,7 @@ namespace MythOfGuotaji.Dungeon
             }
 
             // 병목 검증: 중간보스룸을 통과하지 않고 최종보스로 갈 수 없어야 함
-            if (IsPathExistsExcluding(grid, startPos, bossPos, midBossPos))
+            if (DungeonFlowValidator.IsPathExistsExcluding(grid, startPos, bossPos, midBossPos))
             {
                 log = "Bottleneck violated! MidBoss was bypassed";
                 return false;
@@ -372,68 +380,6 @@ namespace MythOfGuotaji.Dungeon
 
             log = $"성공! 블록1: {d1 - 1}개 방 (최소 {cfg.minRoomsBlock1}), 블록2: {d2 - 1}개 방 (최소 {cfg.minRoomsBlock2}), 중간보스 관문(입구1/출구1), 총 {grid.CellCount}개 방";
             return true;
-        }
-
-        private int CalculateShortestPathLength(MazeGrid grid, Vector2Int start, Vector2Int target)
-        {
-            Queue<(Vector2Int pos, int dist)> q = new();
-            HashSet<Vector2Int> visited = new();
-            q.Enqueue((start, 0));
-            visited.Add(start);
-
-            while (q.Count > 0)
-            {
-                var (curr, dist) = q.Dequeue();
-                if (curr == target) return dist;
-
-                var cell = grid.GetCell(curr);
-                if (cell == null) continue;
-
-                foreach (Direction dir in Enum.GetValues(typeof(Direction)))
-                {
-                    if (cell.IsOpen(dir))
-                    {
-                        Vector2Int next = curr + MazeGrid.GetOffset(dir);
-                        if (!visited.Contains(next))
-                        {
-                            visited.Add(next);
-                            q.Enqueue((next, dist + 1));
-                        }
-                    }
-                }
-            }
-            return 999;
-        }
-
-        private bool IsPathExistsExcluding(MazeGrid grid, Vector2Int start, Vector2Int target, Vector2Int excluded)
-        {
-            Queue<Vector2Int> q = new();
-            HashSet<Vector2Int> visited = new();
-            q.Enqueue(start);
-            visited.Add(start);
-
-            while (q.Count > 0)
-            {
-                var curr = q.Dequeue();
-                if (curr == target) return true;
-
-                var cell = grid.GetCell(curr);
-                if (cell == null) continue;
-
-                foreach (Direction dir in Enum.GetValues(typeof(Direction)))
-                {
-                    if (cell.IsOpen(dir))
-                    {
-                        Vector2Int next = curr + MazeGrid.GetOffset(dir);
-                        if (next != excluded && !visited.Contains(next))
-                        {
-                            visited.Add(next);
-                            q.Enqueue(next);
-                        }
-                    }
-                }
-            }
-            return false;
         }
 
         private void BuildEmergencyTwoBlockDungeon(MazeGrid grid, Data.StageDungeonConfig cfg)
@@ -795,134 +741,11 @@ namespace MythOfGuotaji.Dungeon
         }
 
         /// <summary>
-        /// 던전의 전체 흐름도 및 도달 가능성 정밀 검증
-        /// 1. 시작방에서 보스방을 거치지 않고 모든 일반방(N*N - 1개)에 도달 가능한지 검증
-        /// 2. 보스방 뒤에 갇혀있거나, 보스방을 지나야만 갈 수 있는 방이 전혀 없는지(0개) 검증
-        /// 3. 중간보스(열쇠방)가 존재하며 보스방을 거치지 않고 도달 가능한지 검증
-        /// 4. 중간보스 처치 후 보스방 입구로 도달 가능한 유효 경로가 있는지 검증
-        /// 5. 인접한 모든 방의 문 개폐 상태가 상호 일치하는지(Reciprocal) 검증
+        /// 던전 흐름 및 유효성 검증 위임 (DungeonFlowValidator 사용)
         /// </summary>
         public bool ValidateDungeonFlow(MazeGrid grid, out string failureReason)
         {
-            Vector2Int startPos = new Vector2Int(0, 0);
-            Vector2Int bossPos = new Vector2Int(grid.size - 1, grid.size - 1);
-            int totalRooms = grid.size * grid.size;
-            int expectedNonBossRooms = totalRooms - 1;
-
-            // 1. 보스방을 거치지 않는 BFS 탐색으로 모든 방의 접근성 확인
-            HashSet<Vector2Int> reachableWithoutBoss = new();
-            Queue<Vector2Int> queue = new();
-
-            queue.Enqueue(startPos);
-            reachableWithoutBoss.Add(startPos);
-
-            while (queue.Count > 0)
-            {
-                Vector2Int curr = queue.Dequeue();
-                MazeCell cell = grid.GetCell(curr);
-
-                foreach (Direction dir in System.Enum.GetValues(typeof(Direction)))
-                {
-                    if (cell.IsOpen(dir))
-                    {
-                        Vector2Int next = curr + MazeGrid.GetOffset(dir);
-                        if (next == bossPos) continue; // 보스방은 잠겨있으므로 통과 불가
-
-                        if (grid.GetCell(next) != null && !reachableWithoutBoss.Contains(next))
-                        {
-                            reachableWithoutBoss.Add(next);
-                            queue.Enqueue(next);
-                        }
-                    }
-                }
-            }
-
-            // 검증 1: 보스방을 제외한 모든 방(N*N - 1개)이 도달 가능한가?
-            if (reachableWithoutBoss.Count != expectedNonBossRooms)
-            {
-                int unreachableCount = expectedNonBossRooms - reachableWithoutBoss.Count;
-                failureReason = $"보스방을 통과하지 않고 도달할 수 없는 방이 {unreachableCount}개 발견됨 (도달 가능: {reachableWithoutBoss.Count}/{expectedNonBossRooms})";
-                return false;
-            }
-
-            // 검증 2: 중간보스(열쇠방) 존재 및 도달성 검증
-            MazeCell keyRoomCell = null;
-            for (int x = 0; x < grid.size; x++)
-            {
-                for (int y = 0; y < grid.size; y++)
-                {
-                    var c = grid.GetCell(x, y);
-                    if (c.roomType == RoomType.KeyRoom)
-                    {
-                        keyRoomCell = c;
-                        break;
-                    }
-                }
-                if (keyRoomCell != null) break;
-            }
-
-            if (keyRoomCell == null)
-            {
-                failureReason = "중간보스(열쇠방)가 배치되지 않음";
-                return false;
-            }
-
-            if (!reachableWithoutBoss.Contains(keyRoomCell.gridPos))
-            {
-                failureReason = $"중간보스방({keyRoomCell.gridPos})이 보스방을 거치지 않고는 갈 수 없음";
-                return false;
-            }
-
-            // 검증 3: 보스방 입구 검증 (보스방과 연결된 방 중 최소 하나가 reachableWithoutBoss에 포함되어야 함)
-            MazeCell bossCell = grid.GetCell(bossPos);
-            int bossDoorCount = 0;
-            Vector2Int bossEntrancePos = Vector2Int.zero;
-
-            foreach (Direction dir in System.Enum.GetValues(typeof(Direction)))
-            {
-                if (bossCell.IsOpen(dir))
-                {
-                    bossDoorCount++;
-                    bossEntrancePos = bossPos + MazeGrid.GetOffset(dir);
-                }
-            }
-
-            if (bossDoorCount == 0)
-            {
-                failureReason = "보스방으로 들어가는 문이 전혀 없음";
-                return false;
-            }
-
-            if (!reachableWithoutBoss.Contains(bossEntrancePos))
-            {
-                failureReason = $"보스방 진입로({bossEntrancePos})가 시작방에서 도달 불가능함";
-                return false;
-            }
-
-            // 검증 4: 모든 방의 문 개폐 상태 상호 일치(Reciprocal) 검증
-            for (int x = 0; x < grid.size; x++)
-            {
-                for (int y = 0; y < grid.size; y++)
-                {
-                    MazeCell cell = grid.GetCell(x, y);
-                    foreach (Direction dir in System.Enum.GetValues(typeof(Direction)))
-                    {
-                        if (cell.IsOpen(dir))
-                        {
-                            Vector2Int nPos = cell.gridPos + MazeGrid.GetOffset(dir);
-                            MazeCell nCell = grid.GetCell(nPos);
-                            if (nCell == null || !nCell.IsOpen(MazeGrid.GetOpposite(dir)))
-                            {
-                                failureReason = $"방 ({x},{y}) {dir} 방향 문과 인접 방의 문 연결 불일치";
-                                return false;
-                            }
-                        }
-                    }
-                }
-            }
-
-            failureReason = $"시작(0,0) -> 중간보스(열쇠:{keyRoomCell.gridPos}, 거리 {keyRoomCell.distanceFromStart}) -> 보스({bossPos}), 총 {totalRooms}개 방 100% 정상 연결 확인";
-            return true;
+            return DungeonFlowValidator.ValidateDungeonFlow(grid, _currentStageConfig, out failureReason);
         }
 
         /// <summary>
@@ -1097,13 +920,18 @@ namespace MythOfGuotaji.Dungeon
 
         private void PreSpawnAllRoomMonsters()
         {
+            // [최적화 1]: 시작방 (0,0) 기준 상하좌우 2칸까지만 사전 스폰 (불필요한 전체 맵 일괄 스폰 방지)
+            // 그 외 먼 방들은 플레이어가 던전을 탐험하며 2칸 이내로 접근할 때 점진적으로 사전 스폰됩니다.
             foreach (var kvp in _instantiatedRooms)
             {
                 // [규칙 1 절대 보장]: 시작방 (0,0)은 절대 안전지대 (사전 스폰 완전 배제)
                 if (kvp.Key == Vector2Int.zero) continue;
-                if (kvp.Value != null)
+                if (Mathf.Abs(kvp.Key.x) <= 2 && Mathf.Abs(kvp.Key.y) <= 2)
                 {
-                    kvp.Value.PreSpawnMonsters();
+                    if (kvp.Value != null)
+                    {
+                        kvp.Value.PreSpawnMonsters();
+                    }
                 }
             }
         }
@@ -1179,12 +1007,12 @@ namespace MythOfGuotaji.Dungeon
             }
             else
             {
-                roomObj = BuildStandardRoomGeometry(cell, worldPos);
+                roomObj = DungeonRoomBuilder.BuildStandardRoomGeometry(cell, worldPos, _dungeonRoot, _roomSize, _wallHeight, _doorWidth, _theme, _mapSkinTable);
                 roomCtrl = roomObj.GetComponent<RoomController>();
             }
 
             roomObj.transform.position = worldPos;
-            roomCtrl.SetupRoom(cell.gridPos, cell.roomType);
+            roomCtrl.SetupRoom(cell.gridPos, cell.roomType, cell.blockIndex);
 
             var floorTransform = roomObj.transform.Find("Floor");
             if (floorTransform != null && floorTransform.TryGetComponent<Renderer>(out var floorRend))
@@ -1231,155 +1059,6 @@ namespace MythOfGuotaji.Dungeon
             return roomCtrl;
         }
 
-        private GameObject BuildStandardRoomGeometry(MazeCell cell, Vector3 worldPos)
-        {
-            GameObject room = new GameObject($"Room_{cell.gridPos.x}_{cell.gridPos.y}_{cell.roomType}");
-            room.transform.SetPositionAndRotation(worldPos, Quaternion.identity);
-            room.transform.SetParent(_dungeonRoot);
-
-            var ctrl = room.AddComponent<RoomController>();
-
-            // 1. 바닥 (Floor)
-            GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            floor.name = "Floor";
-            floor.transform.SetParent(room.transform, false);
-            floor.transform.localPosition = Vector3.zero;
-            floor.transform.localRotation = Quaternion.identity;
-            floor.transform.localScale = new Vector3(_roomSize / 10f, 1f, _roomSize / 10f);
-
-            var floorRend = floor.GetComponent<Renderer>();
-            if (floorRend != null)
-            {
-                Color floorCol = cell.roomType switch
-                {
-                    RoomType.Start => new Color(0.18f, 0.35f, 0.22f), // 시작방(안전 녹색)
-                    RoomType.Boss => new Color(0.45f, 0.15f, 0.15f),  // 보스방(위험 암적색)
-                    RoomType.KeyRoom => new Color(0.45f, 0.38f, 0.12f),// 열쇠방(황금빛)
-                    RoomType.Trap => new Color(0.32f, 0.18f, 0.38f),  // 함정방(자주색)
-                    _ => new Color(0.22f, 0.24f, 0.28f)              // 일반 미로방(석재 회색)
-                };
-                floorRend.material.color = floorCol;
-                if (floorRend.material.HasProperty("_BaseColor")) floorRend.material.SetColor("_BaseColor", floorCol);
-            }
-
-            // 2. 방 트리거 콜라이더
-            var boxCol = room.AddComponent<BoxCollider>();
-            boxCol.isTrigger = true;
-            boxCol.center = new Vector3(0f, 2f, 0f);
-            boxCol.size = new Vector3(_roomSize * 0.9f, 4f, _roomSize * 0.9f);
-
-            // 3. 4방향 문 소켓 빌드 (North: 0°, East: 90°, South: 180°, West: 270°)
-            BuildDoorSocket(room, ctrl, Direction.North, new Vector3(0f, 0f, _roomSize * 0.5f), Quaternion.identity);
-            BuildDoorSocket(room, ctrl, Direction.East, new Vector3(_roomSize * 0.5f, 0f, 0f), Quaternion.Euler(0f, 90f, 0f));
-            BuildDoorSocket(room, ctrl, Direction.South, new Vector3(0f, 0f, -_roomSize * 0.5f), Quaternion.Euler(0f, 180f, 0f));
-            BuildDoorSocket(room, ctrl, Direction.West, new Vector3(-_roomSize * 0.5f, 0f, 0f), Quaternion.Euler(0f, 270f, 0f));
-
-            return room;
-        }
-
-        private void BuildDoorSocket(GameObject room, RoomController ctrl, Direction dir, Vector3 localPos, Quaternion localRot)
-        {
-            GameObject socketObj = new GameObject($"Socket_{dir}");
-            socketObj.transform.SetParent(room.transform, false);
-            socketObj.transform.localPosition = localPos;
-            socketObj.transform.localRotation = localRot;
-
-            var socket = socketObj.AddComponent<DoorSocket>();
-
-            float doorWidth = _doorWidth; // 출입문 개방 통로 너비 (2배 확대: 12.0m)
-            float sideWallLen = (_roomSize - doorWidth) * 0.5f; // (26 - 6) / 2 = 10m
-            float sideOffset = (doorWidth + sideWallLen) * 0.5f; // (6 + 10) / 2 = 8m
-
-            Color wallColor = new Color(0.28f, 0.3f, 0.35f); // 어두운 청회색 석벽
-
-            // 1. 좌측 코너 고정 벽체 (항상 존재)
-            GameObject leftWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            leftWall.name = "SideWall_Left";
-            leftWall.transform.SetParent(socketObj.transform, false);
-            leftWall.transform.localPosition = new Vector3(-sideOffset, _wallHeight * 0.5f, 0f);
-            leftWall.transform.localRotation = Quaternion.identity;
-            leftWall.transform.localScale = new Vector3(sideWallLen, _wallHeight, 0.9f);
-            SetObjColor(leftWall, wallColor);
-
-            // 2. 우측 코너 고정 벽체 (항상 존재)
-            GameObject rightWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            rightWall.name = "SideWall_Right";
-            rightWall.transform.SetParent(socketObj.transform, false);
-            rightWall.transform.localPosition = new Vector3(sideOffset, _wallHeight * 0.5f, 0f);
-            rightWall.transform.localRotation = Quaternion.identity;
-            rightWall.transform.localScale = new Vector3(sideWallLen, _wallHeight, 0.9f);
-            SetObjColor(rightWall, wallColor);
-
-            // 3. 중앙 통로 폐쇄 벽체 (DoorState.Wall 일 때만 활성화)
-            GameObject centerWall = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            centerWall.name = "SolidCenterWall";
-            centerWall.transform.SetParent(socketObj.transform, false);
-            centerWall.transform.localPosition = new Vector3(0f, _wallHeight * 0.5f, 0f);
-            centerWall.transform.localRotation = Quaternion.identity;
-            centerWall.transform.localScale = new Vector3(doorWidth + 0.1f, _wallHeight, 0.9f);
-            SetObjColor(centerWall, wallColor);
-
-            // 4. 중앙 잠금 봉인 배리어 (CombatLock/BossLock 시 차단)
-            GameObject barrier = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            barrier.name = "BarrierVisual";
-            barrier.transform.SetParent(socketObj.transform, false);
-            barrier.transform.localPosition = new Vector3(0f, _wallHeight * 0.5f, 0f);
-            barrier.transform.localRotation = Quaternion.identity;
-            barrier.transform.localScale = new Vector3(doorWidth + 0.2f, _wallHeight * 0.95f, 0.6f);
-
-            // 5. 문 기둥 (Door Pillars)
-            GameObject pillars = new GameObject("DoorPillars");
-            pillars.transform.SetParent(socketObj.transform, false);
-            pillars.transform.localPosition = Vector3.zero;
-            pillars.transform.localRotation = Quaternion.identity;
-
-            GameObject pLeft = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            pLeft.name = "Pillar_Left";
-            pLeft.transform.SetParent(pillars.transform, false);
-            pLeft.transform.localPosition = new Vector3(-doorWidth * 0.5f, _wallHeight * 0.5f, 0f);
-            pLeft.transform.localRotation = Quaternion.identity;
-            pLeft.transform.localScale = new Vector3(0.7f, _wallHeight * 1.05f, 1.2f);
-            SetObjColor(pLeft, new Color(0.18f, 0.2f, 0.24f));
-
-            GameObject pRight = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            pRight.name = "Pillar_Right";
-            pRight.transform.SetParent(pillars.transform, false);
-            pRight.transform.localPosition = new Vector3(doorWidth * 0.5f, _wallHeight * 0.5f, 0f);
-            pRight.transform.localRotation = Quaternion.identity;
-            pRight.transform.localScale = new Vector3(0.7f, _wallHeight * 1.05f, 1.2f);
-            SetObjColor(pRight, new Color(0.18f, 0.2f, 0.24f));
-
-            socket.InitializeComponents(dir, centerWall, barrier, pillars);
-            SetRoomSocketPrivateField(ctrl, dir, socket);
-        }
-
-        private void SetObjColor(GameObject go, Color color)
-        {
-            var rend = go.GetComponent<Renderer>();
-            if (rend != null)
-            {
-                rend.material.color = color;
-                if (rend.material.HasProperty("_BaseColor"))
-                {
-                    rend.material.SetColor("_BaseColor", color);
-                }
-            }
-        }
-
-        private void SetRoomSocketPrivateField(RoomController ctrl, Direction dir, DoorSocket socket)
-        {
-            string fieldName = dir switch
-            {
-                Direction.North => "_socketNorth",
-                Direction.East => "_socketEast",
-                Direction.South => "_socketSouth",
-                Direction.West => "_socketWest",
-                _ => ""
-            };
-            var field = typeof(RoomController).GetField(fieldName, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            field?.SetValue(ctrl, socket);
-        }
-
         private void PositionPlayerAtStart()
         {
             var player = FindAnyObjectByType<PlayerController>();
@@ -1398,525 +1077,75 @@ namespace MythOfGuotaji.Dungeon
             Core.HelperManager.Instance?.RepositionBehindPlayer();
         }
 
-        /// <summary>
-        /// 보스방 진입 시 인접 방의 연결 소켓도 함께 봉인하여 퇴로 차단
-        /// </summary>
+        #region Runtime Gameplay & Navigation Facade (Delegated to DungeonRuntimeManager)
+
         public void LockBossRoomNeighborSockets(Vector2Int bossPos)
         {
-            foreach (Direction dir in System.Enum.GetValues(typeof(Direction)))
-            {
-                Vector2Int neighborPos = bossPos + MazeGrid.GetOffset(dir);
-                if (_instantiatedRooms.TryGetValue(neighborPos, out var neighborRoom) && neighborRoom != null)
-                {
-                    Direction oppositeDir = MazeGrid.GetOpposite(dir);
-                    var socket = neighborRoom.GetSocket(oppositeDir);
-                    if (socket != null && socket.CurrentState != DoorState.Wall)
-                    {
-                        socket.LockBossEncounter();
-                    }
-                }
-            }
+            if (DungeonRuntimeManager.Instance != null)
+                DungeonRuntimeManager.Instance.LockBossRoomNeighborSockets(bossPos);
         }
 
-        /// <summary>
-        /// [규칙 3 & 8]: 중간보스방(KeyRoom) -> 후반부 던전(Block 2)으로 연결되는 잠긴 문을 열쇠로 봉인 해제
-        /// </summary>
         public void UnlockBossDoors()
         {
-            foreach (var kvp in _instantiatedRooms)
-            {
-                var room = kvp.Value;
-                if (room == null || room.RoomType != RoomType.KeyRoom) continue;
-
-                foreach (Direction dir in System.Enum.GetValues(typeof(Direction)))
-                {
-                    var socket = room.GetSocket(dir);
-                    if (socket != null && socket.CurrentState == DoorState.BossLock)
-                    {
-                        socket.UnlockWithKey();
-                    }
-                }
-            }
-
-            Debug.Log("<color=gold>[MazeGenerator] 중간보스 출구 관문이 열쇠로 봉인 해제되었습니다!</color>");
+            if (DungeonRuntimeManager.Instance != null)
+                DungeonRuntimeManager.Instance.UnlockBossDoors();
         }
 
-        /// <summary>
-        /// Stage Clear 후 시작룸 재출발: 기존 잔존 요괴 정리, 플레이어 HP 및 위치 초기화, 새 미로 생성
-        /// </summary>
         public void RestartStage()
         {
-            Debug.Log("<color=cyan>[MazeGenerator] 스테이지 초기화 및 시작룸 재출발 시작!</color>");
-
-            // 1. 플레이어 부활 및 애니메이션 리셋
-            var player = FindAnyObjectByType<PlayerController>();
-            if (player != null)
+            if (DungeonRuntimeManager.Instance != null)
+                DungeonRuntimeManager.Instance.RestartStage();
+            else
             {
-                player.Respawn();
+                var player = FindAnyObjectByType<PlayerController>();
+                player?.Respawn();
+                GenerateDungeon();
             }
-
-            // 2. 새 던전 미로 생성 (ClearExistingDungeon이 잔존 요괴, 영혼석, 하트, 투사체, UI를 100% 정리 후 재생성)
-            GenerateDungeon();
         }
 
-        // ========================================================
-        // 몬스터 길찾기 및 네비게이션 지원 메서드
-        // ========================================================
-
-        private Vector2Int _playerCurrentRoom = Vector2Int.zero;
-
-        /// <summary>
-        /// 플레이어가 현재 머물고 있는 방을 안정적으로 판정 (문턱 히스테리시스 적용)
-        /// - 문턱(Doorway) 근처(16.3m ~ 22.7m)에 있을 때는 이전 방 소속을 유지하여 경계선 오인식 방지
-        /// - 새 방 내부 마진(halfSize - 3.2m) 안쪽으로 확실히 들어왔을 때만 현재 방을 갱신
-        /// </summary>
         public Vector2Int GetPlayerCurrentRoom()
         {
-            if (PlayerController.Instance == null) return _playerCurrentRoom;
-            Vector3 pPos = PlayerController.Instance.transform.position;
-
-            float halfInterior = (_roomSize * 0.5f) - 3.2f;
-
-            // 1. 현재 방 내부 영역 안에 여전히 있는지 검사
-            Vector3 curCenter = GetRoomCenterWorldPos(_playerCurrentRoom);
-            if (Mathf.Abs(pPos.x - curCenter.x) <= halfInterior && Mathf.Abs(pPos.z - curCenter.z) <= halfInterior)
-            {
-                return _playerCurrentRoom;
-            }
-
-            // 2. 다른 방의 내부 영역으로 확실히 들어왔는지 검사
-            foreach (var kvp in _instantiatedRooms)
-            {
-                Vector3 rCenter = GetRoomCenterWorldPos(kvp.Key);
-                if (Mathf.Abs(pPos.x - rCenter.x) <= halfInterior && Mathf.Abs(pPos.z - rCenter.z) <= halfInterior)
-                {
-                    _playerCurrentRoom = kvp.Key;
-                    return _playerCurrentRoom;
-                }
-            }
-
-            // 3. 경계선(문턱)에 걸쳐 있는 경우 이전 방 소속 유지
-            return _playerCurrentRoom;
+            return DungeonRuntimeManager.Instance != null ? DungeonRuntimeManager.Instance.GetPlayerCurrentRoom() : _playerCurrentRoom;
         }
 
         public Vector2Int GetRoomCoordsAtWorldPos(Vector3 worldPos)
         {
-            int x = Mathf.RoundToInt(worldPos.x / _roomSize);
-            int y = Mathf.RoundToInt(worldPos.z / _roomSize);
-            return new Vector2Int(x, y);
+            return DungeonRuntimeManager.Instance != null ? DungeonRuntimeManager.Instance.GetRoomCoordsAtWorldPos(worldPos) : new Vector2Int(Mathf.RoundToInt(worldPos.x / _roomSize), Mathf.RoundToInt(worldPos.z / _roomSize));
         }
 
         public Vector3 GetRoomCenterWorldPos(Vector2Int gridPos)
         {
-            return new Vector3(gridPos.x * _roomSize, 1.0f, gridPos.y * _roomSize);
+            return DungeonRuntimeManager.Instance != null ? DungeonRuntimeManager.Instance.GetRoomCenterWorldPos(gridPos) : new Vector3(gridPos.x * _roomSize, 1.0f, gridPos.y * _roomSize);
         }
 
         public Vector3 GetDoorwayWorldPos(Vector2Int fromRoom, Direction dir)
         {
-            Vector3 center = GetRoomCenterWorldPos(fromRoom);
-            Vector2Int offset = MazeGrid.GetOffset(dir);
-            // 문턱(0.5f * _roomSize)을 완전히 넘어 다음 방 안쪽(+2.5m)까지 진입하도록 목표점 설정
-            return new Vector3(center.x + offset.x * (_roomSize * 0.5f + 2.5f), 1.0f, center.z + offset.y * (_roomSize * 0.5f + 2.5f));
+            return DungeonRuntimeManager.Instance != null ? DungeonRuntimeManager.Instance.GetDoorwayWorldPos(fromRoom, dir) : Vector3.zero;
         }
 
-        /// <summary>
-        /// BFS를 통해 현재 방에서 목표 방으로 가는 최단 경로 상의 '다음 통로 문(Doorway)' 위치를 계산
-        /// </summary>
         public Vector3 GetNextWaypointTowards(Vector2Int currentRoom, Vector2Int targetRoom)
         {
-            if (_grid == null || currentRoom == targetRoom)
-            {
-                return GetRoomCenterWorldPos(targetRoom);
-            }
-
-            Queue<Vector2Int> queue = new();
-            Dictionary<Vector2Int, Vector2Int> parent = new();
-            HashSet<Vector2Int> visited = new();
-
-            queue.Enqueue(currentRoom);
-            visited.Add(currentRoom);
-
-            bool found = false;
-            while (queue.Count > 0)
-            {
-                var curr = queue.Dequeue();
-                if (curr == targetRoom)
-                {
-                    found = true;
-                    break;
-                }
-
-                var cell = _grid.GetCell(curr);
-                if (cell == null) continue;
-
-                foreach (Direction dir in System.Enum.GetValues(typeof(Direction)))
-                {
-                    if (cell.IsOpen(dir))
-                    {
-                        Vector2Int nextPos = curr + MazeGrid.GetOffset(dir);
-                        if (!visited.Contains(nextPos) && _grid.GetCell(nextPos) != null)
-                        {
-                            visited.Add(nextPos);
-                            parent[nextPos] = curr;
-                            queue.Enqueue(nextPos);
-                        }
-                    }
-                }
-            }
-
-            if (!found)
-            {
-                return GetRoomCenterWorldPos(targetRoom);
-            }
-
-            // targetRoom에서 역추적하여 currentRoom 바로 다음 방(firstStep) 도출
-            Vector2Int step = targetRoom;
-            while (parent.TryGetValue(step, out var p) && p != currentRoom)
-            {
-                step = p;
-            }
-
-            Vector2Int dirVec = step - currentRoom;
-            Direction outDir = Direction.North;
-            if (dirVec == new Vector2Int(0, 1)) outDir = Direction.North;
-            else if (dirVec == new Vector2Int(1, 0)) outDir = Direction.East;
-            else if (dirVec == new Vector2Int(0, -1)) outDir = Direction.South;
-            else if (dirVec == new Vector2Int(-1, 0)) outDir = Direction.West;
-
-            return GetDoorwayWorldPos(currentRoom, outDir);
+            return DungeonRuntimeManager.Instance != null ? DungeonRuntimeManager.Instance.GetNextWaypointTowards(currentRoom, targetRoom) : GetRoomCenterWorldPos(targetRoom);
         }
 
-        #region Ten Dungeon Door Policies Engine (던전 문 10대 정책 관리 엔진)
+        #endregion
 
-        private float _doorPolicyCheckTimer = 0f;
-        private readonly HashSet<string> _activeCombatTriggerDoors = new();
+        #region Ten Dungeon Door Policies Engine Facade (Delegated to DungeonRuntimeManager)
 
-        /// <summary>
-        /// [사용자 핵심 규칙]: 문이 열리고 전투가 시작되면, 해당 전투가 끝날 때까지 방금 열린 문은 절대로 닫히면 안 됨!
-        /// </summary>
-        public void RegisterCombatTriggerDoor(string pairKey)
-        {
-            if (!string.IsNullOrEmpty(pairKey))
-            {
-                _activeCombatTriggerDoors.Add(pairKey);
-            }
-        }
+        public void RegisterCombatTriggerDoor(string pairKey) => DungeonRuntimeManager.Instance?.RegisterCombatTriggerDoor(pairKey);
+        public void ClearCombatTriggerDoors() => DungeonRuntimeManager.Instance?.ClearCombatTriggerDoors();
+        public bool IsCombatTriggerDoor(string pairKey) => DungeonRuntimeManager.Instance != null && DungeonRuntimeManager.Instance.IsCombatTriggerDoor(pairKey);
+        public void SnapshotDoorsOpenedBeforeCombat() => DungeonRuntimeManager.Instance?.SnapshotDoorsOpenedBeforeCombat();
+        public static string GetDoorPairKeyFromDoor(DungeonAutoDoor door) => DungeonRuntimeManager.GetDoorPairKeyFromDoor(door);
+        public bool HasAnyActiveCombat() => DungeonRuntimeManager.Instance != null && DungeonRuntimeManager.Instance.HasAnyActiveCombat();
 
-        public void ClearCombatTriggerDoors()
-        {
-            _activeCombatTriggerDoors.Clear();
-        }
+        public void CheckAndEndCombatIfAllCleared() => DungeonRuntimeManager.Instance?.CheckAndEndCombatIfAllCleared();
+        public void ReopenAllOpenedDoorsAfterCombat() => DungeonRuntimeManager.Instance?.ReopenAllOpenedDoorsAfterCombat();
+        public static string GetDoorPairKey(Vector2Int a, Vector2Int b) => DungeonRuntimeManager.GetDoorPairKey(a, b);
 
-        public bool IsCombatTriggerDoor(string pairKey)
-        {
-            return _activeCombatTriggerDoors.Contains(pairKey);
-        }
 
-        private void Update()
-        {
-            if (PlayerController.Instance != null && (PlayerController.Instance.IsInCombat || HasAnyActiveCombat()))
-            {
-                _doorPolicyCheckTimer += Time.deltaTime;
-                if (_doorPolicyCheckTimer >= 0.1f)
-                {
-                    _doorPolicyCheckTimer = 0f;
-                    UpdateDungeonDoorPolicy();
-                }
-            }
-        }
 
-        /// <summary>
-        /// 던전 내에 전투 중인 방(인카운터 활성 및 살아있는 몬스터/남은 웨이브 존재)이 있는지 확인
-        /// </summary>
-        public bool HasAnyActiveCombat()
-        {
-            foreach (var room in _instantiatedRooms.Values)
-            {
-                if (room != null && room.IsEncounterActive && (!room.WavesCompleted || room.LivingMonsterCount > 0))
-                {
-                    return true;
-                }
-            }
-
-            var activeMonsters = MonsterAI.ActiveMonsters;
-            for (int i = 0; i < activeMonsters.Count; i++)
-            {
-                var m = activeMonsters[i];
-                if (m != null && !m.IsDead && m.IsAggroed)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// 특정 방 클리어 시 호출: 던전 내 모든 전투 종료 여부 판별 후 비전투 전환 및 문 일괄 재개방 (규칙 10)
-        /// </summary>
-        public void CheckAndEndCombatIfAllCleared()
-        {
-            if (!HasAnyActiveCombat())
-            {
-                ClearCombatTriggerDoors();
-                PlayerController.Instance?.SetInCombat(false);
-                ReopenAllOpenedDoorsAfterCombat();
-            }
-            else
-            {
-                UpdateDungeonDoorPolicy();
-            }
-        }
-
-        /// <summary>
-        /// [규칙 10]: 전투가 종료된 뒤에는 한번 열었던 문은 모두 다시 열려있어야 함
-        /// </summary>
-        public void ReopenAllOpenedDoorsAfterCombat()
-        {
-            var allDoors = FindObjectsByType<DungeonAutoDoor>(FindObjectsInactive.Include);
-            foreach (var door in allDoors)
-            {
-                if (door != null && door.HasEverBeenOpened)
-                {
-                    door.ReopenAfterCombat();
-                }
-            }
-        }
-
-        public static string GetDoorPairKey(Vector2Int a, Vector2Int b)
-        {
-            return a.x < b.x || (a.x == b.x && a.y < b.y)
-                ? $"{a.x}_{a.y}:{b.x}_{b.y}"
-                : $"{b.x}_{b.y}:{a.x}_{a.y}";
-        }
-
-        /// <summary>
-        /// 플레이어 위치에서 전투 중인 모든 몬스터 방으로 향하는 개방 경로(통로 문 쌍) 집합 계산
-        /// - [규칙 9]: 전투 중에 문이 열리거나 닫혀서 몬스터나 캐릭터가 서로 단절되는 일이 없도록,
-        ///   플레이어가 위치한 방과 전투 중인 몬스터가 위치한 방을 잇는 모든 통로 문은 열림 상태를 유지한다.
-        /// </summary>
-        private HashSet<string> GetDoorPairsConnectingPlayerToMonsters(Vector2Int playerPos, HashSet<Vector2Int> combatRooms)
-        {
-            HashSet<string> connectingPairs = new();
-            if (_grid == null || combatRooms.Count == 0) return connectingPairs;
-
-            Vector3 playerWorldPos = PlayerController.Instance != null ? PlayerController.Instance.transform.position : Vector3.zero;
-
-            // [안전망 1]: 플레이어가 어떤 문 근처(5.0m 이내)에 있고, 그 문이 교전 방과 연결되어 있다면 즉시 보호
-            foreach (var kvp in _instantiatedRooms)
-            {
-                var room = kvp.Value;
-                if (room == null) continue;
-
-                foreach (Direction dir in System.Enum.GetValues(typeof(Direction)))
-                {
-                    var socket = room.GetSocket(dir);
-                    if (socket != null && socket.AutoDoor != null)
-                    {
-                        Vector2Int neighborPos = room.GridPosition + MazeGrid.GetOffset(dir);
-                        if (combatRooms.Contains(neighborPos) || combatRooms.Contains(room.GridPosition))
-                        {
-                            float d = Vector3.Distance(socket.AutoDoor.transform.position, playerWorldPos);
-                            if (d <= 5.0f)
-                            {
-                                connectingPairs.Add(GetDoorPairKey(room.GridPosition, neighborPos));
-                            }
-                        }
-                    }
-                }
-            }
-
-            foreach (var targetRoom in combatRooms)
-            {
-                // 플레이어와 요괴가 같은 방에 있다면 둘 사이를 가로막는 문은 없음
-                if (targetRoom == playerPos)
-                {
-                    continue;
-                }
-
-                Queue<Vector2Int> queue = new();
-                Dictionary<Vector2Int, Vector2Int> parent = new();
-                HashSet<Vector2Int> visited = new();
-
-                queue.Enqueue(playerPos);
-                visited.Add(playerPos);
-
-                bool reached = false;
-                while (queue.Count > 0)
-                {
-                    var curr = queue.Dequeue();
-                    if (curr == targetRoom)
-                    {
-                        reached = true;
-                        break;
-                    }
-
-                    var cell = _grid.GetCell(curr);
-                    if (cell == null) continue;
-
-                    var currRoom = GetRoomAt(curr);
-
-                    foreach (Direction dir in System.Enum.GetValues(typeof(Direction)))
-                    {
-                        if (cell.IsOpen(dir))
-                        {
-                            Vector2Int nextPos = curr + MazeGrid.GetOffset(dir);
-                            if (!visited.Contains(nextPos) && _grid.GetCell(nextPos) != null)
-                            {
-                                // 문이 실제로 한 번이라도 열린 적이 있거나 현재 열려있는지 확인
-                                bool doorOpened = false;
-                                if (currRoom != null)
-                                {
-                                    var socket = currRoom.GetSocket(dir);
-                                    if (socket != null && socket.AutoDoor != null && (socket.AutoDoor.HasEverBeenOpened || socket.AutoDoor.IsOpen))
-                                    {
-                                        doorOpened = true;
-                                    }
-                                }
-
-                                if (doorOpened)
-                                {
-                                    visited.Add(nextPos);
-                                    parent[nextPos] = curr;
-                                    queue.Enqueue(nextPos);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (reached)
-                {
-                    Vector2Int step = targetRoom;
-                    while (parent.ContainsKey(step))
-                    {
-                        Vector2Int p = parent[step];
-                        connectingPairs.Add(GetDoorPairKey(p, step));
-                        step = p;
-                    }
-                }
-            }
-
-            return connectingPairs;
-        }
-
-        /// <summary>
-        /// [던전 문 10대 정책 실시간 평가 엔진]
-        /// - 규칙 9a: 새로운 방에 진입해서 전투가 시작되면 그 방에서 나가는 퇴로는 전투 중에는 막힘.
-        /// - 규칙 9b: 전투 중에 문이 열리거나 닫혀서 몬스터나 캐릭터가 서로 단절되는 일은 없음.
-        /// - 규칙 10: 전투가 종료된 뒤에는 한번 열었던 문은 모두 다시 열림.
-        /// </summary>
-        public void UpdateDungeonDoorPolicy()
-        {
-            if (PlayerController.Instance == null) return;
-
-            bool anyActiveCombat = HasAnyActiveCombat();
-            if (!anyActiveCombat && !PlayerController.Instance.IsInCombat)
-            {
-                ReopenAllOpenedDoorsAfterCombat();
-                return;
-            }
-
-            Vector3 playerWorldPos = PlayerController.Instance.transform.position;
-            Vector2Int playerPos = GetPlayerCurrentRoom();
-
-            // 1. 주인공과 교전 중인 몬스터들의 물리적 위치 및 추가 웨이브가 남은 교전 방 수집
-            HashSet<Vector2Int> combatRooms = new();
-            var activeMonsters = MonsterAI.ActiveMonsters;
-            for (int i = 0; i < activeMonsters.Count; i++)
-            {
-                var m = activeMonsters[i];
-                if (m != null && !m.IsDead)
-                {
-                    bool isEngaged = m.IsAggroed || (m.OwningRoom != null && m.OwningRoom.IsEncounterActive);
-                    if (isEngaged)
-                    {
-                        Vector2Int mPos = GetRoomCoordsAtWorldPos(m.transform.position);
-                        combatRooms.Add(mPos);
-                    }
-                }
-            }
-
-            foreach (var room in _instantiatedRooms.Values)
-            {
-                if (room != null && room.IsEncounterActive && !room.WavesCompleted)
-                {
-                    combatRooms.Add(room.GridPosition);
-                }
-            }
-
-            // 던전 내에 전투 중인 요괴나 웨이브가 없다면 비전투 전환 및 일괄 재개방 (규칙 10)
-            if (combatRooms.Count == 0 && !anyActiveCombat)
-            {
-                PlayerController.Instance.SetInCombat(false);
-                ReopenAllOpenedDoorsAfterCombat();
-                return;
-            }
-
-            PlayerController.Instance.SetInCombat(true);
-
-            // 플레이어에서 각 전투 몬스터 위치로 통하는 경로상의 문 쌍 수집 (열린 문 기반)
-            HashSet<string> pathDoorPairs = GetDoorPairsConnectingPlayerToMonsters(playerPos, combatRooms);
-
-            // 2. 던전 내 모든 자동문 순회 평가
-            var allDoors = FindObjectsByType<DungeonAutoDoor>(FindObjectsInactive.Include);
-            foreach (var door in allDoors)
-            {
-                if (door == null) continue;
-                var socket = door.GetComponentInParent<DoorSocket>();
-                if (socket == null) continue;
-                var room = socket.GetComponentInParent<RoomController>();
-                if (room == null) continue;
-
-                // 아직 열쇠로 봉인 해제되지 않은 중간보스 출구 잠긴 문은 건드리지 않음 (규칙 3 & 8)
-                if (door.DoorType == DungeonDoorType.LockedDoor && !door.IsKeyUnlocked)
-                {
-                    continue;
-                }
-
-                // 한번도 플레이어가 열지 않은 문은 닫힌 상태 유지
-                if (!door.HasEverBeenOpened)
-                {
-                    continue;
-                }
-
-                if (door.IsPermanentlyOpen)
-                {
-                    continue;
-                }
-
-                Vector2Int posA = room.GridPosition;
-                Vector2Int posB = posA + MazeGrid.GetOffset(socket.Direction);
-                string pairKey = GetDoorPairKey(posA, posB);
-
-                float distToPlayer = Vector3.Distance(door.transform.position, playerWorldPos);
-                bool isPlayerNearThisDoor = distToPlayer <= 6.0f;
-                bool isRecentlyOpened = (Time.time - door.LastOpenedTime < 3.0f);
-
-                // [사용자 핵심 규칙]: 문이 열리고 전투가 시작되면, 해당 전투가 끝날 때까지 방금 열린 문은 절대로 닫히면 안 됨!
-                bool isCombatTriggerDoor = _activeCombatTriggerDoors.Contains(pairKey);
-
-                // [규칙 9b & 10]: 플레이어와 전투 중인 몬스터 사이를 잇는 문은 단절 방지를 위해 열림 유지
-                bool isBetweenPlayerAndMonsters = pathDoorPairs.Contains(pairKey);
-
-                // [규칙 6 & 9]: 플레이어가 있는 방과 교전 방을 직접 잇는 전방 관문 문은 진입 통로이므로 열림 유지
-                bool isGatewayToCombat = (posA == playerPos && combatRooms.Contains(posB)) || (posB == playerPos && combatRooms.Contains(posA));
-
-                if (isCombatTriggerDoor || isBetweenPlayerAndMonsters || isGatewayToCombat || isRecentlyOpened || isPlayerNearThisDoor)
-                {
-                    door.ForceOpen();
-                }
-                else
-                {
-                    // [규칙 9]: 새로운 방에 진입해서 전투가 시작되면 그 방에서 나가는 퇴로(이번 전투 이전에 열었던 문)는 전투 중에는 막힘!
-                    // 단, 문턱 한가운데에 캐릭터나 몬스터가 걸쳐 있을 때는 완전히 통과할 때까지 대기
-                    if (door.IsOpen && !door.IsActorInDoorway(3.0f))
-                    {
-                        door.CloseByCombat();
-                    }
-                }
-            }
-        }
+        public void UpdateDungeonDoorPolicy() => DungeonRuntimeManager.Instance?.UpdateDungeonDoorPolicy();
 
         #endregion
     }

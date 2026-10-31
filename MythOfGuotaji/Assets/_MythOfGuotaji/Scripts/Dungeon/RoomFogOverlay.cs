@@ -86,10 +86,7 @@ namespace MythOfGuotaji.Dungeon
 
         private Material CreateFogMaterial()
         {
-            Shader shader = Shader.Find("MythOfGuotaji/DungeonFog") 
-                         ?? Shader.Find("Universal Render Pipeline/Unlit") 
-                         ?? Shader.Find("Unlit/Transparent") 
-                         ?? Shader.Find("Sprites/Default");
+            Shader shader = Shader.Find("MythOfGuotaji/DungeonFog") ?? Actor.ExpGem.ResolveSafeShader("Universal Render Pipeline/Unlit", "Sprites/Default");
 
             _isCustomShader = (shader != null && shader.name == "MythOfGuotaji/DungeonFog");
 

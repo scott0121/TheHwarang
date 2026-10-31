@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using MythOfGuotaji.Actor;
 using MythOfGuotaji.Combat;
@@ -18,23 +18,6 @@ namespace MythOfGuotaji.Editor
         public const string PrefabsDir = "Assets/_MythOfGuotaji/Resources/Prefabs";
         public const string DataDir = "Assets/_MythOfGuotaji/Resources/Data";
 
-        // 자동 실행 가드: 에셋을 강제로 덮어쓰지 않도록 초기 자동 호출은 비활성화합니다.
-        // 필요 시 상단 메뉴 [MythOfGuotaji > Generate All Prefabs and Tables]를 통해 수동 실행하십시오.
-        /*
-        [InitializeOnLoadMethod]
-        private static void AutoGenerateIfMissing()
-        {
-            EditorApplication.delayCall += () =>
-            {
-                if (!File.Exists($"{DataDir}/PrefabDatabase.asset"))
-                {
-                    Debug.Log("<color=yellow>[MythOfGuotaji] 프리팹 및 데이터 테이블이 감지되지 않아 자동 생성을 진행합니다...</color>");
-                    GenerateAll();
-                }
-            };
-        }
-        */
-
         [MenuItem("MythOfGuotaji/Generate All Prefabs and Tables", priority = 0)]
         public static void GenerateAll()
         {
@@ -50,6 +33,7 @@ namespace MythOfGuotaji.Editor
             var playerTable = GeneratePlayerStatsTable();
             var weaponTable = GenerateWeaponStatsTable();
             var monsterTable = GenerateMonsterStatsTable();
+            var skillTable = GenerateMonsterSkillTable();
             var dungeonTable = GenerateDungeonConfigTable();
             var fogConfig = GenerateDungeonFogConfigTable();
             var helperData = GenerateHelperData();
@@ -70,6 +54,7 @@ namespace MythOfGuotaji.Editor
             var playerPrefab = CreatePlayerPrefab();
             var companionPrefab = CreateCompanionPrefab();
             var helperPrefab = CreateHelperPrefab();
+            var helperAuraPrefab = CreateHelperAuraPrefab();
             var expGemPrefab = CreateExpGemPrefab();
             var recoveryHeartPrefab = CreateRecoveryHeartPrefab();
             var arrowPrefab = CreateArrowPrefab();
@@ -88,6 +73,16 @@ namespace MythOfGuotaji.Editor
             var sectorTelegraphPrefab = CreateSectorTelegraphPrefab();
             var circleTelegraphPrefab = CreateCircleTelegraphPrefab();
             var chargeAimBoxPrefab = CreateChargeAimBoxPrefab();
+            var stretchBoxTelegraph = CreateStretchBoxTelegraphPrefab();
+            var targetConnectTelegraph = CreateTargetConnectTelegraphPrefab();
+            CreateStretchArcTelegraphPrefab(30);
+            CreateStretchArcTelegraphPrefab(45);
+            CreateStretchArcTelegraphPrefab(60);
+            CreateStretchArcTelegraphPrefab(90);
+            CreateStretchArcTelegraphPrefab(120);
+            CreateStretchArcTelegraphPrefab(135);
+            CreateStretchArcTelegraphPrefab(180);
+            CreateStretchArcTelegraphPrefab(210);
             var shockwaveRingPrefab = CreateWaveCylinderPrefab("VFX_ShockwaveRing", new Color(1f, 0.45f, 0.1f, 0.6f));
             var sweepWavePrefab = CreateWaveCylinderPrefab("VFX_SweepWave", new Color(1f, 0.35f, 0.1f, 0.8f));
             var vacuumWavePrefab = CreateWaveCylinderPrefab("VFX_VacuumWave", new Color(0.7f, 0.1f, 0.9f, 0.7f));
@@ -191,10 +186,39 @@ namespace MythOfGuotaji.Editor
             table.maxHp = 100f;
             table.moveSpeed = 7.5f;
             table.dashSpeed = 16f;
-            table.dashDuration = 0.2f;
-            table.dashCooldown = 1.0f;
+            table.dashDuration = 0.22f;
+            table.dashCooldown = 2.0f;
+            table.dashInvincibleDuration = 0.5f;
             table.sameCategoryGCD = 0.5f;
             table.diffCategoryGCD = 0.2f;
+            table.heartHealAmount = 5.0f;
+            table.heartPickupRadius = 1.25f;
+
+            // Player Action VFX 바인딩
+            table.dashDustVfxPrefab = FindPrefabByName("HCFX_Dust_Dash_01");
+            table.evasionShineVfxPrefab = FindPrefabByName("HCFX_Shine_01");
+            table.hitSparkVfxPrefab = FindPrefabByName("HCFX_Hit_04");
+            table.criticalHitSparkVfxPrefab = FindPrefabByName("HCFX_Hit_07");
+            table.healBuffVfxPrefab = FindPrefabByName("HCFX_MagicCircle_01");
+            table.deathVfxPrefab = FindPrefabByName("HCFX_Explosion_02");
+
+            // Bow Charging Step VFX
+            table.chargeAuraStep1VfxPrefab = FindPrefabByName("HCFX_Charging_01_Step1");
+            table.chargeAuraStep2VfxPrefab = FindPrefabByName("HCFX_Charging_01_Step2");
+            table.chargeAuraStep3VfxPrefab = FindPrefabByName("HCFX_Charging_01_Step3");
+            table.chargeReleaseBurstVfxPrefab = FindPrefabByName("HCFX_Charging_01_Step3_End");
+
+            // Fallback Weapon Action Prefabs
+            table.defaultArrowPrefab = FindPrefabByName("Projectile_Arrow");
+            table.defaultChargedArrowPrefab = FindPrefabByName("Projectile_ChargedArrow");
+            table.defaultDaggerSlashVfxPrefab = FindPrefabByName("VFX_DaggerSlash");
+
+            // Timers & Feedback
+            table.damageVignetteIntensity = 0.85f;
+            table.cameraShakeDuration = 0.35f;
+            table.cameraShakeIntensity = 0.20f;
+            table.defaultStunDuration = 0.35f;
+
             EditorUtility.SetDirty(table);
             return table;
         }
@@ -202,191 +226,425 @@ namespace MythOfGuotaji.Editor
         private static WeaponStatsTableSO GenerateWeaponStatsTable()
         {
             var table = MythOfGuotajiDataSheetManager.LoadOrCreateAsset<WeaponStatsTableSO>($"{DataDir}/WeaponStatsTable.asset");
-            // Bow
-            table.bow.baseDamage = 25f;
-            table.bow.attackRate = 2.8f;
-            table.bow.critChance = 0.15f;
-            table.bow.critMultiplier = 2.0f;
-            table.bow.baseArrowCount = 1;
-            table.bow.spreadAngle = 12f;
-            table.bow.basePierceCount = 0;
-            table.bow.knockbackPower = 4.5f;
-            table.bow.projectileSpeed = 24f;
-            table.bow.projectileLifeTime = 2.5f;
-            table.bow.projectileHitRadius = 0.4f;
-            table.bow.chargeStartTime = 0.3f;
-            table.bow.maxChargeTime = 3.0f;
-            table.bow.chargeMinRange = 0.0f;
-            table.bow.chargeMaxRange = 25.0f;
-            table.bow.chargeDamageMultiplier = 2.0f;
-            table.bow.chargeProjectileSpeed = 36.0f;
-            table.bow.chargeKnockback = 12.0f;
-            table.bow.chargeTelegraphWidth = 0.3f;
-            table.bow.burstShotCount = 5;
-            table.bow.burstTotalDuration = 1.5f;
-            table.bow.burstCooldown = 2.0f;
-            table.bow.multiHitDamageFalloffRatio = 0.5f;
+            
+            // 1. Bow Catalog (활_00, 활_01, 활_02)
+            table.bows = new List<BowEntry>
+            {
+                new BowEntry
+                {
+                    weaponId = "Bow_00",
+                    weaponName = "기본 곡도 활 (활_00)",
+                    description = "서해 용궁의 신성한 활시위. 안정적인 연사력과 차징 성능을 자랑하는 균형형 활입니다.",
+                    normalArrowPrefab = FindPrefabByName("Projectile_Arrow"),
+                    chargedArrowPrefab = FindPrefabByName("Projectile_ChargedArrow"),
+                    stats = new BowBalanceStats
+                    {
+                        baseDamage = 25f,
+                        attackRate = 2.8f,
+                        critChance = 0.15f,
+                        critMultiplier = 2.0f,
+                        baseArrowCount = 1,
+                        spreadAngle = 12f,
+                        basePierceCount = 0,
+                        knockbackPower = 4.5f,
+                        projectileSpeed = 24f,
+                        projectileLifeTime = 2.5f,
+                        projectileHitRadius = 0.4f,
+                        chargeStartTime = 0.3f,
+                        maxChargeTime = 3.0f,
+                        chargeMinRange = 0.0f,
+                        chargeMaxRange = 25.0f,
+                        chargeDamageMultiplier = 2.0f,
+                        chargeProjectileSpeed = 36.0f,
+                        chargeKnockback = 12.0f,
+                        chargeTelegraphWidth = 0.3f,
+                        burstShotCount = 5,
+                        burstTotalDuration = 1.5f,
+                        burstCooldown = 2.0f,
+                        multiHitDamageFalloffRatio = 0.5f
+                    }
+                },
+                new BowEntry
+                {
+                    weaponId = "Bow_01",
+                    weaponName = "현무 강궁 (활_01)",
+                    description = "북방 현무의 무거운 신력을 담은 대궁. 차징 피해와 관통력이 극대화되어 보스와 정예 요괴를 단숨에 꿰뚫습니다.",
+                    normalArrowPrefab = FindPrefabByName("Projectile_Arrow"),
+                    chargedArrowPrefab = FindPrefabByName("Projectile_ChargedArrow"),
+                    stats = new BowBalanceStats
+                    {
+                        baseDamage = 32f,
+                        attackRate = 2.2f,
+                        critChance = 0.20f,
+                        critMultiplier = 2.5f,
+                        baseArrowCount = 1,
+                        spreadAngle = 10f,
+                        basePierceCount = 1,
+                        knockbackPower = 7.0f,
+                        projectileSpeed = 28f,
+                        projectileLifeTime = 3.0f,
+                        projectileHitRadius = 0.5f,
+                        chargeStartTime = 0.25f,
+                        maxChargeTime = 2.5f,
+                        chargeMinRange = 0.0f,
+                        chargeMaxRange = 30.0f,
+                        chargeDamageMultiplier = 2.8f,
+                        chargeProjectileSpeed = 45.0f,
+                        chargeKnockback = 18.0f,
+                        chargeTelegraphWidth = 0.45f,
+                        burstShotCount = 4,
+                        burstTotalDuration = 1.2f,
+                        burstCooldown = 2.5f,
+                        multiHitDamageFalloffRatio = 0.6f
+                    }
+                },
+                new BowEntry
+                {
+                    weaponId = "Bow_02",
+                    weaponName = "주작 연궁 (활_02)",
+                    description = "남방 주작의 날렵한 깃털 시위. 1회 릴리즈당 7발의 화살을 폭풍처럼 퍼붓는 속사 특화 활입니다.",
+                    normalArrowPrefab = FindPrefabByName("Projectile_Arrow"),
+                    chargedArrowPrefab = FindPrefabByName("Projectile_ChargedArrow"),
+                    stats = new BowBalanceStats
+                    {
+                        baseDamage = 20f,
+                        attackRate = 3.6f,
+                        critChance = 0.12f,
+                        critMultiplier = 1.8f,
+                        baseArrowCount = 1,
+                        spreadAngle = 14f,
+                        basePierceCount = 0,
+                        knockbackPower = 3.5f,
+                        projectileSpeed = 26f,
+                        projectileLifeTime = 2.2f,
+                        projectileHitRadius = 0.35f,
+                        chargeStartTime = 0.4f,
+                        maxChargeTime = 3.5f,
+                        chargeMinRange = 0.0f,
+                        chargeMaxRange = 22.0f,
+                        chargeDamageMultiplier = 1.6f,
+                        chargeProjectileSpeed = 32.0f,
+                        chargeKnockback = 8.0f,
+                        chargeTelegraphWidth = 0.25f,
+                        burstShotCount = 7,
+                        burstTotalDuration = 1.4f,
+                        burstCooldown = 1.6f,
+                        multiHitDamageFalloffRatio = 0.45f
+                    }
+                }
+            };
 
-            // Dagger
-            table.dagger.baseDamage = 50f;
-            table.dagger.attackRadius = 3.0f;
-            table.dagger.attackAngle = 150f;
-            table.dagger.cooldown = 0.5f;
-            table.dagger.knockback = 9.0f;
-            table.dagger.canReflectProjectiles = true;
-            table.dagger.reflectDamageMultiplier = 1.5f;
-            table.dagger.reflectSpeedMultiplier = 1.2f;
+            // 2. Dagger Catalog (단검_00, 단검_01, 단검_02)
+            table.daggers = new List<DaggerEntry>
+            {
+                new DaggerEntry
+                {
+                    weaponId = "Dagger_00",
+                    weaponName = "기본 옥단검 (단검_00)",
+                    description = "곡도 사당의 옥빛 비수. 부채꼴로 적을 베어내며 투사체를 패링 반사하는 균형형 보조무기입니다.",
+                    slashVfxPrefab = FindPrefabByName("VFX_DaggerSlash"),
+                    parryVfxPrefab = FindPrefabByName("HCFX_MagicCircle_01"),
+                    stats = new DaggerBalanceStats
+                    {
+                        baseDamage = 50f,
+                        attackRadius = 3.0f,
+                        attackAngle = 150f,
+                        cooldown = 0.5f,
+                        knockback = 9.0f,
+                        canReflectProjectiles = true,
+                        reflectDamageMultiplier = 1.5f,
+                        reflectSpeedMultiplier = 1.8f
+                    }
+                },
+                new DaggerEntry
+                {
+                    weaponId = "Dagger_01",
+                    weaponName = "벽력 비수 (단검_01)",
+                    description = "번개의 영기를 품은 날카로운 비수. 패링 반사 피해와 비행 속도가 대폭 증가하며 참격 각도가 넓어집니다.",
+                    slashVfxPrefab = FindPrefabByName("VFX_DaggerSlash"),
+                    parryVfxPrefab = FindPrefabByName("HCFX_MagicCircle_01"),
+                    stats = new DaggerBalanceStats
+                    {
+                        baseDamage = 45f,
+                        attackRadius = 3.2f,
+                        attackAngle = 180f,
+                        cooldown = 0.45f,
+                        knockback = 8.0f,
+                        canReflectProjectiles = true,
+                        reflectDamageMultiplier = 2.5f,
+                        reflectSpeedMultiplier = 2.5f
+                    }
+                },
+                new DaggerEntry
+                {
+                    weaponId = "Dagger_02",
+                    weaponName = "백호 귀참도 (단검_02)",
+                    description = "서방 백호의 기운을 담은 묵직한 참도. 베기 공격력과 사거리, 넉백이 강력하여 근접 방어에 탁월합니다.",
+                    slashVfxPrefab = FindPrefabByName("VFX_DaggerSlash"),
+                    parryVfxPrefab = FindPrefabByName("HCFX_MagicCircle_01"),
+                    stats = new DaggerBalanceStats
+                    {
+                        baseDamage = 85f,
+                        attackRadius = 3.8f,
+                        attackAngle = 160f,
+                        cooldown = 0.65f,
+                        knockback = 14.0f,
+                        canReflectProjectiles = true,
+                        reflectDamageMultiplier = 1.2f,
+                        reflectSpeedMultiplier = 1.5f
+                    }
+                }
+            };
 
             EditorUtility.SetDirty(table);
             return table;
         }
 
+        private static GameObject FindPrefabByName(string prefabName)
+        {
+            if (string.IsNullOrEmpty(prefabName)) return null;
+            var obj = AssetDatabase.LoadAssetAtPath<GameObject>($"Assets/_MythOfGuotaji/Resources/Prefabs/{prefabName}.prefab");
+            if (obj != null) return obj;
+            string[] guids = AssetDatabase.FindAssets($"{prefabName} t:Prefab");
+            for (int i = 0; i < guids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                if (Path.GetFileNameWithoutExtension(path) == prefabName)
+                {
+                    return AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                }
+            }
+            return null;
+        }
+
         private static MonsterStatsTableSO GenerateMonsterStatsTable()
         {
             var table = MythOfGuotajiDataSheetManager.LoadOrCreateAsset<MonsterStatsTableSO>($"{DataDir}/MonsterStatsTable.asset");
-            table.entries = new List<MonsterStatEntry>
+            table.entries = new List<MonsterStatEntry>();
+            foreach (MonsterType mType in System.Enum.GetValues(typeof(MonsterType)))
             {
-                new MonsterStatEntry
+                var entry = MonsterStatsTableSO.GetDefaultStat(mType);
+                entry.monsterPrefab = mType switch
                 {
-                    type = MonsterType.Minion,
-                    displayName = "산해경 잡몹 (독충/괴조)",
-                    maxHp = 35f,
-                    moveSpeed = 4.2f,
-                    attackDamage = 6f,
-                    attackRange = 2.0f,
-                    attackCooldown = 1.0f,
-                    separationRadius = 0.9f,
-                    dropsBossKey = false,
-                    affinityReward = 0,
-                    goldReward = 2,
-                    scaleMultiplier = 1.0f,
-                    tintColor = new Color(0.85f, 0.2f, 0.2f),
-                    projectileSpeed = 6f,
-                    telegraphDuration = 0.3f,
-                    specialAttackRadius = 0.5f,
-                    gemDropCount = 1,
-                    expPerGem = 1,
-                    dashDistance = 2.0f,
-                    dashWidth = 0.5f,
-                    dashDuration = 0.3f
-                },
-                new MonsterStatEntry
+                    MonsterType.Minion => FindPrefabByName("Monster_Minion") ?? FindPrefabByName("Minion_Monster"),
+                    MonsterType.Minion_Archer => FindPrefabByName("Monster_Archer") ?? FindPrefabByName("Monster_Minion_Archer"),
+                    MonsterType.Minion_BigMon => FindPrefabByName("Monster_BigMon") ?? FindPrefabByName("Monster_Minion_BigMon"),
+                    MonsterType.Minion_Zhu => FindPrefabByName("Monster_Zhu") ?? FindPrefabByName("Monster_Minion_Zhu"),
+                    MonsterType.Elite => FindPrefabByName("Monster_Elite") ?? FindPrefabByName("Elite_Monster"),
+                    MonsterType.FoxBoss => FindPrefabByName("Monster_FoxBoss") ?? FindPrefabByName("Fox_Boss"),
+                    MonsterType.Dokkaebi_Fire => FindPrefabByName("Monster_DokkaebiFire") ?? FindPrefabByName("Monster_Dokkaebi_Fire"),
+                    MonsterType.Boar_Charger => FindPrefabByName("Monster_BoarCharger") ?? FindPrefabByName("Monster_Boar_Charger"),
+                    MonsterType.Spider_Tether => FindPrefabByName("Monster_SpiderTether") ?? FindPrefabByName("Monster_Spider_Tether"),
+                    MonsterType.Mud_Slime => FindPrefabByName("Monster_MudSlime") ?? FindPrefabByName("Monster_Mud_Slime"),
+                    MonsterType.Phantom_Fox => FindPrefabByName("Monster_PhantomFox") ?? FindPrefabByName("Monster_Phantom_Fox"),
+                    MonsterType.Iron_Shield => FindPrefabByName("Monster_IronShield") ?? FindPrefabByName("Monster_Iron_Shield"),
+                    MonsterType.Energy_Absorber => FindPrefabByName("Monster_EnergyAbsorber") ?? FindPrefabByName("Monster_Energy_Absorber"),
+                    MonsterType.Bomb_Sparrow => FindPrefabByName("Monster_BombSparrow") ?? FindPrefabByName("Monster_Bomb_Sparrow"),
+                    MonsterType.Totem_Turret => FindPrefabByName("Monster_TotemTurret") ?? FindPrefabByName("Monster_Totem_Turret"),
+                    _ => null
+                };
+                if (entry.normalAttack != null)
                 {
-                    type = MonsterType.Minion_Archer,
-                    displayName = "맹독충",
-                    maxHp = 30f,
-                    moveSpeed = 2.7f,
-                    attackDamage = 7f,
-                    attackRange = 15f,
-                    attackCooldown = 0.7f,
-                    separationRadius = 1.1f,
-                    dropsBossKey = false,
-                    affinityReward = 1,
-                    goldReward = 3,
-                    scaleMultiplier = 0.9f,
-                    tintColor = new Color(0.2f, 0.95f, 0.25f),
-                    projectileSpeed = 6.0f,
-                    kiteDistance = 5.0f,
-                    knockbackPower = 2.0f,
-                    gemDropCount = 1,
-                    expPerGem = 1
-                },
-                new MonsterStatEntry
-                {
-                    type = MonsterType.Minion_BigMon,
-                    displayName = "거북이",
-                    maxHp = 60f,
-                    moveSpeed = 2.0f,
-                    attackDamage = 12f,
-                    attackRange = 2.0f,
-                    attackCooldown = 1.8f,
-                    separationRadius = 1.4f,
-                    dropsBossKey = false,
-                    affinityReward = 2,
-                    goldReward = 5,
-                    scaleMultiplier = 1.4f,
-                    tintColor = new Color(0.25f, 0.6f, 0.5f),
-                    knockbackPower = 18.0f,
-                    telegraphDuration = 0.5f,
-                    specialAttackRadius = 2.2f,
-                    specialAttackAngle = 90.0f,
-                    gemDropCount = 2,
-                    expPerGem = 1
-                },
-                new MonsterStatEntry
-                {
-                    type = MonsterType.Minion_Zhu,
-                    displayName = "주(鴸)",
-                    maxHp = 50f,
-                    moveSpeed = 1.2f,
-                    attackDamage = 18f,
-                    attackRange = 20f,
-                    attackCooldown = 3.0f,
-                    separationRadius = 1.4f,
-                    dropsBossKey = false,
-                    affinityReward = 2,
-                    goldReward = 6,
-                    scaleMultiplier = 1.15f,
-                    tintColor = new Color(0.72f, 0.22f, 0.85f),
-                    projectileSpeed = 10f,
-                    kiteDistance = 5.0f,
-                    knockbackPower = 4.0f,
-                    telegraphDuration = 0.5f,
-                    specialAttackRadius = 2.5f,
-                    specialAttackAngle = 90.0f,
-                    flightDuration = 2.0f,
-                    arcHeight = 6.0f,
-                    postAttackDelay = 0.2f,
-                    gemDropCount = 2,
-                    expPerGem = 1
-                },
-                new MonsterStatEntry
-                {
-                    type = MonsterType.Elite,
-                    displayName = "정예 열쇠 수문장",
-                    maxHp = 120f,
-                    moveSpeed = 3.5f,
-                    attackDamage = 15f,
-                    attackRange = 1.8f,
-                    attackCooldown = 1.2f,
-                    separationRadius = 1.5f,
-                    dropsBossKey = true,
-                    affinityReward = 1,
-                    goldReward = 20,
-                    scaleMultiplier = 1.5f,
-                    tintColor = new Color(0.95f, 0.75f, 0.1f),
-                    knockbackPower = 4.0f,
-                    telegraphDuration = 0.5f,
-                    specialAttackRadius = 2.5f,
-                    specialAttackAngle = 90.0f,
-                    gemDropCount = 5,
-                    expPerGem = 2
-                },
-                new MonsterStatEntry
-                {
-                    type = MonsterType.FoxBoss,
-                    displayName = "구미호 여우 요괴",
-                    maxHp = 350f,
-                    moveSpeed = 4.8f,
-                    attackDamage = 20f,
-                    attackRange = 2.5f,
-                    attackCooldown = 0.8f,
-                    separationRadius = 2.2f,
-                    dropsBossKey = false,
-                    affinityReward = 5,
-                    goldReward = 100,
-                    scaleMultiplier = 2.2f,
-                    tintColor = new Color(0.9f, 0.4f, 0.1f),
-                    knockbackPower = 6.0f,
-                    telegraphDuration = 0.5f,
-                    specialAttackRadius = 2.5f,
-                    specialAttackAngle = 90.0f,
-                    gemDropCount = 12,
-                    expPerGem = 3
+                    entry.normalAttack.hitVfxPrefab = FindPrefabByName("HCFX_Dust_FloorHit_01");
+                    entry.normalAttack.telegraphType = "None";
+                    entry.normalAttack.telegraphPrefab = null;
+                    entry.normalAttack.attackVfxPrefab = mType switch
+                    {
+                        MonsterType.Minion => FindPrefabByName("HCFX_Dust_Dash_01") ?? FindPrefabByName("HCFX_Flash_01"),
+                        MonsterType.Minion_Archer => FindPrefabByName("HCFX_Poison_01"),
+                        MonsterType.Minion_BigMon => FindPrefabByName("HCFX_Dust_FloorHit_01"),
+                        MonsterType.Minion_Zhu => FindPrefabByName("HCFX_Feathers"),
+                        MonsterType.Elite => FindPrefabByName("HCFX_Dust_FloorHit_02"),
+                        MonsterType.FoxBoss => FindPrefabByName("HCFX_Flash_02") ?? FindPrefabByName("VFX_SweepWave"),
+                        MonsterType.Dokkaebi_Fire => FindPrefabByName("HCFX_ElementOrb_02"),
+                        MonsterType.Boar_Charger => FindPrefabByName("HCFX_Dust_Dash_01"),
+                        MonsterType.Spider_Tether => FindPrefabByName("HCFX_Poison_02"),
+                        MonsterType.Mud_Slime => FindPrefabByName("HCFX_Poison_01"),
+                        MonsterType.Phantom_Fox => FindPrefabByName("HCFX_Portal_01"),
+                        MonsterType.Iron_Shield => FindPrefabByName("HCFX_Hit_01"),
+                        MonsterType.Energy_Absorber => FindPrefabByName("HCFX_Energy_01"),
+                        MonsterType.Bomb_Sparrow => FindPrefabByName("HCFX_Explosion_02"),
+                        MonsterType.Totem_Turret => FindPrefabByName("HCFX_ElementOrb_01"),
+                        _ => null
+                    };
                 }
-            };
+                if (entry.specialDrops != null)
+                {
+                    foreach (var drop in entry.specialDrops)
+                    {
+                        if (drop != null)
+                        {
+                            drop.dropVfxPrefab = FindPrefabByName("HCFX_Marble_02_Get");
+                        }
+                    }
+                }
+                entry.hitVfxPrefab = FindPrefabByName("HCFX_Hit_01");
+                entry.deflectVfxPrefab = FindPrefabByName("HCFX_Hit_02");
+                entry.guardBreakVfxPrefab = FindPrefabByName("HCFX_Explosion_01");
+                entry.deathVfxPrefab = (mType == MonsterType.FoxBoss || mType == MonsterType.Elite)
+                    ? FindPrefabByName("HCFX_Explosion_01")
+                    : FindPrefabByName("HCFX_Dust_FloorHit_01") ?? FindPrefabByName("HCFX_Hit_01");
+                table.entries.Add(entry);
+            }
             EditorUtility.SetDirty(table);
             return table;
+        }
+
+        private static MonsterSkillTableSO GenerateMonsterSkillTable()
+        {
+            var table = MythOfGuotajiDataSheetManager.LoadOrCreateAsset<MonsterSkillTableSO>($"{DataDir}/MonsterSkillTable.asset");
+            table.skills = new List<MonsterSkillEntry>();
+            string[] skillIds = new string[]
+            {
+                "minion_dash", "turtle_charge", "toxic_spit", "zhu_parabolic", "elite_boulder",
+                "boss_vacuum", "boss_cleave", "dokkaebi_fireball", "boar_charge", "spider_web_tether",
+                "mud_puddle", "phantom_decoy", "iron_shield_stance", "energy_absorb",
+                "sparrow_kamikaze", "totem_turret_barrage"
+            };
+            foreach (var id in skillIds)
+            {
+                var skill = MonsterSkillTableSO.GetDefaultSkill(id);
+                if (skill != null)
+                {
+                    BindDefaultSkillPrefabReferences(skill);
+                    table.skills.Add(skill);
+                }
+            }
+            EditorUtility.SetDirty(table);
+            return table;
+        }
+
+        private static void BindDefaultSkillPrefabReferences(MonsterSkillEntry s)
+        {
+            if (s == null) return;
+            switch (s.skillId)
+            {
+                case "minion_dash":
+                    s.telegraphShape = "StretchBox";
+                    s.telegraphPrefab = FindPrefabByName("Telegraph_StretchBox");
+                    s.castVfxPrefab = FindPrefabByName("HCFX_Dust_Dash_01");
+                    s.trailVfxPrefab = FindPrefabByName("HCFX_Dust_01");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Dust_FloorHit_01");
+                    s.parryVfxPrefab = FindPrefabByName("HCFX_Hit_03");
+                    break;
+                case "turtle_charge":
+                    s.telegraphShape = "StretchBox";
+                    s.telegraphPrefab = FindPrefabByName("Telegraph_StretchBox");
+                    s.castVfxPrefab = FindPrefabByName("VFX_ShockwaveRing");
+                    s.trailVfxPrefab = FindPrefabByName("HCFX_Dust_Dash_01");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Dust_FloorHit_02");
+                    s.parryVfxPrefab = FindPrefabByName("HCFX_Hit_03");
+                    break;
+                case "toxic_spit":
+                    s.telegraphShape = "TargetCircle";
+                    s.telegraphPrefab = FindPrefabByName("Telegraph_Circle");
+                    s.projectilePrefab = FindPrefabByName("Projectile_Venom");
+                    s.castVfxPrefab = FindPrefabByName("HCFX_Splash_02");
+                    s.trailVfxPrefab = FindPrefabByName("HCFX_Splash_01");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Splash_03");
+                    s.parryVfxPrefab = FindPrefabByName("HCFX_Hit_02");
+                    break;
+                case "zhu_parabolic":
+                    s.telegraphShape = "TargetCircle";
+                    s.projectilePrefab = FindPrefabByName("Projectile_ZhuParabolic");
+                    s.telegraphPrefab = FindPrefabByName("Telegraph_Circle");
+                    s.castVfxPrefab = FindPrefabByName("HCFX_Feathers");
+                    s.trailVfxPrefab = FindPrefabByName("HCFX_Fire_02");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Explosion_01");
+                    s.parryVfxPrefab = FindPrefabByName("HCFX_Hit_03");
+                    break;
+                case "elite_boulder":
+                    s.telegraphShape = "StretchBox";
+                    s.projectilePrefab = FindPrefabByName("RollingBoulder");
+                    s.subProjectilePrefab = FindPrefabByName("RockShard");
+                    s.telegraphPrefab = FindPrefabByName("Telegraph_StretchBox");
+                    s.castVfxPrefab = FindPrefabByName("HCFX_Dust_FloorHit_02");
+                    s.trailVfxPrefab = FindPrefabByName("HCFX_Dust_01");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Explosion_02");
+                    s.parryVfxPrefab = FindPrefabByName("HCFX_Hit_03");
+                    break;
+                case "boss_vacuum":
+                    s.telegraphShape = "StretchArc90";
+                    s.aoeAngle = 90.0f;
+                    s.telegraphPrefab = FindPrefabByName("Telegraph_StretchArc90") ?? FindPrefabByName("Telegraph_Sector");
+                    s.castVfxPrefab = FindPrefabByName("VFX_VacuumWave");
+                    s.trailVfxPrefab = FindPrefabByName("HCFX_Portal_01");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Energy_03");
+                    break;
+                case "boss_cleave":
+                    s.telegraphShape = "StretchArc180";
+                    s.aoeAngle = 180.0f;
+                    s.telegraphPrefab = FindPrefabByName("Telegraph_StretchArc180") ?? FindPrefabByName("Telegraph_Sector");
+                    s.castVfxPrefab = FindPrefabByName("VFX_SweepWave");
+                    s.trailVfxPrefab = FindPrefabByName("HCFX_Fire_02");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Explosion_02");
+                    s.parryVfxPrefab = FindPrefabByName("HCFX_Hit_03");
+                    break;
+                case "dokkaebi_fireball":
+                    s.telegraphShape = "None";
+                    s.telegraphPrefab = null;
+                    s.projectilePrefab = FindPrefabByName("Projectile_DokkaebiFireball");
+                    s.castVfxPrefab = FindPrefabByName("HCFX_ElementOrb_02");
+                    s.trailVfxPrefab = FindPrefabByName("HCFX_Fire_02");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Explosion_01");
+                    s.parryVfxPrefab = FindPrefabByName("HCFX_Hit_03");
+                    break;
+                case "boar_charge":
+                    s.telegraphShape = "StretchBox";
+                    s.telegraphPrefab = FindPrefabByName("Telegraph_StretchBox");
+                    s.castVfxPrefab = FindPrefabByName("HCFX_Dust_Dash_01");
+                    s.trailVfxPrefab = FindPrefabByName("HCFX_Dust_01");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Dust_FloorHit_02");
+                    s.parryVfxPrefab = FindPrefabByName("HCFX_Hit_03");
+                    break;
+                case "spider_web_tether":
+                    s.telegraphShape = "TargetConnect";
+                    s.projectilePrefab = FindPrefabByName("Skill_SpiderWebTether");
+                    s.telegraphPrefab = FindPrefabByName("Telegraph_TargetConnect");
+                    s.castVfxPrefab = FindPrefabByName("HCFX_Poison_02");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Hit_01");
+                    break;
+                case "mud_puddle":
+                    s.telegraphShape = "TargetCircle";
+                    s.projectilePrefab = FindPrefabByName("Skill_MudPuddleZone");
+                    s.telegraphPrefab = FindPrefabByName("Telegraph_Circle");
+                    s.castVfxPrefab = FindPrefabByName("HCFX_Poison_01");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Splash_03");
+                    break;
+                case "phantom_decoy":
+                    s.telegraphShape = "None";
+                    s.telegraphPrefab = null;
+                    s.castVfxPrefab = FindPrefabByName("HCFX_Portal_01");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Dust_01");
+                    break;
+                case "iron_shield_stance":
+                    s.telegraphShape = "None";
+                    s.telegraphPrefab = null;
+                    s.castVfxPrefab = FindPrefabByName("HCFX_Hit_02");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Explosion_01");
+                    break;
+                case "energy_absorb":
+                    s.telegraphShape = "None";
+                    s.telegraphPrefab = null;
+                    s.castVfxPrefab = FindPrefabByName("HCFX_Fire_02");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Explosion_01");
+                    break;
+                case "sparrow_kamikaze":
+                    s.telegraphShape = "TargetConnect";
+                    s.telegraphPrefab = FindPrefabByName("Telegraph_TargetConnect");
+                    s.castVfxPrefab = FindPrefabByName("HCFX_Fire_02");
+                    s.trailVfxPrefab = FindPrefabByName("HCFX_Fire_02");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Explosion_01");
+                    s.parryVfxPrefab = FindPrefabByName("HCFX_Hit_03");
+                    break;
+                case "totem_turret_barrage":
+                    s.telegraphShape = "None";
+                    s.telegraphPrefab = null;
+                    s.projectilePrefab = FindPrefabByName("Projectile_TotemOrb") ?? FindPrefabByName("Projectile_TotemEnergyOrb");
+                    s.castVfxPrefab = FindPrefabByName("HCFX_ElementOrb_01");
+                    s.impactVfxPrefab = FindPrefabByName("HCFX_Hit_02");
+                    break;
+            }
         }
 
         private static DungeonConfigTableSO GenerateDungeonConfigTable()
@@ -423,20 +681,89 @@ namespace MythOfGuotaji.Editor
             return config;
         }
 
+        private static GameObject CreateHelperAuraPrefab()
+        {
+            string path = "{PrefabsDir}/Helper_00_Aura.prefab";
+            if (File.Exists(path))
+            {
+                var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (existing != null) return existing;
+            }
+
+            var go = new GameObject("Helper_00_Aura");
+            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            ring.name = "AuraRing";
+            ring.transform.SetParent(go.transform, false);
+            ring.transform.localPosition = new Vector3(0f, -0.2f, 0f);
+            ring.transform.localScale = new Vector3(1.2f, 0.02f, 1.2f);
+            StripColliderImmediate(ring);
+            SetRendererColor(ring.GetComponent<Renderer>(), new Color(0.2f, 0.9f, 0.8f, 0.4f));
+
+            var glow = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            glow.name = "AuraGlow";
+            glow.transform.SetParent(go.transform, false);
+            glow.transform.localPosition = Vector3.zero;
+            glow.transform.localScale = new Vector3(0.9f, 0.9f, 0.9f);
+            StripColliderImmediate(glow);
+            SetRendererColor(glow.GetComponent<Renderer>(), new Color(0.3f, 0.95f, 1.0f, 0.25f));
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
         private static HelperDataSO GenerateHelperData()
         {
             var data = MythOfGuotajiDataSheetManager.LoadOrCreateAsset<HelperDataSO>($"{DataDir}/HelperData.asset");
-            data.helperId = "Helper_SpiritRabbit";
-            data.displayName = "달빛 영혼 토끼";
-            data.description = "전투력은 없으나 플레이어 뒤를 따르며, 요괴가 없는 안전 구역의 영혼석을 3미터 진공 흡수하여 비술을 제련해주는 영물입니다.";
-            data.moveSpeed = 6.8f;
-            data.fleeSpeed = 8.8f;
-            data.vacuumRadius = 3.0f;
-            data.gemSafetyRadius = 8.5f;
-            data.fleeDistance = 5.5f;
-            data.bodyColor = new Color(0.9f, 0.95f, 1.0f);
-            data.auraColor = new Color(0.2f, 0.9f, 0.8f, 0.35f);
-            data.scale = 0.85f;
+            var rabbitPrefab = FindPrefabByName("Helper_SpiritRabbit");
+            var auraPrefab = FindPrefabByName("Helper_00_Aura") ?? CreateHelperAuraPrefab();
+
+            data.helpers = new List<HelperEntry>
+            {
+                new HelperEntry
+                {
+                    helperId = "Helper_00",
+                    displayName = "달빛 영혼 토끼",
+                    description = "전투력은 없으나 플레이어 뒤를 따르며, 요괴가 없는 안전 구역의 영혼석을 3미터 진공 흡수하여 비술을 제련해주는 영물입니다.",
+                    companionPrefab = rabbitPrefab,
+                    auraPrefab = auraPrefab,
+                    moveSpeed = 6.8f,
+                    fleeSpeed = 8.8f,
+                    vacuumRadius = 3.0f,
+                    gemSafetyRadius = 8.5f,
+                    fleeDistance = 5.5f,
+                    scale = 0.85f
+                },
+                new HelperEntry
+                {
+                    helperId = "Helper_01",
+                    displayName = "도깨비 영혼 불",
+                    description = "푸른 영혼의 불꽃. 플레이어 곁을 호위하며 안전 구역의 영혼석을 빠른 속도로 진공 흡수합니다.",
+                    companionPrefab = rabbitPrefab,
+                    auraPrefab = auraPrefab,
+                    moveSpeed = 7.2f,
+                    fleeSpeed = 9.2f,
+                    vacuumRadius = 3.2f,
+                    gemSafetyRadius = 8.0f,
+                    fleeDistance = 5.0f,
+                    scale = 0.8f
+                },
+                new HelperEntry
+                {
+                    helperId = "Helper_02",
+                    displayName = "신선 조롱박",
+                    description = "비술을 머금은 신성한 조롱박 영물. 넓은 진공 흡수 반경으로 영혼석을 모아 비술을 정제합니다.",
+                    companionPrefab = rabbitPrefab,
+                    auraPrefab = auraPrefab,
+                    moveSpeed = 6.5f,
+                    fleeSpeed = 8.5f,
+                    vacuumRadius = 3.5f,
+                    gemSafetyRadius = 9.0f,
+                    fleeDistance = 6.0f,
+                    scale = 0.9f
+                }
+            };
+
             EditorUtility.SetDirty(data);
             return data;
         }
@@ -950,9 +1277,126 @@ namespace MythOfGuotaji.Editor
             var fill = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             fill.name = "TelegraphFill";
             fill.transform.SetParent(go.transform, false);
-            fill.transform.localScale = new Vector3(5f, 0.01f, 5f);
+            // 지름 1미터 기본 원형 (피벗 중심)
+            fill.transform.localPosition = new Vector3(0f, 0.01f, 0f);
+            fill.transform.localScale = new Vector3(1.0f, 0.005f, 1.0f);
             StripColliderImmediate(fill);
             SetRendererColor(fill.GetComponent<Renderer>(), new Color(0.95f, 0.15f, 0.25f, 0.40f));
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        private static GameObject CreateStretchBoxTelegraphPrefab()
+        {
+            string path = $"{PrefabsDir}/Telegraph_StretchBox.prefab";
+            if (File.Exists(path))
+            {
+                var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (existing != null) return existing;
+            }
+
+            var go = new GameObject("Telegraph_StretchBox");
+            var fill = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            fill.name = "Fill";
+            fill.transform.SetParent(go.transform, false);
+            // 시작점 (0,0,0)을 피벗으로 하여 전방 Z축 (0 ~ 1) 방향으로 확장
+            fill.transform.localPosition = new Vector3(0f, 0.01f, 0.5f);
+            fill.transform.localScale = new Vector3(1.0f, 0.005f, 1.0f);
+            StripColliderImmediate(fill);
+            SetRendererColor(fill.GetComponent<Renderer>(), new Color(1f, 0.25f, 0.1f, 0.35f));
+
+            CreateTelegraphBorderChild(fill.transform, new Vector3(-0.48f, 0.5f, 0f), new Vector3(0.04f, 1.2f, 1f), new Color(1f, 0.4f, 0.15f, 0.85f));
+            CreateTelegraphBorderChild(fill.transform, new Vector3(0.48f, 0.5f, 0f), new Vector3(0.04f, 1.2f, 1f), new Color(1f, 0.4f, 0.15f, 0.85f));
+            CreateTelegraphBorderChild(fill.transform, new Vector3(0f, 0.5f, 0.5f), new Vector3(1f, 1.2f, 0.04f), new Color(1f, 0.4f, 0.15f, 0.85f));
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        private static GameObject CreateStretchArcTelegraphPrefab(int angle)
+        {
+            string path = $"{PrefabsDir}/Telegraph_StretchArc{angle}.prefab";
+            if (File.Exists(path))
+            {
+                var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (existing != null) return existing;
+            }
+
+            string meshesDir = "Assets/_MythOfGuotaji/Resources/Meshes";
+            if (!Directory.Exists(meshesDir)) Directory.CreateDirectory(meshesDir);
+
+            string meshPath = $"{meshesDir}/Mesh_StretchArc_{angle}.asset";
+            Mesh arcMesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
+            if (arcMesh == null)
+            {
+                arcMesh = GenerateUnitArcMesh(angle);
+                AssetDatabase.CreateAsset(arcMesh, meshPath);
+            }
+
+            var go = new GameObject($"Telegraph_StretchArc{angle}", typeof(MeshFilter), typeof(MeshRenderer));
+            go.GetComponent<MeshFilter>().sharedMesh = arcMesh;
+            SetRendererColor(go.GetComponent<Renderer>(), new Color(1f, 0.25f, 0.1f, 0.42f));
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
+            Object.DestroyImmediate(go);
+            return prefab;
+        }
+
+        private static Mesh GenerateUnitArcMesh(float angle, int segments = 32)
+        {
+            Mesh mesh = new Mesh { name = $"UnitArc_{angle}" };
+            Vector3[] vertices = new Vector3[segments + 2];
+            int[] triangles = new int[segments * 3];
+            Vector2[] uvs = new Vector2[segments + 2];
+
+            vertices[0] = Vector3.zero;
+            uvs[0] = new Vector2(0.5f, 0f);
+
+            float halfAngle = angle * 0.5f;
+            for (int i = 0; i <= segments; i++)
+            {
+                float curAngle = Mathf.Lerp(-halfAngle, halfAngle, (float)i / segments);
+                float rad = curAngle * Mathf.Deg2Rad;
+                float x = Mathf.Sin(rad);
+                float z = Mathf.Cos(rad);
+                vertices[i + 1] = new Vector3(x, 0.01f, z);
+                uvs[i + 1] = new Vector2((x + 1f) * 0.5f, z);
+            }
+
+            for (int i = 0; i < segments; i++)
+            {
+                triangles[i * 3] = 0;
+                triangles[i * 3 + 1] = i + 1;
+                triangles[i * 3 + 2] = i + 2;
+            }
+
+            mesh.vertices = vertices;
+            mesh.triangles = triangles;
+            mesh.uv = uvs;
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        private static GameObject CreateTargetConnectTelegraphPrefab()
+        {
+            string path = $"{PrefabsDir}/Telegraph_TargetConnect.prefab";
+            if (File.Exists(path))
+            {
+                var existing = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                if (existing != null) return existing;
+            }
+
+            var go = new GameObject("Telegraph_TargetConnect", typeof(LineRenderer), typeof(Actor.Monsters.TelegraphTargetConnectTracker));
+            var lr = go.GetComponent<LineRenderer>();
+            lr.positionCount = 2;
+            lr.startWidth = 0.25f;
+            lr.endWidth = 0.25f;
+            lr.useWorldSpace = true;
+            SetRendererColor(lr, new Color(0.9f, 0.15f, 0.85f, 0.65f));
 
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
             Object.DestroyImmediate(go);

@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 96c256974f0643d1bc73deeeec9a73b9, type: 3}
   m_Name: DungeonStageTable
   m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Data.DungeonStageTableSO
+  defaultMonsterTable: {fileID: 11400000, guid: 5e031b641af5418095ed36806db9157e, type: 2}
   stages:
   - stageNumber: 1
     stageName: "1\uC2A4\uD14C\uC774\uC9C0 (\uC0B0\uD574\uACBD \uAE30\uC235)"
@@ -24,6 +25,9 @@ MonoBehaviour:
     roomSize: 32
     extraLoopRatio: 0.1
     skinCategoryIndex: 0
+    monsterTable: {fileID: 11400000, guid: 5e031b641af5418095ed36806db9157e, type: 2}
+    stageMonsterKey: Stage00
+    monsterLevelStart: 1
   - stageNumber: 2
     stageName: "2\uC2A4\uD14C\uC774\uC9C0 (\uC5EC\uC6B0 \uC694\uAD34 \uBBF8\uAD81)"
     minRoomsBlock1: 2
@@ -35,6 +39,9 @@ MonoBehaviour:
     roomSize: 32
     extraLoopRatio: 0.1
     skinCategoryIndex: 0
+    monsterTable: {fileID: 11400000, guid: 5e031b641af5418095ed36806db9157e, type: 2}
+    stageMonsterKey: Stage01
+    monsterLevelStart: 1
   - stageNumber: 3
     stageName: "3\uC2A4\uD14C\uC774\uC9C0 (\uC0B0\uD574\uACBD \uC2EC\uC5F0)"
     minRoomsBlock1: 3
@@ -46,3 +53,6 @@ MonoBehaviour:
     roomSize: 32
     extraLoopRatio: 0.1
     skinCategoryIndex: 0
+    monsterTable: {fileID: 11400000, guid: 5e031b641af5418095ed36806db9157e, type: 2}
+    stageMonsterKey: Stage01
+    monsterLevelStart: 2

@@ -27,7 +27,8 @@ namespace MythOfGuotaji.UI
         {
             StageSelect = 0, // 미궁 출격 (챕터 0~6, 22스테이지)
             MemoryWell = 1,  // 기억의 우물 (4대 계열 영구 강화)
-            MemoryArchive = 2 // 기억 열람 (핵심 기억 장착 & 시나리오 회상)
+            MemoryArchive = 2, // 기억 열람 (핵심 기억 장착 & 시나리오 회상)
+            Armory = 3        // 곡도 무기고 (활/단검 무기 장착 및 변경)
         }
 
         [Serializable]
@@ -69,6 +70,10 @@ namespace MythOfGuotaji.UI
         private Texture2D _whiteTex;
         private Vector2 _stageScrollPos;
         private Vector2 _archiveScrollPos;
+        private int _selectedBowIndex = 0;
+        private int _selectedDaggerIndex = 0;
+        private Vector2 _bowScrollPos;
+        private Vector2 _daggerScrollPos;
 
         private readonly List<StageBriefingInfo> _stages = new();
         private readonly List<CoreMemoryTraitInfo> _coreMemories = new();
@@ -638,16 +643,21 @@ namespace MythOfGuotaji.UI
                 fontStyle = FontStyle.Bold
             };
 
-            GUI.color = new Color(0.3f, 0.85f, 0.95f);
-            if (GUI.Button(new Rect(sw - 470f * scale, 14f * scale, 135f * scale, 40f * scale), "💎 조각 +5 (테스트)", topBtnStyle))
+#if UNITY_EDITOR || DEBUG
+            if (Application.isEditor || Debug.isDebugBuild)
             {
-                if (save != null)
+                GUI.color = new Color(0.3f, 0.85f, 0.95f);
+                if (GUI.Button(new Rect(sw - 470f * scale, 14f * scale, 135f * scale, 40f * scale), "💎 조각 +5 (테스트)", topBtnStyle))
                 {
-                    save.memoryShards += 5;
-                    save.totalCollectedShards = Mathf.Min(22, save.totalCollectedShards + 5);
-                    GameManager.Instance.SaveGame();
+                    if (save != null)
+                    {
+                        save.memoryShards += 5;
+                        save.totalCollectedShards = Mathf.Min(22, save.totalCollectedShards + 5);
+                        GameManager.Instance.SaveGame();
+                    }
                 }
             }
+#endif
 
             GUI.color = new Color(0.75f, 0.78f, 0.85f);
             if (GUI.Button(new Rect(sw - 325f * scale, 14f * scale, 110f * scale, 40f * scale), "🏠 타이틀 화면", topBtnStyle))
@@ -662,16 +672,17 @@ namespace MythOfGuotaji.UI
                 LaunchSelectedStage();
             }
 
-            // 2. 좌측/상단 3대 탭 전환 버튼 (미궁 출격 / 기억의 우물 / 기억 열람)
+            // 2. 좌측/상단 4대 탭 전환 버튼 (미궁 출격 / 기억의 우물 / 기억 열람 / 곡도 무기고)
             float tabY = topH + 14f * scale;
-            float tabW = 280f * scale;
+            float tabW = 240f * scale;
             float tabH = 44f * scale;
-            float tabGap = 14f * scale;
+            float tabGap = 10f * scale;
             float tabStartX = 24f * scale;
 
-            DrawTabButton(new Rect(tabStartX, tabY, tabW, tabH), OutgameTab.StageSelect, "🗺️ 1. 미궁 출격 (챕터 0~6 선택)", scale);
-            DrawTabButton(new Rect(tabStartX + (tabW + tabGap), tabY, tabW, tabH), OutgameTab.MemoryWell, "💧 2. 기억의 우물 (영구 스탯 강화)", scale);
-            DrawTabButton(new Rect(tabStartX + (tabW + tabGap) * 2f, tabY, tabW, tabH), OutgameTab.MemoryArchive, "📜 3. 기억 열람 (핵심 기억 & 서사)", scale);
+            DrawTabButton(new Rect(tabStartX, tabY, tabW, tabH), OutgameTab.StageSelect, "🗺️ 1. 미궁 출격", scale);
+            DrawTabButton(new Rect(tabStartX + (tabW + tabGap), tabY, tabW, tabH), OutgameTab.MemoryWell, "💧 2. 기억의 우물", scale);
+            DrawTabButton(new Rect(tabStartX + (tabW + tabGap) * 2f, tabY, tabW, tabH), OutgameTab.MemoryArchive, "📜 3. 기억 열람", scale);
+            DrawTabButton(new Rect(tabStartX + (tabW + tabGap) * 3f, tabY, tabW, tabH), OutgameTab.Armory, "🏹 4. 곡도 무기고", scale);
 
             // 3. 메인 콘텐츠 영역
             float contentY = tabY + tabH + 10f * scale;
@@ -694,6 +705,9 @@ namespace MythOfGuotaji.UI
                     break;
                 case OutgameTab.MemoryArchive:
                     DrawMemoryArchiveTab(contentRect, scale);
+                    break;
+                case OutgameTab.Armory:
+                    DrawArmoryTab(contentRect, scale);
                     break;
             }
 
@@ -1068,6 +1082,241 @@ namespace MythOfGuotaji.UI
                 GameManager.Instance.SaveGame();
                 _activeSpeakerName = "거타지 (명궁)";
                 _activeDialogueText = curMem.loreQuote;
+            }
+        }
+
+        private void DrawArmoryTab(Rect area, float scale)
+        {
+            var save = GameManager.Instance != null ? GameManager.Instance.SaveData : null;
+            var weaponTable = GameDataManager.Instance != null ? GameDataManager.Instance.WeaponStats : null;
+
+            float margin = 16f * scale;
+            float colW = (area.width - margin * 3f) * 0.5f;
+            float colH = area.height - margin * 2f;
+
+            Rect leftRect = new Rect(area.x + margin, area.y + margin, colW, colH);
+            Rect rightRect = new Rect(area.x + margin * 2f + colW, area.y + margin, colW, colH);
+
+            // ==========================================
+            // 1. 좌측 열: 활 (Bow) 무기고
+            // ==========================================
+            GUI.color = new Color(0.08f, 0.12f, 0.18f, 0.95f);
+            GUI.DrawTexture(leftRect, _whiteTex);
+            GUI.color = new Color(0.3f, 0.65f, 0.9f, 0.8f);
+            DrawRectBorder(leftRect, 1.2f);
+
+            List<BowEntry> bowList = weaponTable != null && weaponTable.bows != null && weaponTable.bows.Count > 0
+                ? weaponTable.bows
+                : new List<BowEntry>
+                {
+                    new BowEntry { weaponId = "Bow_00", weaponName = "기본 곡도 활 (활_00)", description = "서해 용궁의 신성한 활시위. 안정적인 연사력과 차징 성능을 자랑하는 균형형 활입니다." },
+                    new BowEntry { weaponId = "Bow_01", weaponName = "현무 강궁 (활_01)", description = "북방 현무의 무거운 신력을 담은 대궁. 차징 피해와 사거리가 극대화되어 보스와 정예 요괴를 관통합니다." },
+                    new BowEntry { weaponId = "Bow_02", weaponName = "주작 연궁 (활_02)", description = "남방 주작의 날렵한 깃털 시위. 1회 릴리즈당 7발의 화살을 폭풍처럼 퍼붓는 속사 특화 활입니다." }
+                };
+
+            if (_selectedBowIndex < 0 || _selectedBowIndex >= bowList.Count) _selectedBowIndex = 0;
+            BowEntry curBow = bowList[_selectedBowIndex];
+
+            float lx = leftRect.x + 14f * scale;
+            float ly = leftRect.y + 12f * scale;
+            float lw = leftRect.width - 28f * scale;
+
+            GUIStyle hStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.RoundToInt(18f * scale),
+                fontStyle = FontStyle.Bold
+            };
+            hStyle.normal.textColor = new Color(0.4f, 0.85f, 1f);
+            GUI.Label(new Rect(lx, ly, lw, 26f * scale), "🏹 [곡도 무기고: 활 (Bow) 선택 및 장착]", hStyle);
+
+            // 활 목록 버튼 (가로 배치)
+            float btnH = 34f * scale;
+            float btnGap = 8f * scale;
+            float bBtnW = (lw - (btnGap * (bowList.Count - 1))) / Mathf.Max(1, bowList.Count);
+            float btnY = ly + 32f * scale;
+
+            for (int i = 0; i < bowList.Count; i++)
+            {
+                bool isSelected = i == _selectedBowIndex;
+                bool isEquipped = save != null && (save.equippedBowId == bowList[i].weaponId || (save.equippedBowId == "Bow_00" && i == 0));
+
+                Color btnCol = isSelected ? new Color(0.2f, 0.8f, 1f, 1f) : new Color(0.2f, 0.25f, 0.35f, 0.9f);
+                if (isEquipped) btnCol = Color.Lerp(btnCol, new Color(0.2f, 1f, 0.5f, 1f), 0.5f);
+                GUI.color = btnCol;
+
+                GUIStyle bowTabStyle = new GUIStyle(GUI.skin.button)
+                {
+                    fontSize = Mathf.RoundToInt(13f * scale),
+                    fontStyle = isSelected ? FontStyle.Bold : FontStyle.Normal
+                };
+                string btnTitle = isEquipped ? $"✔ {bowList[i].weaponName}" : bowList[i].weaponName;
+                if (GUI.Button(new Rect(lx + (bBtnW + btnGap) * i, btnY, bBtnW, btnH), btnTitle, bowTabStyle))
+                {
+                    _selectedBowIndex = i;
+                }
+            }
+
+            // 선택된 활 상세 스펙 카드
+            float cardY = btnY + btnH + 12f * scale;
+            Rect bowCardRect = new Rect(lx, cardY, lw, leftRect.yMax - cardY - 54f * scale);
+            GUI.color = new Color(0.04f, 0.07f, 0.12f, 0.9f);
+            GUI.DrawTexture(bowCardRect, _whiteTex);
+            GUI.color = new Color(0.2f, 0.5f, 0.7f, 0.7f);
+            DrawRectBorder(bowCardRect, 1f);
+
+            float cx = bowCardRect.x + 12f * scale;
+            float cy = bowCardRect.y + 10f * scale;
+            float cw = bowCardRect.width - 24f * scale;
+
+            GUIStyle titleStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.RoundToInt(16f * scale),
+                fontStyle = FontStyle.Bold
+            };
+            titleStyle.normal.textColor = new Color(1f, 0.9f, 0.4f);
+            GUI.Label(new Rect(cx, cy, cw, 24f * scale), $"• [{curBow.weaponId}] {curBow.weaponName}", titleStyle);
+
+            GUIStyle descStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.RoundToInt(13.5f * scale),
+                wordWrap = true
+            };
+            descStyle.normal.textColor = new Color(0.85f, 0.9f, 0.95f);
+            GUI.Label(new Rect(cx, cy + 24f * scale, cw, 42f * scale), curBow.description, descStyle);
+
+            // 스텟 표
+            float statY = cy + 70f * scale;
+            var bs = curBow.stats;
+            string bowStatsText =
+                $"<b>[기본 공격 스탯]</b>\n" +
+                $"• 기본 피해량: <color=yellow>{bs.baseDamage:F0}</color>   • 초당 발사 속도: <color=cyan>{bs.attackRate:F1}회/초</color>\n" +
+                $"• 치명타 확률: <color=yellow>{bs.critChance * 100f:F0}%</color>   • 치명타 피해: <color=orange>{bs.critMultiplier:F1}배</color>\n" +
+                $"• 발사 화살 수: <color=cyan>{bs.baseArrowCount}발</color>   • 기본 관통 횟수: <color=cyan>{bs.basePierceCount}회</color>\n" +
+                $"• 일반 탄속: <color=white>{bs.projectileSpeed:F0}m/s</color>   • 넉백 파워: <color=white>{bs.knockbackPower:F1}</color>\n\n" +
+                $"<b>[차징 및 연사 스탯]</b>\n" +
+                $"• 최대 차징 시간: <color=yellow>{bs.maxChargeTime:F1}초</color>   • 차징 피해 배율: <color=orange>{bs.chargeDamageMultiplier:F1}배</color>\n" +
+                $"• 차징 사거리: <color=cyan>{bs.chargeMaxRange:F0}m</color>   • 차징 탄속: <color=white>{bs.chargeProjectileSpeed:F0}m/s</color>\n" +
+                $"• 릴리즈 연사 발수: <color=cyan>{bs.burstShotCount}발</color>   • 연사 쿨다운: <color=white>{bs.burstCooldown:F1}초</color>";
+
+            GUI.Label(new Rect(cx, statY, cw, bowCardRect.height - 75f * scale), bowStatsText, descStyle);
+
+            // 활 장착 버튼
+            bool bowEquipped = save != null && save.equippedBowId == curBow.weaponId;
+            GUI.color = bowEquipped ? new Color(0.2f, 0.8f, 0.4f, 1f) : new Color(0.2f, 0.7f, 1f, 1f);
+            GUIStyle eqBtnStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = Mathf.RoundToInt(15f * scale),
+                fontStyle = FontStyle.Bold
+            };
+            string bowEqText = bowEquipped ? "✔ 현재 장착 중인 활" : "🏹 이 활을 주무기로 장착하기";
+            if (GUI.Button(new Rect(lx, leftRect.yMax - 46f * scale, lw, 36f * scale), bowEqText, eqBtnStyle) && save != null)
+            {
+                save.equippedBowId = curBow.weaponId;
+                if (!save.unlockedBowIds.Contains(curBow.weaponId)) save.unlockedBowIds.Add(curBow.weaponId);
+                GameManager.Instance.SaveGame();
+                _activeSpeakerName = "보옥 (보석 토끼)";
+                _activeDialogueText = $"“거타지님, <b>{curBow.weaponName}</b>을(를) 주무기로 장착하셨어요! 미궁에서 활약해 주세요.”";
+            }
+
+            // ==========================================
+            // 2. 우측 열: 단검 (Dagger) 무기고
+            // ==========================================
+            GUI.color = new Color(0.08f, 0.12f, 0.18f, 0.95f);
+            GUI.DrawTexture(rightRect, _whiteTex);
+            GUI.color = new Color(0.85f, 0.45f, 0.35f, 0.8f);
+            DrawRectBorder(rightRect, 1.2f);
+
+            List<DaggerEntry> daggerList = weaponTable != null && weaponTable.daggers != null && weaponTable.daggers.Count > 0
+                ? weaponTable.daggers
+                : new List<DaggerEntry>
+                {
+                    new DaggerEntry { weaponId = "Dagger_00", weaponName = "기본 옥단검 (단검_00)", description = "곡도 사당의 옥빛 비수. 부채꼴로 적을 베어내며 투사체를 패링 반사하는 균형형 보조무기입니다." },
+                    new DaggerEntry { weaponId = "Dagger_01", weaponName = "벽력 비수 (단검_01)", description = "번개의 영기를 품은 날카로운 비수. 패링 반사 피해와 속도가 대폭 증가하며 참격 각도가 넓어집니다." },
+                    new DaggerEntry { weaponId = "Dagger_02", weaponName = "백호 귀참도 (단검_02)", description = "서방 백호의 기운을 담은 묵직한 참도. 베기 공격력과 사거리, 넉백이 강력하여 근접 방어에 탁월합니다." }
+                };
+
+            if (_selectedDaggerIndex < 0 || _selectedDaggerIndex >= daggerList.Count) _selectedDaggerIndex = 0;
+            DaggerEntry curDagger = daggerList[_selectedDaggerIndex];
+
+            float rx = rightRect.x + 14f * scale;
+            float ry = rightRect.y + 12f * scale;
+            float rw = rightRect.width - 28f * scale;
+
+            GUIStyle dhStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.RoundToInt(18f * scale),
+                fontStyle = FontStyle.Bold
+            };
+            dhStyle.normal.textColor = new Color(1f, 0.65f, 0.45f);
+            GUI.Label(new Rect(rx, ry, rw, 26f * scale), "🗡️ [곡도 무기고: 단검 (Dagger) 선택 및 장착]", dhStyle);
+
+            // 단검 목록 버튼
+            float dBtnW = (rw - (btnGap * (daggerList.Count - 1))) / Mathf.Max(1, daggerList.Count);
+            float dBtnY = ry + 32f * scale;
+
+            for (int i = 0; i < daggerList.Count; i++)
+            {
+                bool isSelected = i == _selectedDaggerIndex;
+                bool isEquipped = save != null && (save.equippedDaggerId == daggerList[i].weaponId || (save.equippedDaggerId == "Dagger_00" && i == 0));
+
+                Color btnCol = isSelected ? new Color(1f, 0.65f, 0.3f, 1f) : new Color(0.3f, 0.22f, 0.25f, 0.9f);
+                if (isEquipped) btnCol = Color.Lerp(btnCol, new Color(0.2f, 1f, 0.5f, 1f), 0.5f);
+                GUI.color = btnCol;
+
+                GUIStyle dagTabStyle = new GUIStyle(GUI.skin.button)
+                {
+                    fontSize = Mathf.RoundToInt(13f * scale),
+                    fontStyle = isSelected ? FontStyle.Bold : FontStyle.Normal
+                };
+                string btnTitle = isEquipped ? $"✔ {daggerList[i].weaponName}" : daggerList[i].weaponName;
+                if (GUI.Button(new Rect(rx + (dBtnW + btnGap) * i, dBtnY, dBtnW, btnH), btnTitle, dagTabStyle))
+                {
+                    _selectedDaggerIndex = i;
+                }
+            }
+
+            // 선택된 단검 상세 스펙 카드
+            float dCardY = dBtnY + btnH + 12f * scale;
+            Rect dagCardRect = new Rect(rx, dCardY, rw, rightRect.yMax - dCardY - 54f * scale);
+            GUI.color = new Color(0.12f, 0.05f, 0.05f, 0.9f);
+            GUI.DrawTexture(dagCardRect, _whiteTex);
+            GUI.color = new Color(0.7f, 0.4f, 0.3f, 0.7f);
+            DrawRectBorder(dagCardRect, 1f);
+
+            float dcx = dagCardRect.x + 12f * scale;
+            float dcy = dagCardRect.y + 10f * scale;
+            float dcw = dagCardRect.width - 24f * scale;
+
+            GUI.Label(new Rect(dcx, dcy, dcw, 24f * scale), $"• [{curDagger.weaponId}] {curDagger.weaponName}", titleStyle);
+            GUI.Label(new Rect(dcx, dcy + 24f * scale, dcw, 42f * scale), curDagger.description, descStyle);
+
+            // 단검 스탯 표
+            float dStatY = dcy + 70f * scale;
+            var ds = curDagger.stats;
+            string daggerStatsText =
+                $"<b>[근접 베기(Slash) 스탯]</b>\n" +
+                $"• 단검 기본 피해량: <color=yellow>{ds.baseDamage:F0}</color>   • 재사용 대기시간: <color=cyan>{ds.cooldown:F2}초</color>\n" +
+                $"• 공격 사거리(반경): <color=cyan>{ds.attackRadius:F1}m</color>   • 부채꼴 공격 각도: <color=white>{ds.attackAngle:F0}도</color>\n" +
+                $"• 적 넉백 파워: <color=yellow>{ds.knockback:F1}</color>   • 무적/패링 판정: <color=green>약 0.22초 유지</color>\n\n" +
+                $"<b>[투사체 반사(패링) 스탯]</b>\n" +
+                $"• 투사체 패링 가능 여부: <color={(ds.canReflectProjectiles ? "green" : "red")}>{(ds.canReflectProjectiles ? "가능 (100% 반사)" : "불가")}</color>\n" +
+                $"• 반사 탄환 피해 배율: <color=orange>{ds.reflectDamageMultiplier:F1}배 (강화탄 2배 추가)</color>\n" +
+                $"• 반사 탄환 비행 속도: <color=cyan>{ds.reflectSpeedMultiplier:F1}배속 역발사</color>\n" +
+                $"• 패링 성공 보너스: <color=yellow>거타지 차징 화살 즉시 100% 완충</color>";
+
+            GUI.Label(new Rect(dcx, dStatY, dcw, dagCardRect.height - 75f * scale), daggerStatsText, descStyle);
+
+            // 단검 장착 버튼
+            bool daggerEquipped = save != null && save.equippedDaggerId == curDagger.weaponId;
+            GUI.color = daggerEquipped ? new Color(0.2f, 0.8f, 0.4f, 1f) : new Color(1f, 0.6f, 0.3f, 1f);
+            string daggerEqText = daggerEquipped ? "✔ 현재 장착 중인 단검" : "🗡️ 이 단검을 보조무기로 장착하기";
+            if (GUI.Button(new Rect(rx, rightRect.yMax - 46f * scale, rw, 36f * scale), daggerEqText, eqBtnStyle) && save != null)
+            {
+                save.equippedDaggerId = curDagger.weaponId;
+                if (!save.unlockedDaggerIds.Contains(curDagger.weaponId)) save.unlockedDaggerIds.Add(curDagger.weaponId);
+                GameManager.Instance.SaveGame();
+                _activeSpeakerName = "보옥 (보석 토끼)";
+                _activeDialogueText = $"“거타지님, <b>{curDagger.weaponName}</b>을(를) 보조무기로 장착하셨어요! 적들의 탄환을 쳐내세요.”";
             }
         }
 

@@ -12,14 +12,37 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 476bcf0a4bb33ac4b8885a4df4c8830b, type: 3}
   m_Name: HelperData
   m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Data.HelperDataSO
-  helperId: Helper_SpiritRabbit
-  displayName: "\uB2EC\uBE5B \uC601\uD63C \uD1A0\uB07C"
-  description: "\uC804\uD22C\uB825\uC740 \uC5C6\uC73C\uB098 \uD50C\uB808\uC774\uC5B4 \uB4A4\uB97C \uB530\uB974\uBA70, \uC694\uAD34\uAC00 \uC5C6\uB294 \uC548\uC804 \uAD6C\uC5ED\uC758 \uC601\uD63C\uC11D\uC744 3\uBBF8\uD130 \uC9C4\uACF5 \uD761\uC218\uD558\uC5EC \uBE44\uC220\uC744 \uC81C\uB828\uD574\uC8FC\uB294 \uC601\uBB3C\uC785\uB2C8\uB2E4."
-  moveSpeed: 6.8
-  fleeSpeed: 8.8
-  vacuumRadius: 3
-  gemSafetyRadius: 8.5
-  fleeDistance: 5.5
-  bodyColor: {r: 0.9, g: 0.95, b: 1, a: 1}
-  auraColor: {r: 0.2, g: 0.9, b: 0.8, a: 0.35}
-  scale: 0.85
+  helpers:
+  - helperId: Helper_00
+    displayName: "\uB2EC\uBE5B \uC601\uD63C \uD1A0\uB07C"
+    description: "\uC804\uD22C\uB825\uC740 \uC5C6\uC73C\uB098 \uD50C\uB808\uC774\uC5B4 \uB4A4\uB97C \uB530\uB974\uBA70, \uC694\uAD34\uAC00 \uC5C6\uB294 \uC548\uC804 \uAD6C\uC5ED\uC758 \uC601\uD63C\uC11D\uC744 3\uBBF8\uD130 \uC9C4\uACF5 \uD761\uC218\uD558\uC5EC \uBE44\uC220\uC744 \uC81C\uB828\uD574\uC8FC\uB294 \uC601\uBB3C\uC785\uB2C8\uB2E4."
+    companionPrefab: {fileID: 8438065313925903308, guid: 888be5a5e8737d440aee09612f8e9ef0, type: 3}
+    auraPrefab: {fileID: 4697958833537268100, guid: 5e1d2a55d6e74cf2bb9ead45e27a7467, type: 3}
+    moveSpeed: 6.8
+    fleeSpeed: 8.8
+    vacuumRadius: 3
+    gemSafetyRadius: 8.5
+    fleeDistance: 5.5
+    scale: 0.85
+  - helperId: Helper_01
+    displayName: "\uB3C4\uAE68\uBE44 \uC601\uD63C \uBD88"
+    description: "\uD478\uB978 \uC601\uD63C\uC758 \uBD88\uAF43. \uD50C\uB808\uC774\uC5B4 \uACC1\uC744 \uD638\uC704\uD558\uBA70 \uC548\uC804 \uAD6C\uC5ED\uC758 \uC601\uD63C\uC11D\uC744 \uBE60\uB978 \uC18D\uB3C4\uB85C \uC9C4\uACF5 \uD761\uC218\uD569\uB2C8\uB2E4."
+    companionPrefab: {fileID: 8438065313925903308, guid: 888be5a5e8737d440aee09612f8e9ef0, type: 3}
+    auraPrefab: {fileID: 4697958833537268100, guid: 5e1d2a55d6e74cf2bb9ead45e27a7467, type: 3}
+    moveSpeed: 7.2
+    fleeSpeed: 9.2
+    vacuumRadius: 3.2
+    gemSafetyRadius: 8
+    fleeDistance: 5
+    scale: 0.8
+  - helperId: Helper_02
+    displayName: "\uC2E0\uC120 \uC870\uB871\uBC15"
+    description: "\uBE44\uC220\uC744 \uBA38\uAE08\uC740 \uC2E0\uC131\uD55C \uC870\uB871\uBC15 \uC601\uBB3C. \uB113\uC740 \uC9C4\uACF5 \uD761\uC218 \uBC18\uACBD\uC73C\uB85C \uC601\uD63C\uC11D\uC744 \uBAA8\uC544 \uBE44\uC220\uC744 \uC815\uC81C\uD569\uB2C8\uB2E4."
+    companionPrefab: {fileID: 8438065313925903308, guid: 888be5a5e8737d440aee09612f8e9ef0, type: 3}
+    auraPrefab: {fileID: 4697958833537268100, guid: 5e1d2a55d6e74cf2bb9ead45e27a7467, type: 3}
+    moveSpeed: 6.5
+    fleeSpeed: 8.5
+    vacuumRadius: 3.5
+    gemSafetyRadius: 9
+    fleeDistance: 6
+    scale: 0.9

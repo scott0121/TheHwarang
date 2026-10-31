@@ -15,10 +15,31 @@ MonoBehaviour:
   maxHp: 100
   moveSpeed: 7.5
   dashSpeed: 16
-  dashDuration: 0.22
+  dashDuration: 0.3
   dashCooldown: 2
   dashInvincibleDuration: 0.5
   sameCategoryGCD: 0.5
   diffCategoryGCD: 0.2
   heartHealAmount: 5
   heartPickupRadius: 1.25
+  dashDustVfxPrefab: {fileID: 4629116891520832361, guid: dff6856faefcf6d4885a66abb48e66c5, type: 3}
+  evasionShineVfxPrefab: {fileID: 8711317540203598715, guid: c44a7777e8718714e98b59d226d4f7d8, type: 3}
+  hitSparkVfxPrefab: {fileID: 8711317540203598715, guid: 288f6fa6e8226194a9b379951c7f8aa1, type: 3}
+  criticalHitSparkVfxPrefab: {fileID: 8711317540203598715, guid: e89a554a77957c04b88ea6653afb8c58, type: 3}
+  healBuffVfxPrefab: {fileID: 8711317540203598715, guid: bab504ca77da9bd41a8cf79744e6c2a7, type: 3}
+  deathVfxPrefab: {fileID: 8711317540203598715, guid: b54d55d8450756841b60ca750c18d627, type: 3}
+  chargeAuraStep1VfxPrefab: {fileID: 4684349252908813257, guid: e2799985afd8bba49940f7f09dfd8e82, type: 3}
+  chargeAuraStep2VfxPrefab: {fileID: 4122723776687528986, guid: 809dc6da97f3b7e478d364c3566c45df, type: 3}
+  chargeAuraStep3VfxPrefab: {fileID: 6170856838689370701, guid: 62b1aae78ea754546b164b8696b246c5, type: 3}
+  chargeReleaseBurstVfxPrefab: {fileID: 8711317540203598715, guid: 82fb4c7a9fd2e5c48b8e7cddeb0c57ef, type: 3}
+  dashSoundPrefab: {fileID: 0}
+  hitSoundPrefab: {fileID: 0}
+  deathSoundPrefab: {fileID: 0}
+  heartPickupSoundPrefab: {fileID: 0}
+  damageVignetteIntensity: 0.85
+  cameraShakeDuration: 0.35
+  cameraShakeIntensity: 0.2
+  defaultStunDuration: 0.35
+  defaultArrowPrefab: {fileID: 100001, guid: 02ea43cb4f82e3640b159f82f1d9b3e3, type: 3}
+  defaultChargedArrowPrefab: {fileID: 100001, guid: 4753b193a48c6354f8d01d9430fd7ac5, type: 3}
+  defaultDaggerSlashVfxPrefab: {fileID: 100001, guid: 2fe4a063919ab1e4aba107bac3797855, type: 3}

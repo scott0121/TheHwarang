@@ -287,16 +287,21 @@ namespace MythOfGuotaji.Core
                 _stageClearUI = go.GetComponent<StageClearUI>();
             }
 
-            if (_progressionDebugUI == null) _progressionDebugUI = FindAnyObjectByType<ProgressionDebugUI>();
-            if (_progressionDebugUI == null)
+#if UNITY_EDITOR || DEBUG
+            if (Application.isEditor || Debug.isDebugBuild)
             {
-                var prefab = db != null
-                    ? PrefabDatabaseSO.ResolvePrefab(ref db.progressionDebugUIPrefab, "Prefabs/GUI/ProgressionDebugUI")
-                    : Resources.Load<GameObject>("Prefabs/GUI/ProgressionDebugUI");
-                var go = prefab != null ? Instantiate(prefab) : new GameObject("ProgressionDebugUI", typeof(ProgressionDebugUI));
-                go.name = "ProgressionDebugUI";
-                _progressionDebugUI = go.GetComponent<ProgressionDebugUI>();
+                if (_progressionDebugUI == null) _progressionDebugUI = FindAnyObjectByType<ProgressionDebugUI>();
+                if (_progressionDebugUI == null)
+                {
+                    var prefab = db != null
+                        ? PrefabDatabaseSO.ResolvePrefab(ref db.progressionDebugUIPrefab, "Prefabs/GUI/ProgressionDebugUI")
+                        : Resources.Load<GameObject>("Prefabs/GUI/ProgressionDebugUI");
+                    var go = prefab != null ? Instantiate(prefab) : new GameObject("ProgressionDebugUI", typeof(ProgressionDebugUI));
+                    go.name = "ProgressionDebugUI";
+                    _progressionDebugUI = go.GetComponent<ProgressionDebugUI>();
+                }
             }
+#endif
 
             if (_screenDamageVignetteUI == null) _screenDamageVignetteUI = FindAnyObjectByType<ScreenDamageVignetteUI>();
             if (_screenDamageVignetteUI == null)
@@ -352,6 +357,16 @@ namespace MythOfGuotaji.Core
             var bow = _player.GetComponentInChildren<BowWeapon>();
             var dagger = _player.GetComponentInChildren<DaggerWeapon>();
 
+            // 0. 아웃게임에서 장착한 주무기(활) 및 보조무기(단검) 적용
+            if (bow != null && !string.IsNullOrEmpty(save.equippedBowId))
+            {
+                bow.EquipBow(save.equippedBowId);
+            }
+            if (dagger != null && !string.IsNullOrEmpty(save.equippedDaggerId))
+            {
+                dagger.EquipDagger(save.equippedDaggerId);
+            }
+
             // 1. 활 계열 강화 (레벨당 화살 기본 피해 +4)
             if (save.wellBowLevel > 0 && bow != null)
             {
@@ -371,18 +386,60 @@ namespace MythOfGuotaji.Core
                 RecoveryHeart.BonusHealAmount = save.wellBookLevel * 4f;
             }
 
-            // 4. 생존 계열 강화 + 재도전 가호 (최대 체력 보너스)
+            // 4. 생존 계열 강화 + 재도전 가호 (최대 체력 보너스 및 피해 감면 +3%/중첩)
+            if (save.retryBlessingStacks > 0)
+            {
+                _player.SetRetryBlessingDamageReduction(save.retryBlessingStacks * 0.03f);
+            }
+
             float bonusMaxHp = (save.wellSurvivalLevel * 15f) + (save.retryBlessingStacks * 10f);
-            if (bonusMaxHp > 0f)
+            float bonusGcdReduction = 0f;
+            float bonusDashReduction = save.wellSurvivalLevel * 0.08f;
+
+            // 5. 장착된 핵심 기억(Core Memory 6종) 효과 인게임 적용
+            string coreMemId = save.equippedCoreMemoryId;
+            _player.SetEquippedCoreMemory(coreMemId);
+
+            switch (coreMemId)
+            {
+                case "MEM_CH1_FIRST_STRING": // 1. 초심의 시위: 치명타 확률 +20%
+                    bow?.AddCritChance(0.20f);
+                    break;
+                case "MEM_CH2_STEADY_EYE": // 2. 흔들리지 않는 눈: 완전 충전 피해 배율 +0.25, 충전 시간 단축 15%
+                    bow?.AddChargeDamageMultiplier(0.25f);
+                    bow?.ReduceChargeDuration(0.15f);
+                    break;
+                case "MEM_CH3_REGRET_WEIGHT": // 3. 회한의 무게: 반사 배율 +0.30, 단검 반경 +0.5m, 패링 시 이속+회복(PlayerController 연동)
+                    dagger?.AddReflectDamageMultiplier(0.30f);
+                    dagger?.AddAttackRadius(0.5f);
+                    break;
+                case "MEM_CH4_RESOLUTE": // 4. 의연함: 활/단검 기본 공격력 증가
+                    bow?.AddBaseDamage(6f);
+                    dagger?.AddBaseDamage(10f);
+                    break;
+                case "MEM_CH5_DIVINE_BOW": // 5. 신궁: 충전 사거리 +5m, 충전 넉백 위력 +35%
+                    bow?.AddChargeMaxRange(5.0f);
+                    bow?.AddChargeKnockbackMultiplier(0.35f);
+                    break;
+                case "MEM_CH6_DAWN_STRING": // 6. 새벽의 시위: 모든 무기 피해 및 쿨타임 감소
+                    bow?.AddBaseDamage(10f);
+                    dagger?.AddBaseDamage(15f);
+                    bonusGcdReduction += 0.12f;
+                    bonusDashReduction += 0.35f;
+                    break;
+            }
+
+            if (bonusMaxHp > 0f || bonusGcdReduction > 0f || bonusDashReduction > 0f)
             {
                 var bonusBoon = ScriptableObject.CreateInstance<InRunBoonSO>();
                 bonusBoon.boonTitle = "곡도 사당의 가호";
                 bonusBoon.bonusHp = bonusMaxHp;
-                bonusBoon.dashCooldownReduction = save.wellSurvivalLevel * 0.08f;
+                bonusBoon.gcdReduction = bonusGcdReduction;
+                bonusBoon.dashCooldownReduction = bonusDashReduction;
                 _player.ApplyBoon(bonusBoon);
             }
 
-            Debug.Log($"<color=cyan>[PlayMainSceneController] 곡도 사당 영구 강화 적용 완료 — 출격 스테이지: {save.selectedStageCode} (활 Lv.{save.wellBowLevel}, 단검 Lv.{save.wellDaggerLevel}, 보옥 Lv.{save.wellBookLevel}, 생존 Lv.{save.wellSurvivalLevel}, 재도전 가호 {save.retryBlessingStacks}단계)</color>");
+            Debug.Log($"<color=cyan>[PlayMainSceneController] 곡도 사당 영구 강화 적용 완료 — 출격 스테이지: {save.selectedStageCode}, 핵심 기억: {coreMemId} (활 Lv.{save.wellBowLevel}, 단검 Lv.{save.wellDaggerLevel}, 보옥 Lv.{save.wellBookLevel}, 생존 Lv.{save.wellSurvivalLevel}, 재도전 가호 {save.retryBlessingStacks}단계)</color>");
         }
     }
 }

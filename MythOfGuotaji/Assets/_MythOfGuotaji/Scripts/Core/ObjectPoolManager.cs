@@ -111,6 +111,8 @@ namespace MythOfGuotaji.Core
                 _poolDictionary[poolKey] = new Queue<GameObject>();
             }
 
+            if (_poolDictionary[poolKey].Contains(instance)) return;
+
             _poolDictionary[poolKey].Enqueue(instance);
         }
 

@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8b5fd18dd9e64e7f96184b49e364e085, type: 3}
+  m_Name: DungeonMonsterTable
+  m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Data.DungeonMonsterTableSO
+  stageMonsters:
+  - stageKey: Stage00
+    bossMonster: 2
+    keyKeeperMonster: 1
+    earlyRoomMonsters: 000000000300000004000000050000000a0000000900000009000000i
+    lateRoomMonsters: 0400000005000000060000000d000000060000000e0000000300000000000000070000000b000000i
+  - stageKey: Stage01
+    bossMonster: 2
+    keyKeeperMonster: 7
+    earlyRoomMonsters: 000000000700000003000000080000000c0000000a0000000d000000i
+    lateRoomMonsters: 08000000090000000a00000003000000040000000e0000000d000000i

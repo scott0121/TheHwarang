@@ -5,6 +5,7 @@ using MythOfGuotaji.Cameras;
 using MythOfGuotaji.Combat;
 using MythOfGuotaji.Core;
 using MythOfGuotaji.Dungeon;
+using MythOfGuotaji.Data;
 using UnityEngine;
 
 namespace MythOfGuotaji.Actor
@@ -46,16 +47,13 @@ namespace MythOfGuotaji.Actor
         [SerializeField] private float _separationRadius = 0.9f;
 
         [Header("Attack Pattern Settings (Synced with MonsterStatsTable)")]
-        [SerializeField] private Combat.ProjectileParryType _projectileParryType = Combat.ProjectileParryType.Normal;
-        [SerializeField] private float _projectileSpeed = 6.0f;
         [SerializeField] private float _kiteDistance = 0.0f;
         [SerializeField] private float _knockbackPower = 2.0f;
         [SerializeField] private float _telegraphDuration = 0.5f;
         [SerializeField] private float _specialAttackRadius = 2.5f;
         [SerializeField] private float _specialAttackAngle = 90.0f;
-        [SerializeField] private float _flightDuration = 2.0f;
-        [SerializeField] private float _arcHeight = 6.0f;
         [SerializeField] private float _postAttackDelay = 0.2f;
+        private float _lastMeleeAttackTime = -99f;
 
         [Header("Drop Rewards & Dash")]
         [SerializeField] private int _gemDropCount = 1;
@@ -78,6 +76,29 @@ namespace MythOfGuotaji.Actor
         private float _nextWanderTime = 0f;
 
         public bool IsAggroed => _isAggroed;
+
+        [SerializeField] private bool _isDormant = false;
+        public bool IsDormant => _isDormant;
+
+        public void SetDormant(bool dormant)
+        {
+            _isDormant = dormant;
+            if (_isDormant)
+            {
+                PlayIdleAnimation();
+            }
+        }
+
+        public static void ReloadAllMonsterData()
+        {
+            for (int i = 0; i < ActiveMonsters.Count; i++)
+            {
+                if (ActiveMonsters[i] != null)
+                {
+                    ActiveMonsters[i].ApplyPatternStatsFromTable();
+                }
+            }
+        }
 
         private float _currentHp;
         private Transform _targetPlayer;
@@ -112,6 +133,7 @@ namespace MythOfGuotaji.Actor
         private bool _isPhantomClone = false;
         private float _totemRotationAngle = 0f;
         private bool _hasTotemFiredOnce = false;
+        private GameObject _moveLoopSoundInstance;
 
         // 애니메이터 연동
         private Animator _animator;
@@ -126,7 +148,46 @@ namespace MythOfGuotaji.Actor
         public float MaxHp => _maxHp;
         public int Level => _level;
         public bool DropsBossKeyOnDeath => _dropsBossKeyOnDeath;
-        public Combat.ProjectileParryType ProjectileParryType => _projectileParryType;
+        public Combat.ProjectileParryType ProjectileParryType
+        {
+            get
+            {
+                var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(_type);
+                if (stat != null && stat.specialSkillIds != null && stat.specialSkillIds.Count > 0)
+                {
+                    var skill = GetMonsterSkillData(stat.specialSkillIds[0]);
+                    if (skill != null) return skill.projectileParryType;
+                }
+                return _type == MonsterType.Totem_Turret ? Combat.ProjectileParryType.Enhanced : Combat.ProjectileParryType.Normal;
+            }
+        }
+
+        public float MeleeAttackRange
+        {
+            get
+            {
+                var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(_type);
+                return (stat?.normalAttack != null && stat.normalAttack.attackRange > 0f) ? stat.normalAttack.attackRange : 1.8f;
+            }
+        }
+
+        public float MeleeAttackCooldown
+        {
+            get
+            {
+                var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(_type);
+                return (stat?.normalAttack != null && stat.normalAttack.attackCooldown > 0f) ? stat.normalAttack.attackCooldown : 1.2f;
+            }
+        }
+
+        public float MeleeAttackDamage
+        {
+            get
+            {
+                var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(_type);
+                return (stat?.normalAttack != null && stat.normalAttack.attackDamage > 0f) ? stat.normalAttack.attackDamage : _attackDamage;
+            }
+        }
 
         private Dungeon.RoomController _cachedRoom;
         public Dungeon.RoomController OwningRoom
@@ -192,6 +253,7 @@ namespace MythOfGuotaji.Actor
         private void OnDisable()
         {
             CleanupTelegraph();
+            MonsterTableAssetPlayer.StopLoopSound(ref _moveLoopSoundInstance);
             ActiveMonsters.Remove(this);
             UI.MonsterHealthBarManager.Unregister(this);
         }
@@ -233,6 +295,19 @@ namespace MythOfGuotaji.Actor
             {
                 _originalColor = _rend.material.color;
             }
+
+            var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(_type);
+            if (stat != null)
+            {
+                if (stat.spawnSoundPrefab != null)
+                {
+                    MonsterTableAssetPlayer.PlayOneShotSound(stat.spawnSoundPrefab, transform.position);
+                }
+                if (stat.enableMoveLoopSound && stat.moveLoopSoundPrefab != null)
+                {
+                    MonsterTableAssetPlayer.StartLoopSound(stat.moveLoopSoundPrefab, true, transform, ref _moveLoopSoundInstance);
+                }
+            }
         }
 
         public void ApplyPatternStatsFromTable()
@@ -245,14 +320,11 @@ namespace MythOfGuotaji.Actor
             {
                 if (stat.attackRange > 0f) _attackRange = stat.attackRange;
                 if (stat.attackCooldown > 0f) _attackCooldown = stat.attackCooldown;
-                _projectileSpeed = stat.projectileSpeed;
                 _kiteDistance = stat.kiteDistance;
                 _knockbackPower = stat.knockbackPower;
                 _telegraphDuration = stat.telegraphDuration;
                 _specialAttackRadius = stat.specialAttackRadius;
                 _specialAttackAngle = stat.specialAttackAngle;
-                _flightDuration = stat.flightDuration;
-                _arcHeight = stat.arcHeight;
                 _postAttackDelay = stat.postAttackDelay;
                 _gemDropCount = stat.gemDropCount;
                 _expPerGem = stat.expPerGem;
@@ -261,13 +333,6 @@ namespace MythOfGuotaji.Actor
                 _dashDistance = stat.dashDistance > 0f ? stat.dashDistance : 5.0f;
                 _dashWidth = stat.dashWidth > 0f ? stat.dashWidth : 0.5f;
                 _dashDuration = stat.dashDuration > 0f ? stat.dashDuration : 0.3f;
-                _projectileParryType = stat.projectileParryType;
-            }
-
-            // 사방신 토템은 황금색 강화 투사체 고정 보장
-            if (_type == MonsterType.Totem_Turret)
-            {
-                _projectileParryType = Combat.ProjectileParryType.Enhanced;
             }
 
             // [기획 규칙] 몬스터 타입별 핵심 교전/스킬 발동 사거리 및 패턴 파라미터 안전 보장
@@ -283,7 +348,6 @@ namespace MythOfGuotaji.Actor
                 case MonsterType.Minion_Archer:
                     _attackRange = 15.0f;
                     _attackCooldown = 0.7f;
-                    _projectileSpeed = 6.0f;
                     _kiteDistance = 6.0f;
                     break;
                 case MonsterType.Minion_BigMon:
@@ -298,8 +362,6 @@ namespace MythOfGuotaji.Actor
                 case MonsterType.Minion_Zhu:
                     _attackRange = 20.0f;
                     _attackCooldown = 3.0f;
-                    _flightDuration = 2.0f;
-                    _arcHeight = 6.0f;
                     _specialAttackRadius = 2.5f;
                     _postAttackDelay = 0.3f;
                     break;
@@ -314,7 +376,6 @@ namespace MythOfGuotaji.Actor
                 case MonsterType.Dokkaebi_Fire:
                     _attackRange = 14.0f;
                     _attackCooldown = 2.5f;
-                    _projectileSpeed = 5.0f;
                     _kiteDistance = 5.0f;
                     break;
                 case MonsterType.Boar_Charger:
@@ -400,6 +461,7 @@ namespace MythOfGuotaji.Actor
         private void Update()
         {
             if (IsDead) return;
+            if (_isDormant) return;
 
             // 맵 바닥 낙하 방지 안전장치: 바닥 아래로 추락 시 즉시 사망 처리하여 웨이브 막힘 원천 방지
             if (transform.position.y < -5f)
@@ -496,143 +558,132 @@ namespace MythOfGuotaji.Actor
                 }
                 else if (!_hasTotemFiredOnce)
                 {
-                    // 아직 첫 대포를 쏘지 않았으면 캐릭터의 범위 안까지 걸어서 이동!
                     NavigateTowardsTarget(distToPlayer);
                     PlayMoveAnimation();
                     return;
                 }
                 else
                 {
-                    // 이미 대포를 발사한 토템은 그 자리에 완전히 멈춰서 포탄 난사 대기
                     TryAttackPlayer();
                     PlayIdleAnimation();
                     return;
                 }
             }
 
-            // 정예 요괴 (MonsterType.Elite) 전용 스킬 & 자동 근접 공격
+            // =========================================================================
+            // [규칙 3 & 규칙 1] 우선순위: 1순위 스페셜 스킬(목록순) -> 2순위 근접 평타
+            // =========================================================================
+            bool specialSkillExecuted = false;
+
             if (_type == MonsterType.Elite)
             {
-                // 특수스킬: 플레이어가 5m 이상 20m 이내에 위치 시 바닥에 폭 50cm 길이 20m 박스 생성 후 돌덩이 굴림 (쿨 2초)
+                // 정예 요괴 특수스킬 (elite_boulder): 5m ~ 20m, 쿨 2.0s
                 if (distToPlayer >= 5.0f && distToPlayer <= 20.0f && Time.time >= _lastEliteSkillTime + 2.0f && HasLineOfSightToPlayer())
                 {
                     StartCoroutine(EliteBoulderSkillRoutine());
                     return;
                 }
+            }
+            else if (_type == MonsterType.FoxBoss)
+            {
+                // 여우 보스 특수스킬 목록순 우선순위: boss_vacuum(목록 1번) -> boss_cleave(목록 2번)
+                bool canSkill1 = (distToPlayer >= 5.0f && distToPlayer <= 25.0f && Time.time >= _lastBossSkill1Time + 5.0f && HasLineOfSightToPlayer());
+                bool canSkill2 = (distToPlayer <= 10.0f && Time.time >= _lastBossSkill2Time + 5.0f && HasLineOfSightToPlayer());
 
-                // 캐릭터 근접 시 자동 근접 공격 실행
-                if (distToPlayer <= _attackRange)
+                if (canSkill1)
                 {
-                    if (!HasLineOfSightToPlayer())
-                    {
-                        NavigateTowardsTarget(distToPlayer);
-                        PlayMoveAnimation();
-                        return;
-                    }
-
-                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toPlayer.normalized), Time.deltaTime * 10f);
-                    TryAttackPlayer();
-                    PlayIdleAnimation();
+                    StartCoroutine(BossVacuumSkillRoutine());
                     return;
                 }
-
-                // 그 외 거리에서는 플레이어를 향해 이동 추적
-                NavigateTowardsTarget(distToPlayer);
-                PlayMoveAnimation();
-                return;
-            }
-
-            // 여우 보스 (MonsterType.FoxBoss) 전용 스킬 & 자동 근접 공격
-            if (_type == MonsterType.FoxBoss)
-            {
-                // 특수스킬 1: 5m ~ 25m, 쿨 5초 (부채꼴 45도, 길이 25m, 1초 후 끌어옴 + 0.5초 스턴)
-                // 특수스킬 2: 10m 이내, 쿨 5초 (부채꼴 180도, 길이 10m, 1초 후 20 피해 + 5m 넉백)
-                // 우선순위 규칙: 5m ~ 10m 구간에서 둘 다 사용 가능할 경우, 특수스킬 1을 우선적으로 사용!
-                bool canSkill1 = (distToPlayer >= 5.0f && distToPlayer <= 25.0f && Time.time >= _lastBossSkill1Time + 5.0f);
-                bool canSkill2 = (distToPlayer <= 10.0f && Time.time >= _lastBossSkill2Time + 5.0f);
-
-                if (distToPlayer >= 5.0f && distToPlayer <= 10.0f)
+                else if (canSkill2)
                 {
-                    if (canSkill1)
-                    {
-                        StartCoroutine(BossVacuumSkillRoutine());
-                        return;
-                    }
-                    else if (canSkill2)
-                    {
-                        StartCoroutine(BossCleaveSkillRoutine());
-                        return;
-                    }
-                }
-                else if (distToPlayer > 10.0f && distToPlayer <= 25.0f)
-                {
-                    if (canSkill1)
-                    {
-                        StartCoroutine(BossVacuumSkillRoutine());
-                        return;
-                    }
-                }
-                else if (distToPlayer < 5.0f)
-                {
-                    if (canSkill2)
-                    {
-                        StartCoroutine(BossCleaveSkillRoutine());
-                        return;
-                    }
-                }
-
-                // 캐릭터 근접 시 자동 근접 공격 실행
-                if (distToPlayer <= _attackRange)
-                {
-                    if (!HasLineOfSightToPlayer())
-                    {
-                        NavigateTowardsTarget(distToPlayer);
-                        PlayMoveAnimation();
-                        return;
-                    }
-
-                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toPlayer.normalized), Time.deltaTime * 10f);
-                    TryAttackPlayer();
-                    PlayIdleAnimation();
+                    StartCoroutine(BossCleaveSkillRoutine());
                     return;
-                }
-
-                // 그 외 거리에서는 플레이어를 향해 이동 추적
-                NavigateTowardsTarget(distToPlayer);
-                PlayMoveAnimation();
-                return;
-            }
-
-            // 공격 사거리 내 도달 시 공격
-            if (distToPlayer <= _attackRange)
-            {
-                // 벽이나 장애물 너머에 있어서 플레이어를 직접 타격할 수 없는 경우, 멈춰 서 있지 않고 문/통로를 향해 우회 이동!
-                if (!HasLineOfSightToPlayer())
-                {
-                    NavigateTowardsTarget(distToPlayer);
-                    PlayMoveAnimation();
-                }
-                else
-                {
-                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toPlayer.normalized), Time.deltaTime * 10f);
-                    TryAttackPlayer();
-
-                    // 원거리 카이팅 후퇴 (테이블 kiteDistance 기준)
-                    if (_kiteDistance > 0f && distToPlayer < _kiteDistance)
-                    {
-                        Vector3 backDir = -toPlayer.normalized;
-                        _cc.Move(backDir * (_moveSpeed * 0.75f) * Time.deltaTime);
-                        PlayMoveAnimation();
-                    }
-                    else if (!_isSweeping)
-                    {
-                        PlayIdleAnimation();
-                    }
                 }
             }
             else
             {
-                // 지능적 길찾기 및 장애물 우회 이동 (한번 인식되면 죽을 때까지 추적!)
+                // 일반/원거리/돌진 몬스터 스페셜 스킬 체크
+                if (distToPlayer <= _attackRange && Time.time >= _lastAttackTime + _attackCooldown && HasLineOfSightToPlayer())
+                {
+                    if (_type != MonsterType.Minion_BigMon || HasClearChargePathToPlayer())
+                    {
+                        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toPlayer.normalized), Time.deltaTime * 10f);
+                        TryAttackPlayer();
+                        specialSkillExecuted = true;
+                        return;
+                    }
+                }
+            }
+
+            // =========================================================================
+            // [규칙 4] Kite Distance > 0 인 몬스터: 카이팅(거리 유지/후퇴)이 근접공격에 우선함
+            // =========================================================================
+            if (_kiteDistance > 0f)
+            {
+                if (distToPlayer < _kiteDistance)
+                {
+                    // 너무 가까우면 뒤로 후퇴 (카이팅)
+                    Vector3 backDir = -toPlayer.normalized;
+                    _cc.Move(backDir * (_moveSpeed * 0.75f) * Time.deltaTime);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toPlayer.normalized), Time.deltaTime * 10f);
+                    PlayMoveAnimation();
+                    return;
+                }
+                else if (distToPlayer <= _attackRange)
+                {
+                    // 카이팅 적정 거리 유지 (쿨타임 동안 스킬 사거리 내에서 거리 유지하며 조준)
+                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toPlayer.normalized), Time.deltaTime * 10f);
+                    PlayIdleAnimation();
+                    return;
+                }
+                else
+                {
+                    // 스킬 사거리 밖이면 스킬 사거리 안으로 접근 추적
+                    NavigateTowardsTarget(distToPlayer);
+                    PlayMoveAnimation();
+                    return;
+                }
+            }
+
+            // =========================================================================
+            // [규칙 2 & 규칙 3] 스페셜 스킬 쿨타임/미사용 시 근접 평타를 위해 캐릭터에게 접근!
+            // =========================================================================
+            float meleeReach = MeleeAttackRange;
+            if (distToPlayer <= meleeReach)
+            {
+                if (!HasLineOfSightToPlayer())
+                {
+                    NavigateTowardsTarget(distToPlayer);
+                    PlayMoveAnimation();
+                    return;
+                }
+
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toPlayer.normalized), Time.deltaTime * 10f);
+
+                if (Time.time >= _lastMeleeAttackTime + MeleeAttackCooldown)
+                {
+                    if (_type == MonsterType.Elite)
+                    {
+                        StartCoroutine(EliteMeleeAttackRoutine());
+                    }
+                    else if (_type == MonsterType.FoxBoss)
+                    {
+                        StartCoroutine(BossMeleeAttackRoutine());
+                    }
+                    else
+                    {
+                        StartCoroutine(NormalMeleeAttackRoutine());
+                    }
+                }
+                else
+                {
+                    PlayIdleAnimation();
+                }
+            }
+            else
+            {
+                // 근접 평타 사거리 밖이면 멈춰서지 않고 적극적으로 캐릭터를 향해 접근!
                 NavigateTowardsTarget(distToPlayer);
                 PlayMoveAnimation();
             }
@@ -1169,7 +1220,13 @@ namespace MythOfGuotaji.Actor
 
             // 2. 0.3초만에 최초 목표지점까지 돌진 (플레이어가 이탈하더라도 목표지점까지 일단 돌진)
             PlayAttackAnimation();
-            Core.VFXManager.Instance?.SpawnMinionDashDust(startPos, dashDir);
+            var minionSkill = GetMonsterSkillData("minion_dash");
+            var dashVfx = minionSkill?.castVfxPrefab ?? minionSkill?.trailVfxPrefab;
+            Core.VFXManager.Instance?.SpawnMinionDashDust(startPos, dashDir, dashVfx);
+            if (minionSkill != null && minionSkill.castSoundPrefab != null)
+            {
+                MonsterTableAssetPlayer.PlayOneShotSound(minionSkill.castSoundPrefab, startPos);
+            }
             float dashDuration = _dashDuration > 0f ? _dashDuration : 0.3f;
             float dashElapsed = 0f;
             float dashSpeed = dashDist / dashDuration;
@@ -1211,7 +1268,11 @@ namespace MythOfGuotaji.Actor
                 float aoeRadius = _specialAttackRadius > 0f ? _specialAttackRadius : 0.7f;
 
                 // 70cm 광역 판정 (피격 반경 0.35m 포함 1.05m 이내)
-                Core.VFXManager.Instance?.SpawnMinionArrivalImpact(arrivalPos, aoeRadius);
+                Core.VFXManager.Instance?.SpawnMinionArrivalImpact(arrivalPos, aoeRadius, minionSkill?.impactVfxPrefab);
+                if (minionSkill != null && minionSkill.impactSoundPrefab != null)
+                {
+                    MonsterTableAssetPlayer.PlayOneShotSound(minionSkill.impactSoundPrefab, arrivalPos);
+                }
                 if (arrivalDist <= aoeRadius + 0.35f)
                 {
                     if (_targetPlayer.TryGetComponent<IDamageable>(out var dmgReceiver))
@@ -1287,15 +1348,20 @@ namespace MythOfGuotaji.Actor
         private void ShootVenomProjectile(Vector3 dir)
         {
             PlayAttackAnimation();
+            var skill = GetMonsterSkillData("toxic_spit");
             Vector3 spawnPos = transform.position + Vector3.up * 1.0f + dir * 1.1f;
-            Core.VFXManager.Instance?.SpawnVenomMuzzle(spawnPos, dir);
+            Core.VFXManager.Instance?.SpawnVenomMuzzle(spawnPos, dir, skill?.castVfxPrefab);
+            if (skill != null && skill.castSoundPrefab != null)
+            {
+                MonsterTableAssetPlayer.PlayOneShotSound(skill.castSoundPrefab, spawnPos);
+            }
 
-            GameObject venomPrefab = null;
-            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            GameObject venomPrefab = skill?.GetProjectilePrefab();
+            if (venomPrefab == null && Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
             {
                 venomPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.venomProjectilePrefab, "Prefabs/Projectile_Venom");
             }
-            else
+            else if (venomPrefab == null)
             {
                 venomPrefab = Resources.Load<GameObject>("Prefabs/Projectile_Venom");
             }
@@ -1337,7 +1403,13 @@ namespace MythOfGuotaji.Actor
             var proj = orb.GetComponent<Projectile>();
             if (proj == null) proj = orb.AddComponent<Projectile>();
             DamageInfo dmg = new DamageInfo(_attackDamage, false, spawnPos, dir, _knockbackPower, ElementType.Poison, gameObject);
-            proj.Initialize(dmg, pierceCount: 0, ~LayerMask.GetMask("Ignore Raycast"), poolKey: "", maxRange: _attackRange, unlimitedPierce: false, speed: _projectileSpeed, parryType: _projectileParryType);
+            float speed = (skill != null && skill.projectileSpeed > 0f) ? skill.projectileSpeed : 6.0f;
+            var parry = (skill != null) ? skill.projectileParryType : ProjectileParryType;
+            proj.Initialize(dmg, pierceCount: 0, ~LayerMask.GetMask("Ignore Raycast"), poolKey: "", maxRange: _attackRange, unlimitedPierce: false, speed: speed, parryType: parry);
+            if (skill != null)
+            {
+                proj.ConfigureSkillAssets(skill.impactVfxPrefab, skill.parryVfxPrefab, skill.impactSoundPrefab);
+            }
             proj.ApplyTopDepthPriority();
         }
 
@@ -1350,16 +1422,26 @@ namespace MythOfGuotaji.Actor
             _lastAttackTime = Time.time;
             PlayAttackAnimation();
 
+            var skill = GetMonsterSkillData("zhu_parabolic");
             Vector3 spawnPos = transform.position + Vector3.up * 1.2f + transform.forward * 0.8f;
             Vector3 targetFloorPos = _targetPlayer != null ? _targetPlayer.position : transform.position + transform.forward * 10f;
             targetFloorPos.y = 0.05f;
 
-            GameObject zhuProjPrefab = null;
-            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            if (skill != null && skill.castVfxPrefab != null)
+            {
+                VFXManager.Instance?.Spawn(skill.castVfxPrefab, spawnPos, Quaternion.LookRotation(transform.forward));
+            }
+            if (skill != null && skill.castSoundPrefab != null)
+            {
+                MonsterTableAssetPlayer.PlayOneShotSound(skill.castSoundPrefab, spawnPos);
+            }
+
+            GameObject zhuProjPrefab = skill?.GetProjectilePrefab();
+            if (zhuProjPrefab == null && Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
             {
                 zhuProjPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.zhuParabolicProjectilePrefab, "Prefabs/Projectile_ZhuParabolic");
             }
-            else
+            else if (zhuProjPrefab == null)
             {
                 zhuProjPrefab = Resources.Load<GameObject>("Prefabs/Projectile_ZhuParabolic");
             }
@@ -1399,8 +1481,11 @@ namespace MythOfGuotaji.Actor
 
             var script = zhuProjObj.GetComponent<ZhuParabolicProjectile>();
             if (script == null) script = zhuProjObj.AddComponent<ZhuParabolicProjectile>();
-            script.Initialize(gameObject, spawnPos, targetFloorPos, _attackDamage, _flightDuration, _arcHeight, _specialAttackRadius);
-            script.ParryType = _projectileParryType;
+            float flightDuration = (skill != null && skill.flightDuration > 0f) ? skill.flightDuration : 2.0f;
+            float arcHeight = (skill != null && skill.arcHeight > 0f) ? skill.arcHeight : 6.0f;
+            var parry = (skill != null) ? skill.projectileParryType : ProjectileParryType;
+            script.Initialize(gameObject, spawnPos, targetFloorPos, _attackDamage, flightDuration, arcHeight, _specialAttackRadius);
+            script.ParryType = parry;
             script.ApplyTopDepthPriority();
 
             // 몬스터는 투사체를 발사 후 설정된 후딜레이 뒤 바로 이동 가능
@@ -1588,7 +1673,8 @@ namespace MythOfGuotaji.Actor
                 if (dustTimer >= 0.15f)
                 {
                     dustTimer = 0f;
-                    Core.VFXManager.Instance?.SpawnBigMonRunDust(transform.position, dashDir);
+                    var turtleSkill = GetMonsterSkillData("turtle_charge");
+                    Core.VFXManager.Instance?.SpawnBigMonRunDust(transform.position, dashDir, turtleSkill?.trailVfxPrefab);
                 }
 
                 float u = Mathf.Clamp01(elapsed / totalDuration);
@@ -1706,7 +1792,12 @@ namespace MythOfGuotaji.Actor
 
             float shockwaveRadius = _specialAttackRadius > 0f ? _specialAttackRadius : 3.0f;
             SpawnShockwaveVisualEffect(stopPos, shockwaveRadius);
-            Core.VFXManager.Instance?.SpawnBigMonGroundImpact(stopPos, shockwaveRadius);
+            var bigmonSkill = GetMonsterSkillData("turtle_charge");
+            Core.VFXManager.Instance?.SpawnBigMonGroundImpact(stopPos, shockwaveRadius, bigmonSkill?.impactVfxPrefab);
+            if (bigmonSkill != null && bigmonSkill.impactSoundPrefab != null)
+            {
+                MonsterTableAssetPlayer.PlayOneShotSound(bigmonSkill.impactSoundPrefab, stopPos);
+            }
 
             // 반경 3미터 이내 원형 범위 충격파 공격 판정
             if (_targetPlayer != null && !IsDead)
@@ -1875,12 +1966,80 @@ namespace MythOfGuotaji.Actor
             if (fxObj != null) Destroy(fxObj);
         }
 
+        private IEnumerator NormalMeleeAttackRoutine()
+        {
+            _isSweeping = true;
+            _lastMeleeAttackTime = Time.time;
+            PlayAttackAnimation();
+
+            var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(_type);
+            float windup = (stat?.normalAttack != null && stat.normalAttack.windupTime > 0f) ? stat.normalAttack.windupTime : 0.2f;
+            float recovery = (stat?.normalAttack != null && stat.normalAttack.recoveryTime > 0f) ? stat.normalAttack.recoveryTime : 0.2f;
+            float hitbox = (stat?.normalAttack != null && stat.normalAttack.hitboxRadius > 0f) ? stat.normalAttack.hitboxRadius : 1.0f;
+            float dmg = MeleeAttackDamage;
+
+            if (stat?.normalAttack != null)
+            {
+                if (stat.normalAttack.attackVfxPrefab != null)
+                {
+                    VFXManager.Instance?.Spawn(stat.normalAttack.attackVfxPrefab, transform.position + transform.forward * 0.8f + Vector3.up * 0.5f, transform.rotation);
+                }
+                if (stat.normalAttack.attackSoundPrefab != null)
+                {
+                    MonsterTableAssetPlayer.PlayOneShotSound(stat.normalAttack.attackSoundPrefab, transform.position);
+                }
+            }
+
+            yield return new WaitForSeconds(windup);
+
+            if (!IsDead && _targetPlayer != null)
+            {
+                float dist = Vector3.Distance(transform.position, _targetPlayer.position);
+                if (dist <= MeleeAttackRange + hitbox)
+                {
+                    if (_targetPlayer.TryGetComponent<IDamageable>(out var damageable))
+                    {
+                        DamageInfo damageInfo = new DamageInfo(dmg, false, transform.position, transform.forward, _knockbackPower, ElementType.Physical, gameObject);
+                        damageable.TakeDamage(damageInfo);
+
+                        if (stat?.normalAttack != null)
+                        {
+                            if (stat.normalAttack.hitVfxPrefab != null)
+                            {
+                                VFXManager.Instance?.Spawn(stat.normalAttack.hitVfxPrefab, _targetPlayer.position + Vector3.up * 0.8f, Quaternion.identity);
+                            }
+                            if (stat.normalAttack.hitSoundPrefab != null)
+                            {
+                                MonsterTableAssetPlayer.PlayOneShotSound(stat.normalAttack.hitSoundPrefab, _targetPlayer.position);
+                            }
+                        }
+                    }
+                }
+            }
+
+            yield return new WaitForSeconds(recovery);
+            _isSweeping = false;
+        }
+
         private IEnumerator EliteMeleeAttackRoutine()
         {
             _isSweeping = true;
             _lastAttackTime = Time.time;
 
             PlayAttackAnimation();
+
+            var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(_type);
+            if (stat?.normalAttack != null)
+            {
+                if (stat.normalAttack.attackVfxPrefab != null)
+                {
+                    VFXManager.Instance?.Spawn(stat.normalAttack.attackVfxPrefab, transform.position + transform.forward * 1.0f + Vector3.up * 0.7f, transform.rotation);
+                }
+                if (stat.normalAttack.attackSoundPrefab != null)
+                {
+                    MonsterTableAssetPlayer.PlayOneShotSound(stat.normalAttack.attackSoundPrefab, transform.position);
+                }
+            }
 
             // 공격 모션 선딜레이 (0.3초)
             yield return new WaitForSeconds(0.3f);
@@ -1894,6 +2053,18 @@ namespace MythOfGuotaji.Actor
                     {
                         DamageInfo dmg = new DamageInfo(_attackDamage, false, transform.position, transform.forward, _knockbackPower, ElementType.Physical, gameObject);
                         damageable.TakeDamage(dmg);
+
+                        if (stat?.normalAttack != null)
+                        {
+                            if (stat.normalAttack.hitVfxPrefab != null)
+                            {
+                                VFXManager.Instance?.Spawn(stat.normalAttack.hitVfxPrefab, _targetPlayer.position + Vector3.up * 0.8f, Quaternion.identity);
+                            }
+                            if (stat.normalAttack.hitSoundPrefab != null)
+                            {
+                                MonsterTableAssetPlayer.PlayOneShotSound(stat.normalAttack.hitSoundPrefab, _targetPlayer.position);
+                            }
+                        }
                         Debug.Log($"<color=red><b>[정예 요괴 공격 적중!]</b> 플레이어에게 {_attackDamage} 피해 부여!</color>");
                     }
                 }
@@ -1922,6 +2093,19 @@ namespace MythOfGuotaji.Actor
                 PlayAttackAnimation();
             }
 
+            var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(_type);
+            if (stat?.normalAttack != null)
+            {
+                if (stat.normalAttack.attackVfxPrefab != null)
+                {
+                    VFXManager.Instance?.Spawn(stat.normalAttack.attackVfxPrefab, transform.position + transform.forward * 1.2f + Vector3.up * 0.8f, transform.rotation);
+                }
+                if (stat.normalAttack.attackSoundPrefab != null)
+                {
+                    MonsterTableAssetPlayer.PlayOneShotSound(stat.normalAttack.attackSoundPrefab, transform.position);
+                }
+            }
+
             // 공격 모션 선딜레이 (0.35초)
             yield return new WaitForSeconds(0.35f);
 
@@ -1934,6 +2118,19 @@ namespace MythOfGuotaji.Actor
                     {
                         DamageInfo dmg = new DamageInfo(_attackDamage, false, transform.position, transform.forward, _knockbackPower * 1.5f, ElementType.Physical, gameObject);
                         damageable.TakeDamage(dmg);
+
+                        if (stat?.normalAttack != null)
+                        {
+                            if (stat.normalAttack.hitVfxPrefab != null)
+                            {
+                                VFXManager.Instance?.Spawn(stat.normalAttack.hitVfxPrefab, _targetPlayer.position + Vector3.up * 0.8f, Quaternion.identity);
+                            }
+                            if (stat.normalAttack.hitSoundPrefab != null)
+                            {
+                                MonsterTableAssetPlayer.PlayOneShotSound(stat.normalAttack.hitSoundPrefab, _targetPlayer.position);
+                            }
+                        }
+
                         if (Cameras.QuarterViewCamera.Instance != null)
                         {
                             Cameras.QuarterViewCamera.Instance.TriggerShake(0.3f, 0.25f);
@@ -2020,12 +2217,13 @@ namespace MythOfGuotaji.Actor
 
         private void SpawnSweepVisualEffect(Vector3 center, Vector3 forward, float radius)
         {
-            GameObject sweepPrefab = null;
-            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            var skill = GetMonsterSkillData("boss_cleave");
+            GameObject sweepPrefab = skill?.castVfxPrefab;
+            if (sweepPrefab == null && Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
             {
                 sweepPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.sweepWavePrefab, "Prefabs/VFX_SweepWave");
             }
-            else
+            else if (sweepPrefab == null)
             {
                 sweepPrefab = Resources.Load<GameObject>("Prefabs/VFX_SweepWave");
             }
@@ -2130,6 +2328,16 @@ namespace MythOfGuotaji.Actor
             Color telegraphColor = new Color(0.95f, 0.55f, 0.15f, 0.35f);
             GameObject guideBox = CreateFloorGuideBox(startPos, throwDir, 20.0f, 0.5f, telegraphColor);
 
+            var skill = GetMonsterSkillData("elite_boulder");
+            if (skill != null && skill.castVfxPrefab != null)
+            {
+                VFXManager.Instance?.Spawn(skill.castVfxPrefab, startPos, Quaternion.LookRotation(throwDir));
+            }
+            if (skill != null && skill.castSoundPrefab != null)
+            {
+                MonsterTableAssetPlayer.PlayOneShotSound(skill.castSoundPrefab, startPos);
+            }
+
             PlayAttackAnimation();
 
             // 짧은 시전 선딜레이 (0.2초)
@@ -2143,12 +2351,12 @@ namespace MythOfGuotaji.Actor
             }
 
             // 2. 박스 위로 등속(10m/s) 20m 돌덩이 굴려보냄 (RollingBoulder.prefab 사용)
-            GameObject boulderPrefab = null;
-            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            GameObject boulderPrefab = skill?.GetProjectilePrefab();
+            if (boulderPrefab == null && Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
             {
                 boulderPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.rollingBoulderPrefab, "Prefabs/RollingBoulder");
             }
-            else
+            else if (boulderPrefab == null)
             {
                 boulderPrefab = Resources.Load<GameObject>("Prefabs/RollingBoulder");
             }
@@ -2519,12 +2727,13 @@ namespace MythOfGuotaji.Actor
 
         private void SpawnVacuumPullEffect(Vector3 center, Vector3 forward, float radius)
         {
-            GameObject vacPrefab = null;
-            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            var skill = GetMonsterSkillData("boss_vacuum");
+            GameObject vacPrefab = skill?.castVfxPrefab;
+            if (vacPrefab == null && Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
             {
                 vacPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.vacuumWavePrefab, "Prefabs/VFX_VacuumWave");
             }
-            else
+            else if (vacPrefab == null)
             {
                 vacPrefab = Resources.Load<GameObject>("Prefabs/VFX_VacuumWave");
             }
@@ -2555,6 +2764,15 @@ namespace MythOfGuotaji.Actor
                 rend.material = mat;
             }
             Destroy(fxObj, 0.25f);
+
+            if (skill != null && skill.impactVfxPrefab != null)
+            {
+                VFXManager.Instance?.Spawn(skill.impactVfxPrefab, center + forward * 2.5f + Vector3.up * 0.5f, Quaternion.identity);
+            }
+            if (skill != null && skill.impactSoundPrefab != null)
+            {
+                MonsterTableAssetPlayer.PlayOneShotSound(skill.impactSoundPrefab, center);
+            }
         }
 
         #region New 9 Gimmick Monster Patterns
@@ -2594,10 +2812,24 @@ namespace MythOfGuotaji.Actor
 
             var fb = go.GetComponent<DokkaebiFireball>();
             if (fb == null) fb = go.AddComponent<DokkaebiFireball>();
-            fb.Initialize(gameObject, transform.position + Vector3.up * 1f, dir, _attackDamage, 5.0f);
-            fb.ParryType = _projectileParryType;
+            var skill = GetMonsterSkillData("dokkaebi_fireball");
+            float speed = (skill != null && skill.projectileSpeed > 0f) ? skill.projectileSpeed : 5.0f;
+            var parry = (skill != null) ? skill.projectileParryType : ProjectileParryType;
+            fb.Initialize(gameObject, transform.position + Vector3.up * 1f, dir, _attackDamage, speed);
+            fb.ParryType = parry;
 
-            VFXManager.Instance?.Spawn("HCFX_Flame_01", go.transform.position, Quaternion.identity);
+            if (skill != null && skill.castVfxPrefab != null)
+            {
+                VFXManager.Instance?.Spawn(skill.castVfxPrefab, go.transform.position, Quaternion.identity);
+            }
+            else
+            {
+                VFXManager.Instance?.Spawn("HCFX_Flame_01", go.transform.position, Quaternion.identity);
+            }
+            if (skill != null && skill.castSoundPrefab != null)
+            {
+                MonsterTableAssetPlayer.PlayOneShotSound(skill.castSoundPrefab, go.transform.position);
+            }
         }
 
         private IEnumerator BoarChargeAttackRoutine()
@@ -2611,6 +2843,7 @@ namespace MythOfGuotaji.Actor
                 yield break;
             }
 
+            var skill = GetMonsterSkillData("boar_charge");
             Vector3 startPos = transform.position;
             Vector3 targetPos = _targetPlayer.position;
             targetPos.y = startPos.y;
@@ -2621,6 +2854,15 @@ namespace MythOfGuotaji.Actor
 
             // 0.4초간 붉은 돌진 텔레그래프 가이드라인 (15m x 1.5m)
             CreateDashTelegraph(startPos, chargeDir, 15f, 1.5f);
+            if (skill != null && skill.castVfxPrefab != null)
+            {
+                VFXManager.Instance?.Spawn(skill.castVfxPrefab, startPos, Quaternion.LookRotation(chargeDir));
+            }
+            if (skill != null && skill.castSoundPrefab != null)
+            {
+                MonsterTableAssetPlayer.PlayOneShotSound(skill.castSoundPrefab, startPos);
+            }
+
             yield return new WaitForSeconds(0.4f);
             CleanupTelegraph();
 
@@ -2630,6 +2872,7 @@ namespace MythOfGuotaji.Actor
             float chargeSpeed = 14.0f;
             float chargeDist = 15.0f;
             float traveled = 0f;
+            float dustTimer = 0f;
             bool hitPlayer = false;
 
             while (traveled < chargeDist)
@@ -2639,11 +2882,36 @@ namespace MythOfGuotaji.Actor
                 float step = chargeSpeed * Time.deltaTime;
                 Vector3 moveVec = chargeDir * step;
 
+                dustTimer += Time.deltaTime;
+                if (dustTimer >= 0.15f)
+                {
+                    dustTimer = 0f;
+                    if (skill != null && skill.trailVfxPrefab != null)
+                    {
+                        VFXManager.Instance?.Spawn(skill.trailVfxPrefab, transform.position, Quaternion.LookRotation(-chargeDir));
+                    }
+                    else
+                    {
+                        VFXManager.Instance?.Spawn("HCFX_Dust_Dash_01", transform.position, Quaternion.LookRotation(-chargeDir));
+                    }
+                }
+
                 // 벽 충돌 검사
                 if (Physics.Raycast(transform.position + Vector3.up * 0.5f, chargeDir, out RaycastHit wallHit, step + 0.6f, _obstacleLayerMask, QueryTriggerInteraction.Ignore))
                 {
                     ApplyStun(2.0f);
-                    VFXManager.Instance?.Spawn("HCFX_Explosion_01", transform.position, Quaternion.identity);
+                    if (skill != null && skill.impactVfxPrefab != null)
+                    {
+                        VFXManager.Instance?.Spawn(skill.impactVfxPrefab, transform.position, Quaternion.identity);
+                    }
+                    else
+                    {
+                        VFXManager.Instance?.Spawn("HCFX_Explosion_01", transform.position, Quaternion.identity);
+                    }
+                    if (skill != null && skill.impactSoundPrefab != null)
+                    {
+                        MonsterTableAssetPlayer.PlayOneShotSound(skill.impactSoundPrefab, transform.position);
+                    }
                     QuarterViewCamera.Instance?.TriggerShake(0.35f, 0.2f);
                     Debug.Log("<color=orange>[멧돼지 벽 격돌!] 돌진 중 벽에 부딪혀 2초간 기절했습니다!</color>");
                     break;
@@ -2679,12 +2947,13 @@ namespace MythOfGuotaji.Actor
             var pc = _targetPlayer.GetComponent<PlayerController>();
             if (pc != null && !pc.IsDead)
             {
-                GameObject tetherPrefab = null;
-                if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+                var skill = GetMonsterSkillData("spider_web_tether");
+                GameObject tetherPrefab = skill?.GetProjectilePrefab();
+                if (tetherPrefab == null && Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
                 {
                     tetherPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.spiderWebTetherPrefab, "Prefabs/Skill_SpiderWebTether");
                 }
-                else
+                else if (tetherPrefab == null)
                 {
                     tetherPrefab = Resources.Load<GameObject>("Prefabs/Skill_SpiderWebTether");
                 }
@@ -2694,6 +2963,15 @@ namespace MythOfGuotaji.Actor
                 var tether = tetherGo.GetComponent<SpiderWebTether>();
                 if (tether == null) tether = tetherGo.AddComponent<SpiderWebTether>();
                 tether.Attach(this, pc, duration: 2.5f, speed: 4.0f);
+
+                if (skill != null && skill.castVfxPrefab != null)
+                {
+                    VFXManager.Instance?.Spawn(skill.castVfxPrefab, transform.position + Vector3.up * 1f, transform.rotation);
+                }
+                if (skill != null && skill.castSoundPrefab != null)
+                {
+                    MonsterTableAssetPlayer.PlayOneShotSound(skill.castSoundPrefab, transform.position);
+                }
             }
         }
 
@@ -2701,12 +2979,13 @@ namespace MythOfGuotaji.Actor
         {
             if (_targetPlayer == null) return;
 
-            GameObject mudPrefab = null;
-            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            var skill = GetMonsterSkillData("mud_puddle");
+            GameObject mudPrefab = skill?.GetProjectilePrefab();
+            if (mudPrefab == null && Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
             {
                 mudPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.mudPuddleZonePrefab, "Prefabs/Skill_MudPuddleZone");
             }
-            else
+            else if (mudPrefab == null)
             {
                 mudPrefab = Resources.Load<GameObject>("Prefabs/Skill_MudPuddleZone");
             }
@@ -2716,6 +2995,15 @@ namespace MythOfGuotaji.Actor
             var mud = mudGo.GetComponent<MudPuddleZone>();
             if (mud == null) mud = mudGo.AddComponent<MudPuddleZone>();
             mud.Initialize(_targetPlayer.position, radius: 3.0f, duration: 4.0f);
+
+            if (skill != null && skill.castVfxPrefab != null)
+            {
+                VFXManager.Instance?.Spawn(skill.castVfxPrefab, _targetPlayer.position, Quaternion.identity);
+            }
+            if (skill != null && skill.castSoundPrefab != null)
+            {
+                MonsterTableAssetPlayer.PlayOneShotSound(skill.castSoundPrefab, _targetPlayer.position);
+            }
         }
 
         private IEnumerator SparrowKamikazeRoutine()
@@ -2723,7 +3011,17 @@ namespace MythOfGuotaji.Actor
             _isSweeping = true;
             _lastAttackTime = Time.time;
 
+            var skill = GetMonsterSkillData("sparrow_kamikaze");
             PlayAttackAnimation();
+            if (skill != null && skill.castVfxPrefab != null)
+            {
+                VFXManager.Instance?.Spawn(skill.castVfxPrefab, transform.position, transform.rotation);
+            }
+            if (skill != null && skill.castSoundPrefab != null)
+            {
+                MonsterTableAssetPlayer.PlayOneShotSound(skill.castSoundPrefab, transform.position);
+            }
+
             float speed = 12.0f;
             float duration = 2.0f;
             float elapsed = 0f;
@@ -2742,7 +3040,18 @@ namespace MythOfGuotaji.Actor
 
                 if (dist <= 1.2f)
                 {
-                    VFXManager.Instance?.Spawn("HCFX_Explosion_02", transform.position, Quaternion.identity);
+                    if (skill != null && skill.impactVfxPrefab != null)
+                    {
+                        VFXManager.Instance?.Spawn(skill.impactVfxPrefab, transform.position, Quaternion.identity);
+                    }
+                    else
+                    {
+                        VFXManager.Instance?.Spawn("HCFX_Explosion_02", transform.position, Quaternion.identity);
+                    }
+                    if (skill != null && skill.impactSoundPrefab != null)
+                    {
+                        MonsterTableAssetPlayer.PlayOneShotSound(skill.impactSoundPrefab, transform.position);
+                    }
                     QuarterViewCamera.Instance?.TriggerShake(0.3f, 0.2f);
 
                     Collider[] hits = Physics.OverlapSphere(transform.position, 2.5f);
@@ -2775,12 +3084,13 @@ namespace MythOfGuotaji.Actor
             _moveSpeed = 0f; // 한번 대포를 발사한 토템은 그 자리에 멈춰 더이상 움직이지 않고 포탄 난사
             _totemRotationAngle += 45f;
 
-            GameObject totemOrbPrefab = null;
-            if (Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
+            var skill = GetMonsterSkillData("totem_turret_barrage");
+            GameObject totemOrbPrefab = skill?.GetProjectilePrefab();
+            if (totemOrbPrefab == null && Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.Prefabs != null)
             {
                 totemOrbPrefab = Data.PrefabDatabaseSO.ResolvePrefab(ref Data.GameDataManager.Instance.Prefabs.totemEnergyOrbPrefab, "Prefabs/Projectile_TotemOrb");
             }
-            else
+            else if (totemOrbPrefab == null)
             {
                 totemOrbPrefab = Resources.Load<GameObject>("Prefabs/Projectile_TotemOrb");
             }
@@ -2821,13 +3131,36 @@ namespace MythOfGuotaji.Actor
                 orb.Initialize(gameObject, transform.position + Vector3.up * 1f, dir, _attackDamage, 6.0f);
                 orb.ParryType = Combat.ProjectileParryType.Enhanced;
             }
-            VFXManager.Instance?.Spawn("HCFX_Flash_01", transform.position, Quaternion.identity);
+            if (skill != null && skill.castVfxPrefab != null)
+            {
+                VFXManager.Instance?.Spawn(skill.castVfxPrefab, transform.position, Quaternion.identity);
+            }
+            else
+            {
+                VFXManager.Instance?.Spawn("HCFX_Flash_01", transform.position, Quaternion.identity);
+            }
+            if (skill != null && skill.castSoundPrefab != null)
+            {
+                MonsterTableAssetPlayer.PlayOneShotSound(skill.castSoundPrefab, transform.position);
+            }
         }
 
         private void SpawnFoxPhantoms()
         {
             Debug.Log($"<color=magenta><b>[환영 분신술!]</b> {name}이 피격되어 2마리의 분신을 생성하고 3방향으로 흩어집니다!</color>");
-            VFXManager.Instance?.Spawn("HCFX_Smoke_01", transform.position, Quaternion.identity);
+            var skill = GetMonsterSkillData("phantom_decoy");
+            if (skill != null && skill.castVfxPrefab != null)
+            {
+                VFXManager.Instance?.Spawn(skill.castVfxPrefab, transform.position, Quaternion.identity);
+            }
+            else
+            {
+                VFXManager.Instance?.Spawn("HCFX_Smoke_01", transform.position, Quaternion.identity);
+            }
+            if (skill != null && skill.castSoundPrefab != null)
+            {
+                MonsterTableAssetPlayer.PlayOneShotSound(skill.castSoundPrefab, transform.position);
+            }
 
             for (int i = 0; i < 2; i++)
             {
@@ -2858,10 +3191,19 @@ namespace MythOfGuotaji.Actor
         {
             if (IsDead) return;
 
+            var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(_type);
+
             // [사방신 토템 기믹]: 주인공의 일반 공격에는 피해 0, 오직 패링된 탄환(info.isReflected)으로만 데미지를 입음!
             if (_type == MonsterType.Totem_Turret && !info.isReflected)
             {
-                VFXManager.Instance?.Spawn("HCFX_Sparks_01", transform.position + Vector3.up * 1f, Quaternion.identity);
+                if (stat != null && stat.deflectVfxPrefab != null)
+                {
+                    VFXManager.Instance?.Spawn(stat.deflectVfxPrefab, transform.position + Vector3.up * 1f, Quaternion.identity);
+                }
+                else
+                {
+                    VFXManager.Instance?.Spawn("HCFX_Sparks_01", transform.position + Vector3.up * 1f, Quaternion.identity);
+                }
                 QuarterViewCamera.Instance?.TriggerShake(0.12f, 0.08f);
                 Debug.Log($"<color=cyan><b>[사방신 토템 일반공격 면역!]</b></color> {name}은 주인공의 일반 공격에 면역입니다! 패링된 탄환으로만 공략하세요.");
                 return;
@@ -2870,7 +3212,14 @@ namespace MythOfGuotaji.Actor
             // [흑철 방패병 기믹]: 풀차징 관통 화살(info.isCharged)만 방패를 뚫음. 일반 투사체는 전면 도탄!
             if (_type == MonsterType.Iron_Shield && !info.isCharged)
             {
-                VFXManager.Instance?.Spawn("HCFX_Sparks_01", transform.position + Vector3.up * 1f, Quaternion.identity);
+                if (stat != null && stat.deflectVfxPrefab != null)
+                {
+                    VFXManager.Instance?.Spawn(stat.deflectVfxPrefab, transform.position + Vector3.up * 1f, Quaternion.identity);
+                }
+                else
+                {
+                    VFXManager.Instance?.Spawn("HCFX_Sparks_01", transform.position + Vector3.up * 1f, Quaternion.identity);
+                }
                 QuarterViewCamera.Instance?.TriggerShake(0.15f, 0.1f);
                 Debug.Log($"<color=cyan><b>[흑철 방패 도탄!]</b> {name}의 강철 방패에 막혀 일반 화살이 튕겨나갔습니다! (차징 화살로만 방패 파괴 가능)</color>");
                 return;
@@ -2882,7 +3231,20 @@ namespace MythOfGuotaji.Actor
                 _currentHp = Mathf.Min(_maxHp * 1.5f, _currentHp + info.amount);
                 transform.localScale *= 1.15f;
                 _attackDamage *= 1.2f;
-                VFXManager.Instance?.Spawn("HCFX_DarkAura_01", transform.position, Quaternion.identity);
+                var absorbSkill = GetMonsterSkillData("energy_absorb");
+                var absorbVfx = absorbSkill?.castVfxPrefab ?? absorbSkill?.impactVfxPrefab;
+                if (absorbVfx != null)
+                {
+                    VFXManager.Instance?.Spawn(absorbVfx, transform.position, Quaternion.identity);
+                }
+                else
+                {
+                    VFXManager.Instance?.Spawn("HCFX_DarkAura_01", transform.position, Quaternion.identity);
+                }
+                if (absorbSkill != null && absorbSkill.castSoundPrefab != null)
+                {
+                    MonsterTableAssetPlayer.PlayOneShotSound(absorbSkill.castSoundPrefab, transform.position);
+                }
                 Debug.Log($"<color=magenta><b>[영력 흡수 폭주!]</b> {name}이 차징 공격을 흡수하여 체력을 회복하고 거대화되었습니다! (일반 연사/단검으로 공략하세요)</color>");
                 return;
             }
@@ -2926,8 +3288,22 @@ namespace MythOfGuotaji.Actor
             _currentHp -= damageToApply;
             _knockbackVelocity = info.hitDirection * info.knockbackForce;
 
+            // [데미지 카운터 표시] 플레이어/반사 공격 피격 시 머리 위 3m에 PrimeTween 연출 표시
+            MythOfGuotaji.UI.DamageCounterManager.ShowDamage(damageToApply, info, transform.position);
+
             // 피격 애니메이션 및 피드백 (화이트 플래시 + 스케일 펀치)
             PlayHitAnimation();
+            if (stat != null)
+            {
+                if (stat.hitVfxPrefab != null)
+                {
+                    VFXManager.Instance?.Spawn(stat.hitVfxPrefab, transform.position + Vector3.up * 0.8f, Quaternion.identity);
+                }
+                if (stat.hitSoundPrefab != null)
+                {
+                    MonsterTableAssetPlayer.PlayOneShotSound(stat.hitSoundPrefab, transform.position);
+                }
+            }
             StopCoroutine(nameof(HitFeedbackRoutine));
             StartCoroutine(HitFeedbackRoutine());
 
@@ -2971,6 +3347,20 @@ namespace MythOfGuotaji.Actor
             CleanupTelegraph();
             Debug.Log($"<color=red><b>[요괴 처치 완료!]</b> {_type} '{name}' 사망! (누적 킬수 +1)</color>");
 
+            var stat = Data.GameDataManager.Instance?.MonsterStats?.GetStat(_type);
+            if (stat != null)
+            {
+                if (stat.deathVfxPrefab != null)
+                {
+                    VFXManager.Instance?.Spawn(stat.deathVfxPrefab, transform.position + Vector3.up * 0.5f, Quaternion.identity, scale: 1.2f, autoDestroyTime: 2.0f);
+                }
+                if (stat.deathSoundPrefab != null)
+                {
+                    MonsterTableAssetPlayer.PlayOneShotSound(stat.deathSoundPrefab, transform.position);
+                }
+            }
+            MonsterTableAssetPlayer.StopLoopSound(ref _moveLoopSoundInstance);
+
             ActiveMonsters.Remove(this);
             UI.MonsterHealthBarManager.Unregister(this);
             OnDied?.Invoke(this);
@@ -2995,9 +3385,10 @@ namespace MythOfGuotaji.Actor
                 }
 
                 // [신규 몬스터 테이블 연동] 특수 드롭 테이블(specialDrops) 처리
-                var stat = Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.MonsterStats != null
-                    ? Data.GameDataManager.Instance.MonsterStats.GetStat(_type)
-                    : null;
+                if (stat == null && Data.GameDataManager.Instance != null && Data.GameDataManager.Instance.MonsterStats != null)
+                {
+                    stat = Data.GameDataManager.Instance.MonsterStats.GetStat(_type);
+                }
                 if (stat != null && stat.specialDrops != null)
                 {
                     foreach (var sDrop in stat.specialDrops)

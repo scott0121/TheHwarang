@@ -20,6 +20,9 @@ namespace MythOfGuotaji.Core
     [Serializable]
     public class SaveData
     {
+        public int schemaVersion = 2;
+        public string lastSavedUtc = "";
+
         // 1. 시나리오 트리 (영구적, 리셋 불가)
         public List<string> unlockedScenarioNodeIds = new();
         public int affinityPoints = 0; // 인연 포인트
@@ -50,11 +53,21 @@ namespace MythOfGuotaji.Core
         public int retryBlessingStacks = 0;     // 연속 사망 시 중첩 (피해 감면 +3%/중첩, 보옥 보호막 +5%/중첩)
         public bool returnedFromDeath = false;  // 사망 후 사당 우물가로 귀환했는지 여부
 
+        // 6. 곡도 무기고 (Armory) 장착 및 해금 목록
+        public string equippedBowId = "Bow_00";
+        public string equippedDaggerId = "Dagger_00";
+        public List<string> unlockedBowIds = new();
+        public List<string> unlockedDaggerIds = new();
+
         // 생성자 기본값
         public SaveData()
         {
             unlockedScenarioNodeIds = new List<string> { "ROOT_START" };
             unlockedCoreMemoryIds = new List<string> { "MEM_CH1_FIRST_STRING" };
+            unlockedBowIds = new List<string> { "Bow_00", "Bow_01", "Bow_02" };
+            unlockedDaggerIds = new List<string> { "Dagger_00", "Dagger_01", "Dagger_02" };
+            equippedBowId = "Bow_00";
+            equippedDaggerId = "Dagger_00";
             affinityPoints = 10;
             characterSkillPoints = 5;
             memoryShards = 4;

@@ -13,7 +13,7 @@ namespace MythOfGuotaji.Core
         public static HelperManager Instance { get; private set; }
 
         [Header("Helper Selection")]
-        [SerializeField] private string _selectedHelperId = "Helper_SpiritRabbit";
+        [SerializeField] private string _selectedHelperId = "Helper_00";
 
         private HelperCompanion _currentHelper;
 
@@ -66,21 +66,32 @@ namespace MythOfGuotaji.Core
 
             Vector3 spawnPos = player.transform.position - player.transform.forward * 2f + Vector3.up * 0.8f;
 
-            GameObject helperPrefab = null;
-            if (GameDataManager.Instance != null && GameDataManager.Instance.Prefabs != null)
+            HelperEntry helperEntry = null;
+            if (GameDataManager.Instance != null && GameDataManager.Instance.HelperData != null)
             {
-                helperPrefab = PrefabDatabaseSO.ResolvePrefab(ref GameDataManager.Instance.Prefabs.helperCompanionPrefab, "Prefabs/Helper_SpiritRabbit");
+                helperEntry = GameDataManager.Instance.HelperData.GetHelper(_selectedHelperId);
             }
-            else
+
+            GameObject helperPrefab = helperEntry?.companionPrefab;
+
+            // Fallback to PrefabDatabase or Resources
+            if (helperPrefab == null)
             {
-                helperPrefab = Resources.Load<GameObject>("Prefabs/Helper_SpiritRabbit");
+                if (GameDataManager.Instance != null && GameDataManager.Instance.Prefabs != null)
+                {
+                    helperPrefab = PrefabDatabaseSO.ResolvePrefab(ref GameDataManager.Instance.Prefabs.helperCompanionPrefab, "Prefabs/Helper_SpiritRabbit");
+                }
+                else
+                {
+                    helperPrefab = Resources.Load<GameObject>("Prefabs/Helper_SpiritRabbit");
+                }
             }
 
             GameObject helperObj;
             if (helperPrefab != null)
             {
                 helperObj = Instantiate(helperPrefab, spawnPos, Quaternion.identity);
-                helperObj.name = "Helper_SpiritRabbit";
+                helperObj.name = !string.IsNullOrEmpty(_selectedHelperId) ? _selectedHelperId : "Helper_Companion";
             }
             else
             {
@@ -91,7 +102,12 @@ namespace MythOfGuotaji.Core
             _currentHelper = helperObj.GetComponent<HelperCompanion>();
             if (_currentHelper == null) _currentHelper = helperObj.AddComponent<HelperCompanion>();
 
-            Debug.Log("<color=cyan><b>[HelperManager]</b> 동료 헬퍼 프리팹이 플레이어 곁에 소환되었습니다.</color>");
+            if (helperEntry != null)
+            {
+                _currentHelper.ApplyConfig(helperEntry);
+            }
+
+            Debug.Log($"<color=cyan><b>[HelperManager]</b> 동료 헬퍼({_selectedHelperId}) 프리팹이 플레이어 곁에 소환되었습니다.</color>");
             return _currentHelper;
         }
 

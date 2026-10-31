@@ -201,8 +201,8 @@ namespace MythOfGuotaji.Actor
             heartRoot.transform.SetParent(transform, false);
             heartRoot.transform.localPosition = Vector3.zero;
 
-            var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Standard");
-            var heartMat = new Material(shader);
+            var shader = ExpGem.ResolveSafeShader("Universal Render Pipeline/Lit", "Universal Render Pipeline/Unlit", "Sprites/Default", "Standard");
+            var heartMat = shader != null ? new Material(shader) : new Material(Shader.Find("Sprites/Default"));
             Color rubyRed = new Color(1.0f, 0.12f, 0.28f, 0.95f);
             Color rubyEmission = new Color(1.0f, 0.15f, 0.35f) * 1.5f;
 
