@@ -288,6 +288,7 @@ namespace MythOfGuotaji.Core
                 var l = lightObj.AddComponent<Light>();
                 l.type = LightType.Directional;
                 l.intensity = 1.2f;
+                l.shadows = LightShadows.Soft;
                 lightObj.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
             }
         }

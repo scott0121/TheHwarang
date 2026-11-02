@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2284043822193714179}
   - component: {fileID: 3621378586618457189}
-  - component: {fileID: 4769357108634698418}
   m_Layer: 0
   m_Name: Skill_SpiderWebTether
   m_TagString: Untagged
@@ -152,23 +151,3 @@ LineRenderer:
   m_UseWorldSpace: 1
   m_Loop: 0
   m_ApplyActiveColorSpace: 1
---- !u!114 &4769357108634698418
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1823208975306736666}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e80d0eafee9d09445b68f70d8327dcb2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::MythOfGuotaji.Combat.Projectile
-  _speed: 24
-  _lifeTime: 2.5
-  _targetLayer:
-    serializedVersion: 2
-    m_Bits: 0
-  _hitRadius: 0.4
-  _maxRange: 15
-  _parryType: 0

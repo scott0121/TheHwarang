@@ -8,6 +8,16 @@ namespace MythOfGuotaji.Data
     /// <summary>
     /// 몬스터 스킬 패턴 유형
     /// </summary>
+    /// <summary>
+    /// 돌진류 기동 메카닉 유형 (Charge / Leap Mechanics)
+    /// </summary>
+    public enum ChargeSkillType
+    {
+        StopOnPlayer = 0,       // 1. 돌진 중 플레이어에 부딪히면 충돌하며 정지 & 반경 충격파 피해
+        PenetratePlayer = 1,    // 2. 돌진 중 플레이어에 부딪혀도 피해 및 넉백시키고 관통하여 목표점까지 무조건 질주
+        LeapSmash = 2           // 3. 목표점까지 점프해서 날아간 뒤 착지 시 일정 범위 피해 (공중 비행 중 충돌 없음, 높이 설정 가능)
+    }
+
     public enum MonsterSkillType
     {
         MeleeAttack,        // 기본 근접 연타/후리기
@@ -374,6 +384,31 @@ namespace MythOfGuotaji.Data
         [Tooltip("돌진 판정 폭 (m)")]
         public float dashWidth = 0.8f;
 
+        [Header("돌진 및 기동 고급 설정 (Charge / Leap Advanced)")]
+        [Tooltip("돌진 기동 메카닉 유형 (StopOnPlayer: 충돌정지 폭발, PenetratePlayer: 관통질주, LeapSmash: 점프포물선 강타)")]
+        public ChargeSkillType chargeType = ChargeSkillType.StopOnPlayer;
+
+        [Tooltip("돌진 가속 곡선 지수 (1.0 = 등속, 1.35 = 후반 점진가속, 0.7 = 초반 급가속 후 로그감속)")]
+        public float chargeAccelerationExponent = 1.35f;
+
+        [Tooltip("돌진 최고 속도 배율 계수")]
+        public float chargeSpeedMultiplier = 1.5f;
+
+        [Tooltip("돌진 초기 속도 기본 오프셋")]
+        public float chargeInitialSpeedOffset = 0.3f;
+
+        [Tooltip("점프/도약(LeapSmash) 비행 높이 (m)")]
+        public float leapHeight = 10.0f;
+
+        [Tooltip("점프/도약(LeapSmash) 공중 체공 시간 (초)")]
+        public float leapDuration = 1.5f;
+
+        [Tooltip("착지/충돌 시 충격파 반경 (m)")]
+        public float impactRadius = 3.0f;
+
+        [Tooltip("목표점 최대 탐색 거리 (m, 벽/문 없을 시 최대 거리까지 전진)")]
+        public float maxChargeDistance = 20.0f;
+
         [Header("투사체 및 원거리 (Projectile)")]
         [Tooltip("직선 투사체 비행 속도 (m/s)")]
         public float projectileSpeed = 6.0f;
@@ -502,6 +537,34 @@ namespace MythOfGuotaji.Data
     {
         public List<MonsterSkillEntry> skills = new();
 
+        private static readonly string[] RequiredSkillIds = new string[]
+        {
+            "minion_dash", "turtle_charge", "toxic_spit", "zhu_parabolic",
+            "elite_boulder", "elite_leap_smash", "boss_vacuum", "boss_cleave",
+            "dokkaebi_fireball", "boar_charge", "spider_web_tether", "mud_puddle",
+            "phantom_decoy", "iron_shield_stance", "energy_absorb", "sparrow_kamikaze",
+            "totem_turret_barrage"
+        };
+
+        private void OnEnable()
+        {
+            EnsureDefaultSkills();
+        }
+
+        public void EnsureDefaultSkills()
+        {
+            if (skills == null) skills = new List<MonsterSkillEntry>();
+
+            foreach (var id in RequiredSkillIds)
+            {
+                if (!skills.Exists(s => s != null && s.skillId.Equals(id, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var def = GetDefaultSkill(id);
+                    if (def != null) skills.Add(def);
+                }
+            }
+        }
+
         public MonsterSkillEntry GetSkill(string skillId)
         {
             if (string.IsNullOrEmpty(skillId)) return null;
@@ -565,19 +628,25 @@ namespace MythOfGuotaji.Data
                     skillName = "황동 거북 20m 가속 돌진 분쇄",
                     description = "플레이어를 향해 0.4초 예고 후 20m 거리를 가속 돌진하여 충돌 시 3m 충격파 발생",
                     skillType = MonsterSkillType.TurtleCharge,
+                    chargeType = ChargeSkillType.StopOnPlayer,
                     minRange = 2.0f,
                     maxRange = 20.0f,
+                    maxChargeDistance = 20.0f,
                     damageMultiplier = 1.5f,
                     fixedDamage = 14.0f,
                     cooldown = 3.5f,
                     telegraphDuration = 0.4f,
                     telegraphShape = "StretchBox",
                     aoeRadius = 3.0f,
+                    impactRadius = 3.0f,
                     dashDistance = 20.0f,
                     dashSpeed = 10.0f,
                     dashDuration = 3.0f,
                     dashWidth = 1.5f,
-                    knockbackPower = 4.0f
+                    knockbackPower = 4.0f,
+                    chargeAccelerationExponent = 1.35f,
+                    chargeSpeedMultiplier = 1.5f,
+                    chargeInitialSpeedOffset = 0.3f
                 },
                 "toxic_spit" => new MonsterSkillEntry
                 {
@@ -611,6 +680,31 @@ namespace MythOfGuotaji.Data
                     aoeRadius = 2.5f,
                     flightDuration = 2.0f,
                     arcHeight = 6.0f
+                },
+                "elite_leap_smash" => new MonsterSkillEntry
+                {
+                    skillId = "elite_leap_smash",
+                    skillName = "엘리트 도깨비 20m 도약 강타",
+                    description = "20m 안의 플레이어 현재 위치를 목표로 0.5초 예고 후 1.5초간 10m 높이로 포물선 도약, 착지 시 5m 반경 패링 불가 충격파 발생",
+                    skillType = MonsterSkillType.AOESlam,
+                    chargeType = ChargeSkillType.LeapSmash,
+                    minRange = 4.0f,
+                    maxRange = 20.0f,
+                    maxChargeDistance = 20.0f,
+                    damageMultiplier = 2.0f,
+                    fixedDamage = 25.0f,
+                    cooldown = 6.0f,
+                    telegraphDuration = 0.5f,
+                    telegraphShape = "Circle",
+                    telegraphColor = new Color(0.95f, 0.2f, 0.1f, 0.85f),
+                    isParryable = false,
+                    projectileParryType = Combat.ProjectileParryType.Unparryable,
+                    aoeRadius = 5.0f,
+                    impactRadius = 5.0f,
+                    leapHeight = 10.0f,
+                    leapDuration = 1.5f,
+                    knockbackPower = 6.0f,
+                    postAttackDelay = 0.4f
                 },
                 "elite_boulder" => new MonsterSkillEntry
                 {

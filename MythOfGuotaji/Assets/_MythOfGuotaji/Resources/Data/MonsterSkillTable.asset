@@ -34,6 +34,14 @@ MonoBehaviour:
     dashSpeed: 16
     dashDuration: 0.3
     dashWidth: 0.5
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 0
     flightDuration: 0
     arcHeight: 0
@@ -73,6 +81,14 @@ MonoBehaviour:
     dashSpeed: 10
     dashDuration: 3
     dashWidth: 1.5
+    chargeType: 1
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 0
     flightDuration: 0
     arcHeight: 0
@@ -112,6 +128,14 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 8
     flightDuration: 0
     arcHeight: 0
@@ -151,6 +175,14 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 0
     flightDuration: 2
     arcHeight: 6
@@ -165,6 +197,53 @@ MonoBehaviour:
     trailVfxPrefab: {fileID: 2485421382995164376, guid: d4cd36da364d009499d98c61b54a9b86, type: 3}
     impactVfxPrefab: {fileID: 4734401468729239151, guid: 8d804fe41c3eae442b010c7a5fe81f96, type: 3}
     parryVfxPrefab: {fileID: 1004229041087787908, guid: 793c83fcca6c518438237434b4c69f5a, type: 3}
+    castSoundPrefab: {fileID: 0}
+    impactSoundPrefab: {fileID: 0}
+    enableLoopSound: 0
+    loopSoundPrefab: {fileID: 0}
+  - skillId: elite_leap_smash
+    skillName: "\uC5D8\uB9AC\uD2B8 \uB3C4\uAE68\uBE44 20m \uB3C4\uC57D \uAC15\uD0C0"
+    description: "20m \uC548\uC758 \uD50C\uB808\uC774\uC5B4 \uD604\uC7AC \uC704\uCE58\uB97C \uBAA9\uD45C\uB85C 0.5\uCD08 \uC608\uACE0 \uD6C4 1.5\uCD08\uAC04 10m \uB192\uC774\uB85C \uD3EC\uBB3C\uC120 \uB3C4\uC57D, \uCC29\uC9C0 \uC2DC 5m \uBC18\uACBD \uD328\uB9C1 \uBD88\uAC00 \uCDA9\uACA9\uD30C \uBC1C\uC0DD"
+    skillType: 8
+    minRange: 4
+    maxRange: 20
+    damageMultiplier: 2
+    fixedDamage: 25
+    cooldown: 6
+    knockbackPower: 6
+    telegraphDuration: 0.5
+    telegraphShape: Circle
+    telegraphColor: {r: 0.95, g: 0.2, b: 0.1, a: 0.85}
+    isParryable: 0
+    aoeRadius: 5
+    aoeAngle: 0
+    postAttackDelay: 0.4
+    dashDistance: 20
+    dashSpeed: 14
+    dashDuration: 1.5
+    dashWidth: 5
+    chargeType: 2
+    chargeAccelerationExponent: 1
+    chargeSpeedMultiplier: 1
+    chargeInitialSpeedOffset: 1
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 5
+    maxChargeDistance: 20
+    projectileSpeed: 0
+    flightDuration: 1.5
+    arcHeight: 10
+    projectileCount: 0
+    spreadAngle: 0
+    pierceCount: 0
+    projectileParryType: 2
+    projectilePrefab: {fileID: 0}
+    subProjectilePrefab: {fileID: 0}
+    telegraphPrefab: {fileID: 0}
+    castVfxPrefab: {fileID: 0}
+    trailVfxPrefab: {fileID: 0}
+    impactVfxPrefab: {fileID: 0}
+    parryVfxPrefab: {fileID: 0}
     castSoundPrefab: {fileID: 0}
     impactSoundPrefab: {fileID: 0}
     enableLoopSound: 0
@@ -190,6 +269,14 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 13
     flightDuration: 0
     arcHeight: 0
@@ -229,6 +316,14 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 0
     flightDuration: 0
     arcHeight: 0
@@ -268,6 +363,14 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 0
     flightDuration: 0
     arcHeight: 0
@@ -307,6 +410,14 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 5
     flightDuration: 0
     arcHeight: 0
@@ -346,6 +457,14 @@ MonoBehaviour:
     dashSpeed: 14
     dashDuration: 1.1
     dashWidth: 1.2
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 0
     flightDuration: 0
     arcHeight: 0
@@ -369,11 +488,11 @@ MonoBehaviour:
     description: "12m \uAC70\uB9AC\uC5D0\uC11C \uC0AC\uC744\uC744 \uB358\uC838 \uACAC\uC778. \uC2AC\uB77C\uC774\uB529 \uBB34\uC801\uC73C\uB85C \uC989\uC2DC \uC808\uB2E8 \uD0C8\uCD9C \uAC00\uB2A5"
     skillType: 11
     minRange: 3
-    maxRange: 12
-    damageMultiplier: 0.5
-    fixedDamage: 8
+    maxRange: 15
+    damageMultiplier: 1
+    fixedDamage: 5
     cooldown: 3
-    knockbackPower: -3.5
+    knockbackPower: -6.5
     telegraphDuration: 0.3
     telegraphShape: TargetConnect
     telegraphColor: {r: 0.8, g: 0.2, b: 0.8, a: 0.45}
@@ -385,6 +504,14 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 8
     flightDuration: 0
     arcHeight: 0
@@ -424,6 +551,14 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 0
     flightDuration: 0
     arcHeight: 0
@@ -463,6 +598,14 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 0
     flightDuration: 0
     arcHeight: 0
@@ -502,6 +645,14 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 0
     flightDuration: 0
     arcHeight: 0
@@ -541,6 +692,14 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 0
     flightDuration: 0
     arcHeight: 0
@@ -580,6 +739,14 @@ MonoBehaviour:
     dashSpeed: 12
     dashDuration: 0.6
     dashWidth: 0.8
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 0
     flightDuration: 0
     arcHeight: 0
@@ -619,6 +786,14 @@ MonoBehaviour:
     dashSpeed: 0
     dashDuration: 0
     dashWidth: 0
+    chargeType: 0
+    chargeAccelerationExponent: 1.35
+    chargeSpeedMultiplier: 1.5
+    chargeInitialSpeedOffset: 0.3
+    leapHeight: 10
+    leapDuration: 1.5
+    impactRadius: 3
+    maxChargeDistance: 20
     projectileSpeed: 7
     flightDuration: 0
     arcHeight: 0

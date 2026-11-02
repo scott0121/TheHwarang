@@ -59,9 +59,13 @@ namespace MythOfGuotaji.Actor
             {
                 Vector3 moveDir = toPlayer.normalized * _moveSpeed;
                 moveDir.y = -9.81f;
-                if (_cc != null && _cc.enabled)
+                if (_cc != null && _cc.enabled && _cc.gameObject.activeInHierarchy)
                 {
                     _cc.Move(moveDir * Time.deltaTime);
+                }
+                else
+                {
+                    transform.position += moveDir * Time.deltaTime;
                 }
                 transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toPlayer.normalized), Time.deltaTime * 8f);
             }

@@ -1,3 +1,4 @@
+using MythOfGuotaji.Data;
 using UnityEngine;
 
 namespace MythOfGuotaji.Actor.Monsters

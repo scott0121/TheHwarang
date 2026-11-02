@@ -197,12 +197,19 @@ namespace MythOfGuotaji.Editor
             }
 
             // 2. Intro.unity / PlayMain.unity 생성 또는 보강
+            // [중요 안전 조치]: silent 자동 검사 시에는 기존 씬을 임의로 덮어쓰지 않으며, 오직 씬 파일이 존재하지 않을 때만 생성합니다.
             bool introMissing = !File.Exists(IntroScenePath) || AssetDatabase.LoadAssetAtPath<SceneAsset>(IntroScenePath) == null;
             bool playMainMissing = !File.Exists(PlayMainScenePath) || AssetDatabase.LoadAssetAtPath<SceneAsset>(PlayMainScenePath) == null;
 
-            if (!silent || needsPrefabs || introMissing || playMainMissing)
+            if (!silent)
             {
-                BuildOrUpdateScenes(!silent || needsPrefabs);
+                // 수동 메뉴 실행 시에만 forceRebuild 허용
+                BuildOrUpdateScenes(forceRebuild: true);
+            }
+            else if (introMissing || playMainMissing)
+            {
+                // 누락된 씬만 생성 (기존 씬 보존)
+                BuildOrUpdateScenes(forceRebuild: false);
             }
 
             // 3. EditorBuildSettings에 Intro, PlayMain, SampleScene 등록
@@ -267,6 +274,7 @@ namespace MythOfGuotaji.Editor
                 dirLight.transform.rotation = Quaternion.Euler(42f, -30f, 0f);
                 dirLight.color = new Color(0.88f, 0.92f, 1.0f, 1f);
                 dirLight.intensity = 1.15f;
+                dirLight.shadows = LightShadows.Soft;
             }
 
             // 곡도 사당 3D 배경 프리팹 배치
@@ -319,6 +327,7 @@ namespace MythOfGuotaji.Editor
             light.type = LightType.Directional;
             light.color = new Color(1f, 0.96f, 0.9f, 1f);
             light.intensity = 1.2f;
+            light.shadows = LightShadows.Soft;
             lightObj.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
 
             // 3. IngameSystemManagers 프리팹

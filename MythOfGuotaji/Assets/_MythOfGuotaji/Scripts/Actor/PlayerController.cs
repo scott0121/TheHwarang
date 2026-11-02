@@ -106,9 +106,12 @@ namespace MythOfGuotaji.Actor
         public string EquippedCoreMemoryId => _equippedCoreMemoryId;
 
         private static readonly int AnimHashMoveSpeed = Animator.StringToHash("MoveSpeed");
+        private static readonly int AnimHashMoveBackward = Animator.StringToHash("MoveBackward");
         private static readonly int AnimHashJump = Animator.StringToHash("Jump");
+        private static readonly int AnimHashJumpBack = Animator.StringToHash("JumpBack");
         private static readonly int AnimHashIsInteracting = Animator.StringToHash("IsInteracting");
         private static readonly int AnimHashStart5Arrow = Animator.StringToHash("Start5Arrow");
+        private static readonly int AnimHashStop5Arrow = Animator.StringToHash("Stop5Arrow");
         private static readonly int AnimHashStartCharge = Animator.StringToHash("StartCharge");
         private static readonly int AnimHashShotCharge = Animator.StringToHash("ShotCharge");
         private static readonly int AnimHashStartDagger = Animator.StringToHash("StartDagger");
@@ -442,6 +445,10 @@ namespace MythOfGuotaji.Actor
 
             float speedMult = Time.time < _tempMoveSpeedExpireTime ? _tempMoveSpeedMultiplier : 1.0f;
             float effectiveMoveSpeed = _moveSpeed * speedMult;
+            if (_isCharging)
+            {
+                effectiveMoveSpeed *= 0.7f; // 차지샷 충전 중 30% 감속
+            }
 
             if (_isDashing)
             {
@@ -468,20 +475,100 @@ namespace MythOfGuotaji.Actor
 
             // 중력 적용
             finalMove.y = -9.81f;
-            _cc.Move(finalMove * Time.deltaTime);
+            if (_cc != null && _cc.enabled && _cc.gameObject.activeInHierarchy)
+            {
+                _cc.Move(finalMove * Time.deltaTime);
+            }
+            else
+            {
+                transform.position += finalMove * Time.deltaTime;
+            }
 
-            // 이동 애니메이션 파라미터(MoveSpeed) 갱신
+            // 이동 애니메이션 파라미터(MoveSpeed, MoveBackward) 갱신
             if (_animator != null)
             {
+                bool isMoving = _moveInput.sqrMagnitude > 0.01f;
                 float currentSpeed = _isDashing 
                     ? _dashSpeed 
-                    : (_moveInput.sqrMagnitude > 0.01f ? effectiveMoveSpeed : 0f);
+                    : (isMoving ? effectiveMoveSpeed : 0f);
                 _animator.SetFloat(AnimHashMoveSpeed, currentSpeed);
+
+                // 대시 중이 아닐 때만 WASD 방향에 따라 MoveBackward를 갱신 (대시 도중 파라미터 강제 리셋 방지)
+                if (!_isDashing)
+                {
+                    // 마우스(조준) 방향과 이동 방향의 사잇각 판정
+                    // 270°~0°~90° (사잇각 <= 90°): 정면/측면 이동 -> Move (Idle -> Run)
+                    // 90°~180°~270° (사잇각 > 90°): 후방 뒷걸음질 -> running_backward(2)
+                    bool isBackward = false;
+                    if (isMoving)
+                    {
+                        float angle = Vector3.Angle(_aimDirection, _moveInput);
+                        isBackward = angle > 90.001f;
+                    }
+                    _animator.SetBool(AnimHashMoveBackward, isBackward);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 현재까지 충전된 차징화살을 즉시 발사하고 차징 상태를 해제 (점프/단검/연발화살 캔슬 방지용)
+        /// </summary>
+        private void FireCurrentChargeArrow(bool playShotAnimation = true)
+        {
+            if (!_isCharging || _bow == null) return;
+
+            if (_chargingAuraInstance != null)
+            {
+                Destroy(_chargingAuraInstance);
+                _chargingAuraInstance = null;
+            }
+
+            float holdDuration = ChargeHoldDuration;
+            if (holdDuration >= _minChargeTime || HasInstantChargeBuff)
+            {
+                float range = CurrentChargedRange;
+                _instantChargeReadyUntil = 0f;
+                if (playShotAnimation)
+                {
+                    TriggerShotChargeAnimation();
+                }
+                _bow.FireCharged(_aimDirection, gameObject, range);
+                ShowBowModel(0.5f);
+                Core.VFXManager.Instance?.SpawnBowChargeReleaseBurst(transform.position, _aimDirection);
+                TriggerCategoryGCD(CombatCategory.Bow);
+            }
+            else
+            {
+                // 충전 최소 시간(0.3s) 미만인 경우: 기본 연발화살(Burst5) 발사
+                float speedRatio = _bow != null ? _bow.AttackRateRatio : 1.0f;
+                if (playShotAnimation)
+                {
+                    Trigger5ArrowAnimation(speedRatio);
+                }
+                _bow.FireBurst5(() => _aimDirection, gameObject);
+                ShowBowModel(1.5f / speedRatio);
+                TriggerCategoryGCD(CombatCategory.Bow);
+            }
+
+            _isCharging = false;
+            _hasFullCharged = false;
+            _hasTriggeredStartCharge = false;
+            _currentChargeStep = 0;
+            ResetAnimatorTriggerSafe(AnimHashStartCharge);
+            if (!playShotAnimation)
+            {
+                ResetAnimatorTriggerSafe(AnimHashShotCharge);
             }
         }
 
         private void StartDash()
         {
+            // 차징화살 준비 중 대시(점프) 시: 현재까지 충전된 차징화살을 먼저 발사 후 대시 진행 (상체 모션 생략)
+            if (_isCharging)
+            {
+                FireCurrentChargeArrow(playShotAnimation: false);
+            }
+
             _isDashing = true;
             _dashTimer = _dashDuration;
             _lastDashTime = Time.time;
@@ -499,7 +586,32 @@ namespace MythOfGuotaji.Actor
                 Core.VFXManager.Instance?.PlaySoundPrefab(playerStats.dashSoundPrefab, transform.position);
             }
 
-            SetAnimatorTriggerSafe(AnimHashJump);
+            // 후방 점프(90°~180°~270°) 판정: 뒤로 점프 시 Go_rollingBack 재생, 정면/측면 점프 시 Jump 재생
+            float dashAngle = Vector3.Angle(_aimDirection, dashDir);
+            bool isBackwardDash = dashAngle > 90.001f;
+            if (isBackwardDash)
+            {
+                SetAnimatorBoolSafe(AnimHashMoveBackward, true);
+                ResetAnimatorTriggerSafe(AnimHashJump);
+                SetAnimatorTriggerSafe(AnimHashJumpBack);
+            }
+            else
+            {
+                SetAnimatorBoolSafe(AnimHashMoveBackward, false);
+                ResetAnimatorTriggerSafe(AnimHashJumpBack);
+                SetAnimatorTriggerSafe(AnimHashJump);
+            }
+
+            SetAnimatorTriggerSafe(AnimHashStop5Arrow);
+            ResetAnimatorTriggerSafe(AnimHashStart5Arrow);
+            ResetAnimatorTriggerSafe(AnimHashStartCharge);
+            ResetAnimatorTriggerSafe(AnimHashShotCharge);
+
+            // 대시 중에는 상체 레이어 모션을 즉시 해제하여 Base Layer의 전신 점프/구르기 애니메이션이 온전히 나오도록 함
+            if (_animator != null && _animator.layerCount > 1)
+            {
+                _animator.Play("New State", 1, 0f);
+            }
 
             if (_chargingAuraInstance != null)
             {
@@ -509,8 +621,9 @@ namespace MythOfGuotaji.Actor
             _isCharging = false;
             _hasTriggeredStartCharge = false;
             ResetAnimatorTriggerSafe(AnimHashStartCharge);
+            ResetAnimatorTriggerSafe(AnimHashShotCharge);
 
-            if (_bow != null && _bow.IsBursting)
+            if (_bow != null)
             {
                 _bow.StopBurst();
             }
@@ -532,6 +645,18 @@ namespace MythOfGuotaji.Actor
 
             bool rightClick = (mouse != null && (mouse.rightButton.wasPressedThisFrame || mouse.rightButton.isPressed))
                               || (gamepad != null && (gamepad.leftTrigger.wasPressedThisFrame || gamepad.leftTrigger.isPressed));
+
+            // 0. 차징화살 준비 중 새 좌클릭 입력으로 연발화살을 시도한 경우: 기존 충전된 차징화살을 먼저 발사하고 연발화살 발사
+            if (_isCharging && leftPressedThisFrame)
+            {
+                FireCurrentChargeArrow();
+                float speedRatio = _bow != null ? _bow.AttackRateRatio : 1.0f;
+                Trigger5ArrowAnimation(speedRatio);
+                _bow.FireBurst5(() => _aimDirection, gameObject);
+                ShowBowModel(1.5f / speedRatio);
+                TriggerCategoryGCD(CombatCategory.Bow);
+                return;
+            }
 
             // 1. 좌클릭 누름 (Bow 카테고리 쿨다운 확인 - 활 발사 후 0.5초, 단검 후 0.2초)
             if (CanUseCategory(CombatCategory.Bow) && (leftPressedThisFrame || (leftIsPressed && !_isCharging)) && _bow != null)
@@ -626,22 +751,15 @@ namespace MythOfGuotaji.Actor
             // 2. 우클릭: 단검 부채꼴 베기 (Dagger 카테고리 쿨다운 확인 - 활 발사 후 0.2초 뒤 바로 사용 가능!)
             if (rightClick && CanUseCategory(CombatCategory.Dagger) && _dagger != null)
             {
+                // 차징화살 준비 중 단검 사용 시: 현재까지 충전된 차징화살을 먼저 발사 후 단검 베기 수행
+                if (_isCharging)
+                {
+                    FireCurrentChargeArrow();
+                }
+
                 if (_dagger.TrySlash(_aimDirection, gameObject))
                 {
                     if (_bow != null) _bow.StopBurst();
-                    if (_chargingAuraInstance != null)
-                    {
-                        Destroy(_chargingAuraInstance);
-                        _chargingAuraInstance = null;
-                    }
-                    if (_hasTriggeredStartCharge)
-                    {
-                        ResetAnimatorTriggerSafe(AnimHashStartCharge);
-                    }
-                    _isCharging = false;
-                    _hasFullCharged = false;
-                    _hasTriggeredStartCharge = false;
-                    _currentChargeStep = 0;
                     TriggerCategoryGCD(CombatCategory.Dagger);
                     TriggerDaggerAnimation();
                     ShowDaggerModel(_dagger.Cooldown);
@@ -659,6 +777,14 @@ namespace MythOfGuotaji.Actor
             {
                 _daggerModelInstance.SetActive(false);
             }
+            bool isMoving = _moveInput.sqrMagnitude > 0.01f;
+            bool isBackward = false;
+            if (isMoving && !_isDashing)
+            {
+                float angle = Vector3.Angle(_aimDirection, _moveInput);
+                isBackward = angle > 90.001f;
+            }
+            SetAnimatorBoolSafe(AnimHashMoveBackward, isBackward);
             SetAnimatorFloatSafe(AnimHashAttackSpeed, speedMultiplier);
             SetAnimatorTriggerSafe(AnimHashStart5Arrow);
         }
@@ -832,7 +958,7 @@ namespace MythOfGuotaji.Actor
                 Vector3 newPos = Vector3.Lerp(start, targetPos, t);
                 Vector3 delta = newPos - transform.position;
                 delta.y = -9.81f * Time.deltaTime;
-                if (_cc != null && _cc.enabled) _cc.Move(delta);
+                if (_cc != null && _cc.enabled && _cc.gameObject.activeInHierarchy) _cc.Move(delta);
                 yield return null;
             }
         }
@@ -927,11 +1053,13 @@ namespace MythOfGuotaji.Actor
             ResetAnimatorTriggerSafe(AnimHashDeath);
             ResetAnimatorTriggerSafe(AnimHashDamage);
             ResetAnimatorTriggerSafe(AnimHashJump);
+            ResetAnimatorTriggerSafe(AnimHashJumpBack);
             ResetAnimatorTriggerSafe(AnimHashStart5Arrow);
             ResetAnimatorTriggerSafe(AnimHashStartCharge);
             ResetAnimatorTriggerSafe(AnimHashShotCharge);
             ResetAnimatorTriggerSafe(AnimHashStartDagger);
             SetAnimatorBoolSafe(AnimHashIsInteracting, false);
+            SetAnimatorBoolSafe(AnimHashMoveBackward, false);
             _animator.SetFloat(AnimHashMoveSpeed, 0f);
 
             // 2. AnyState의 Respawn 트리거 발동

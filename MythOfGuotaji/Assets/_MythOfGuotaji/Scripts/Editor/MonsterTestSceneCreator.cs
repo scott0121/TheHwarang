@@ -20,6 +20,7 @@ namespace MythOfGuotaji.Editor
             light.type = LightType.Directional;
             light.intensity = 1.2f;
             light.color = new Color(1f, 0.96f, 0.9f);
+            light.shadows = LightShadows.Soft;
             lightObj.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
 
             // 2. Main Camera

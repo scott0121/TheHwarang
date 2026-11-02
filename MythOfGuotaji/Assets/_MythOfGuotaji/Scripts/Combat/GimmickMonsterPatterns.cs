@@ -325,21 +325,25 @@ namespace MythOfGuotaji.Combat
 
     /// <summary>
     /// [요선 거미] 영혼 거미줄 견인 사슬 및 트레일 연결
-    /// - 스킬 발동 시 일정 시간동안 거미와 플레이어를 트레일(LineRenderer / TrailVFX)로 실시간 연결
-    /// - 모든 VFX / Sound는 MonsterSkillTable(spider_web_tether)에 직접 등록된 GameObject만 사용
+    /// - 스킬 발동 시 Cooldown 시간동안 거미와 플레이어를 트레일(LineRenderer / TrailVFX)로 실시간 연결
+    /// - 플레이어에게 knockbackPower(-3.5) 넉백을 가하여 몬스터 쪽으로 지속 견인
+    /// - 플레이어는 뒷걸음질로 느리게 넉백 저항하거나, 대시로 사슬 절단 탈출 가능
     /// </summary>
     public class SpiderWebTether : MonoBehaviour
     {
         private MonsterAI _spider;
         private PlayerController _player;
-        private float _pullDuration = 2.5f;
-        private float _pullSpeed = 4.0f;
+        private float _pullDuration = 4.5f;
+        private float _pullSpeed = 3.5f;
         private LineRenderer _line;
         private MonsterSkillEntry _skill;
         private GameObject _loopSoundObj;
         private GameObject _trailVfxObj;
+        private bool _isAttached = false;
+        private float _attachTime = 0f;
+        public bool IsAttached => _isAttached;
 
-        public void Attach(MonsterAI spider, PlayerController player, float duration = 2.5f, float speed = 4.0f, MonsterSkillEntry skill = null)
+        public void Attach(MonsterAI spider, PlayerController player, float duration = 4.5f, float speed = 3.5f, MonsterSkillEntry skill = null)
         {
             _spider = spider;
             _player = player;
@@ -347,12 +351,16 @@ namespace MythOfGuotaji.Combat
 
             if (_skill != null)
             {
-                if (_skill.aoeRadius > 0f) duration = _skill.aoeRadius;
-                if (_skill.projectileSpeed > 0f) speed = _skill.projectileSpeed;
+                // Cooldown 시간만큼 지속
+                if (_skill.cooldown > 0f) duration = _skill.cooldown;
+                // knockbackPower(-3.5) 만큼의 넉백으로 거미 쪽 견인
+                if (Mathf.Abs(_skill.knockbackPower) > 0.1f) speed = Mathf.Abs(_skill.knockbackPower);
             }
 
             _pullDuration = duration;
             _pullSpeed = speed;
+            _isAttached = true;
+            _attachTime = Time.time;
 
             if (_skill != null && _skill.enableLoopSound && _skill.loopSoundPrefab != null)
             {
@@ -367,16 +375,27 @@ namespace MythOfGuotaji.Combat
             _line.textureMode = LineTextureMode.Tile;
             _line.positionCount = 2;
 
-            Color tetherCol = _skill != null ? _skill.telegraphColor : new Color(0.85f, 0.25f, 0.85f, 0.85f);
-            float width = _skill != null && _skill.dashWidth > 0f ? _skill.dashWidth : 0.12f;
+            Color tetherCol = _skill != null ? _skill.telegraphColor : new Color(0.9f, 0.35f, 0.95f, 0.9f);
+            float width = _skill != null && _skill.dashWidth > 0f ? _skill.dashWidth : 0.15f;
             _line.startWidth = width;
             _line.endWidth = width;
             _line.startColor = tetherCol;
             _line.endColor = new Color(tetherCol.r, tetherCol.g, tetherCol.b, tetherCol.a * 0.7f);
 
-            if (_line.sharedMaterial == null)
+            if (_line.material == null || _line.material.shader.name == "Hidden/InternalErrorShader")
             {
-                _line.sharedMaterial = ZhuParabolicProjectile.GetSharedTelegraphMaterial(tetherCol);
+                Shader unlit = Shader.Find("Universal Render Pipeline/Unlit")
+                            ?? Shader.Find("Sprites/Default")
+                            ?? Shader.Find("Legacy Shaders/Transparent/Diffuse");
+                Material mat = new Material(unlit);
+                mat.color = tetherCol;
+                if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", tetherCol);
+                mat.SetFloat("_Surface", 1f);
+                mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                mat.SetInt("_ZWrite", 0);
+                mat.renderQueue = 3000;
+                _line.material = mat;
             }
 
             // 트레일 이펙트 프리팹이 등록되어 있다면 생성하여 연결선 상에 부착
@@ -386,6 +405,8 @@ namespace MythOfGuotaji.Combat
                 _trailVfxObj = Instantiate(_skill.trailVfxPrefab, midPoint, Quaternion.identity, transform);
             }
 
+// 연결 시 경직 데미지 생략
+
             StartCoroutine(PullRoutine());
         }
 
@@ -393,17 +414,28 @@ namespace MythOfGuotaji.Combat
         {
             float elapsed = 0f;
 
-            while (elapsed < _pullDuration)
+            while (elapsed < _pullDuration && _isAttached)
             {
                 if (_spider == null || _spider.IsDead || _player == null || _player.IsDead)
                 {
                     break;
                 }
 
+                // 4. 플레이어가 대시를 누르면 거미줄을 즉시 절단 탈출 (결속 직후 잔여 대시 플래그 오인 방지 0.15초 유예)
+                if (_player.IsDashing && Time.time > _attachTime + 0.15f)
+                {
+                    if (_skill != null)
+                    {
+                        MonsterTableAssetPlayer.SpawnVfx(_skill.impactVfxPrefab, _player.transform.position + Vector3.up * 0.8f, Quaternion.identity);
+                        MonsterTableAssetPlayer.PlayOneShotSound(_skill.impactSoundPrefab, _player.transform.position);
+                    }
+                    break;
+                }
+
                 Vector3 spiderPos = _spider.transform.position + Vector3.up * 0.7f;
                 Vector3 playerPos = _player.transform.position + Vector3.up * 0.8f;
 
-                // 매 프레임 거미와 플레이어 사이를 트레일(라인)로 실시간 연결
+                // 실시간 거미-플레이어 간 연결선(거미줄) 갱신
                 if (_line != null)
                 {
                     _line.SetPosition(0, spiderPos);
@@ -420,29 +452,32 @@ namespace MythOfGuotaji.Combat
                     }
                 }
 
-                // 슬라이딩(대시) 또는 무적 발동 시 영혼 사슬 즉시 절단 탈출
-                if (_player.IsDashing || _player.IsInvincible)
-                {
-                    if (_skill != null)
-                    {
-                        MonsterTableAssetPlayer.SpawnVfx(_skill.impactVfxPrefab, playerPos, Quaternion.identity);
-                        MonsterTableAssetPlayer.PlayOneShotSound(_skill.impactSoundPrefab, playerPos);
-                    }
-                    break;
-                }
-
-                // 플레이어를 거미 쪽으로 부드럽게 견인
+                // 3. 플레이어에게 넉백(-3.5f)을 주어 몬스터 쪽으로 지속 견인
                 Vector3 toSpider = (_spider.transform.position - _player.transform.position);
                 toSpider.y = 0f;
-                if (toSpider.magnitude > 0.5f)
+                float dist = toSpider.magnitude;
+
+                if (dist > 1.2f)
                 {
-                    _player.GetComponent<CharacterController>()?.Move(toSpider.normalized * (_pullSpeed * Time.deltaTime));
+                    Vector3 pullDir = toSpider.normalized;
+                    // ApplyKnockback을 매 프레임 부여하여 플레이어의 이동 속도(effectiveMoveSpeed ~5.0)와 결합:
+                    // - 가만히 있으면 3.5m/s 속도로 거미에게 끌려옴
+                    // - 뒷걸음질(반대 방향 5.0m/s) 치면 플레이어 속도 - 3.5 = 1.5m/s로 느리게 넉백 저항
+                    _player.ApplyKnockback(pullDir * _pullSpeed);
                 }
 
                 elapsed += Time.deltaTime;
                 yield return null;
             }
 
+            Detach();
+        }
+
+        public void Detach()
+        {
+            if (!_isAttached) return;
+            _isAttached = false;
+            StopAllCoroutines();
             MonsterTableAssetPlayer.StopLoopSound(ref _loopSoundObj);
             if (_trailVfxObj != null) Destroy(_trailVfxObj);
             Destroy(gameObject);
@@ -450,6 +485,7 @@ namespace MythOfGuotaji.Combat
 
         private void OnDestroy()
         {
+            _isAttached = false;
             MonsterTableAssetPlayer.StopLoopSound(ref _loopSoundObj);
             if (_trailVfxObj != null) Destroy(_trailVfxObj);
         }

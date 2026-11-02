@@ -3,36 +3,103 @@ using MythOfGuotaji.Actor;
 using MythOfGuotaji.Core;
 using MythOfGuotaji.Dungeon;
 using MythOfGuotaji.Progression;
+using MythOfGuotaji.UI.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace MythOfGuotaji.UI
 {
-    /// <summary>
-    /// 프로토타입 즉시 플레이 및 시나리오/캐릭터 트리, 던전 생성, 전투 테스트를 위한 통합 HUD & 디버그 패널
-    /// </summary>
-    public class ProgressionDebugUI : MonoBehaviour
+    public class ProgressionDebugUI : UIScreen
     {
         private PlayerController _player;
-        [SerializeField] private bool _showDebugPanel = false; // 기본값 닫힘: F1으로 토글. 닫혀있을 때 OnGUI 가비지 0B 달성
-        private List<InRunBoonSO> _pendingBoonChoices = null;
+        private bool _showDebugPanel = false;
+
+        private RectTransform _panelRoot;
+        private TextMeshProUGUI _infoLabel;
+
+        protected override int SortingOrder => UITheme.Sorting.Debug;
+        protected override bool NeedsRaycaster => true;
+        protected override bool NeedsEventSystem => true;
 
         private void Start()
         {
             _player = FindAnyObjectByType<PlayerController>();
+            EnsureBuilt();
+            SetVisible(false);
+        }
 
-            if (InRunProgressionManager.Instance != null)
+        protected override void Build(RectTransform root)
+        {
+            var panelImg = UIKit.CreatePanel(root, "DebugPanel", new Color(0.08f, 0.08f, 0.12f, 0.92f), false, true);
+            _panelRoot = panelImg.rectTransform;
+            UIKit.SetAnchored(_panelRoot, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, -20f), new Vector2(360f, 480f));
+
+            var title = UIKit.CreateLabel(_panelRoot, "Title", "🏹 거타지 디버그 콘솔 (F1)", 15f, UITheme.Gold, TextAlignmentOptions.Left, FontStyles.Bold, false, false);
+            UIKit.SetAnchored(title.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -12f), new Vector2(320f, 26f));
+
+            _infoLabel = UIKit.CreateLabel(_panelRoot, "Info", "", 12f, Color.white, TextAlignmentOptions.TopLeft, FontStyles.Normal, false, false);
+            UIKit.SetAnchored(_infoLabel.rectTransform, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -44f), new Vector2(320f, 160f));
+
+            var btnContainer = UIKit.CreateRect("Buttons", _panelRoot);
+            UIKit.SetAnchored(btnContainer, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(16f, 16f), new Vector2(328f, 260f));
+
+            var vlg = btnContainer.gameObject.AddComponent<VerticalLayoutGroup>();
+            vlg.spacing = 8f;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childForceExpandHeight = false;
+
+            CreateDebugButton(btnContainer, "체력 완전 회복 (HP 100%)", () =>
             {
-                InRunProgressionManager.Instance.OnBoonSelectionRequested += boons =>
+                if (_player != null)
                 {
-                    // UGUI 기반 BoonSelectionUI가 없을 때만 OnGUI 모달 fallback 활성화
-                    if (BoonSelectionUI.Instance == null)
+                    _player.Heal(_player.MaxHp);
+                }
+            });
+
+            CreateDebugButton(btnContainer, "보스방 열쇠 강제 지급 (🔑)", () =>
+            {
+                GameManager.Instance?.AcquireBossKey();
+            });
+
+            CreateDebugButton(btnContainer, "영물 축복 (즉시 1레벨업)", () =>
+            {
+                if (InRunProgressionManager.Instance != null)
+                {
+                    InRunProgressionManager.Instance.AddExp(InRunProgressionManager.Instance.expToNextLevel);
+                }
+            });
+
+            CreateDebugButton(btnContainer, "방 안의 모든 일반 요괴 처치", () =>
+            {
+                var monsters = new List<MonsterAI>(MonsterAI.ActiveMonsters);
+                for (int i = 0; i < monsters.Count; i++)
+                {
+                    if (monsters[i] != null && !monsters[i].IsDead && monsters[i].Type != MonsterType.FoxBoss)
                     {
-                        _pendingBoonChoices = boons;
-                        Time.timeScale = 0f;
+                        monsters[i].Die();
                     }
-                };
-            }
+                }
+            });
+
+            CreateDebugButton(btnContainer, "창 닫기 (F1)", () =>
+            {
+                _showDebugPanel = false;
+                SetVisible(false);
+            });
+        }
+
+        private void CreateDebugButton(Transform parent, string label, UnityEngine.Events.UnityAction action)
+        {
+            var btn = UIKit.CreateButton(parent, "Btn_" + label, label, action, 12f, UITheme.ButtonNormal, Color.white);
+            var rt = (RectTransform)btn.transform;
+            rt.sizeDelta = new Vector2(0f, 34f);
+            var le = btn.gameObject.AddComponent<LayoutElement>();
+            le.preferredHeight = 34f;
+            le.minHeight = 34f;
         }
 
         private void Update()
@@ -41,206 +108,33 @@ namespace MythOfGuotaji.UI
             if (keyboard != null && keyboard.f1Key.wasPressedThisFrame)
             {
                 _showDebugPanel = !_showDebugPanel;
+                SetVisible(_showDebugPanel);
             }
 
-            if (_player == null)
+            if (_showDebugPanel && _infoLabel != null)
             {
-                _player = FindAnyObjectByType<PlayerController>();
+                UpdateInfo();
             }
         }
 
-        private void OnGUI()
+        private void UpdateInfo()
         {
-#if UNITY_EDITOR || DEBUG
-            if (!Application.isEditor && !Debug.isDebugBuild) return;
+            if (_player == null) _player = FindAnyObjectByType<PlayerController>();
 
-            // 디버그 패널이 꺼져있고 대기 중인 축복 모달이 없으면 즉시 종료하여 4.8KB GC 및 0.8ms IMGUI 부하 완전 제거
-            if (!_showDebugPanel && (_pendingBoonChoices == null || _pendingBoonChoices.Count == 0)) return;
-
-            DrawHUD();
-
-            if (_pendingBoonChoices != null && _pendingBoonChoices.Count > 0)
-            {
-                DrawBoonSelectionModal();
-                return;
-            }
-
-            if (_showDebugPanel)
-            {
-                DrawDebugControls();
-            }
-#endif
-        }
-
-        private void DrawHUD()
-        {
-            GUI.Box(new Rect(15, 15, 290, 160), "<b>🏹 거타지의 전설 (Myth of Guotaji)</b>");
-
-            GUILayout.BeginArea(new Rect(25, 40, 270, 130));
-
-            // 플레이어 HP
-            if (_player != null)
-            {
-                GUILayout.Label($"<b>거타지 HP:</b> {Mathf.CeilToInt(_player.CurrentHp)} / {_player.MaxHp}");
-            }
-            else
-            {
-                GUILayout.Label("플레이어 대기 중...");
-            }
-
-            // 보스방 열쇠 여부
+            float hp = _player != null ? _player.CurrentHp : 0f;
+            float maxHp = _player != null ? _player.MaxHp : 0f;
             bool hasKey = GameManager.Instance != null && GameManager.Instance.HasBossKey;
-            string keyText = hasKey ? "<color=yellow>🔑 보유 중 (보스방 개방 가능)</color>" : "<color=gray>❌ 미보유 (열쇠방 탐색 필요)</color>";
-            GUILayout.Label($"<b>보스방 열쇠:</b> {keyText}");
-
-            // 요괴 처치 수
             int kills = GameManager.Instance != null ? GameManager.Instance.CurrentKills : 0;
-            GUILayout.Label($"<b>처치한 요괴 수:</b> {kills} 마리");
+            int level = InRunProgressionManager.Instance != null ? InRunProgressionManager.Instance.currentRunLevel : 1;
+            int exp = InRunProgressionManager.Instance != null ? InRunProgressionManager.Instance.currentRunExp : 0;
+            int reqExp = InRunProgressionManager.Instance != null ? InRunProgressionManager.Instance.expToNextLevel : 10;
 
-            // 스테이지 레벨 및 보석 수집 경험치
-            if (InRunProgressionManager.Instance != null)
-            {
-                GUILayout.Label($"<b>런 레벨:</b> Lv.{InRunProgressionManager.Instance.currentRunLevel}  (보석 EXP: {InRunProgressionManager.Instance.currentRunExp}/{InRunProgressionManager.Instance.expToNextLevel})");
-            }
-
-            // 진행 시간 및 몬스터 레벨
-            if (GameManager.Instance != null)
-            {
-                float t = GameManager.Instance.StageElapsedTime;
-                int mins = Mathf.FloorToInt(t / 60f);
-                int secs = Mathf.FloorToInt(t % 60f);
-                int mLvl = GameManager.Instance.CurrentMonsterLevel;
-                GUILayout.Label($"<b>진행 시간:</b> {mins:00}:{secs:00} | <b>적 요괴 레벨:</b> Lv.{mLvl} (HP +{mLvl * 20}%, ATK +{mLvl * 10}%)");
-            }
-
-            GUILayout.EndArea();
-        }
-
-        private void DrawBoonSelectionModal()
-        {
-            GUI.Box(new Rect(Screen.width * 0.5f - 310, Screen.height * 0.5f - 190, 620, 380), "<b>✨ [동료 헬퍼] 영혼석 정제 완료! 새로운 비술(스킬)을 선택하세요</b>");
-
-            GUILayout.BeginArea(new Rect(Screen.width * 0.5f - 290, Screen.height * 0.5f - 140, 580, 320));
-            GUILayout.Space(10);
-
-            for (int i = 0; i < _pendingBoonChoices.Count; i++)
-            {
-                var boon = _pendingBoonChoices[i];
-                GUILayout.BeginVertical("box");
-                GUILayout.Label($"<b>{boon.boonTitle}</b> [{boon.rarity}]");
-                GUILayout.Label(boon.description);
-
-                if (GUILayout.Button("선택하기", GUILayout.Height(35)))
-                {
-                    InRunProgressionManager.Instance.SelectBoon(boon);
-                    _pendingBoonChoices = null;
-                    Time.timeScale = 1f;
-                    break;
-                }
-                GUILayout.EndVertical();
-                GUILayout.Space(10);
-            }
-
-            GUILayout.EndArea();
-        }
-
-        private void DrawDebugControls()
-        {
-            float w = 310;
-            GUI.Box(new Rect(Screen.width - w - 15, 15, w, 485), "<b>🛠️ 개발 & 테스트 제어판 (F1 토글)</b>");
-
-            GUILayout.BeginArea(new Rect(Screen.width - w - 5, 45, w - 20, 445));
-
-            var save = GameManager.Instance?.SaveData;
-            if (save != null)
-            {
-                GUILayout.Label($"<b>출격 스테이지:</b> Ch.{save.currentChapter} ({save.selectedStageCode}) | <b>기억 조각:</b> {save.memoryShards}개");
-                GUILayout.Label($"<b>인연 포인트:</b> {save.affinityPoints} pt  |  <b>재도전 가호:</b> {save.retryBlessingStacks}중첩");
-            }
-
-            if (GUILayout.Button("⛩️ 곡도 사당 거점으로 귀환 (Intro 씬)", GUILayout.Height(28)))
-            {
-                if (GameManager.Instance != null)
-                {
-                    GameManager.Instance.ReturnToIntroHub();
-                }
-                else
-                {
-                    UnityEngine.SceneManagement.SceneManager.LoadScene("Intro");
-                }
-            }
-
-            GUILayout.Space(8);
-            GUILayout.Label("<b>[절차적 미로 던전 제어]</b>");
-            if (GUILayout.Button("🎲 미로 던전 즉시 재배치 (Re-Generate)"))
-            {
-                MazeGenerator.Instance?.RestartStage();
-            }
-            if (GUILayout.Button("🔑 보스방 열쇠 즉시 획득 (Cheat)"))
-            {
-                GameManager.Instance?.AcquireBossKey();
-                MazeGenerator.Instance?.UnlockBossDoors();
-            }
-
-            GUILayout.Space(8);
-            GUILayout.Label("<b>[산해경 요괴 스폰]</b>");
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("잡몹 10마리"))
-            {
-                if (_player != null && HordeSpawner.Instance != null)
-                {
-                    HordeSpawner.Instance.SpawnHorde(_player.transform.position, 10, 5f);
-                }
-            }
-            if (GUILayout.Button("정예 열쇠 수문장"))
-            {
-                if (_player != null && HordeSpawner.Instance != null)
-                {
-                    HordeSpawner.Instance.SpawnEliteKeyKeeper(_player.transform.position + Vector3.forward * 4f);
-                }
-            }
-            GUILayout.EndHorizontal();
-
-            if (GUILayout.Button("🦊 여우 요괴(최종 보스) 스폰"))
-            {
-                if (_player != null && HordeSpawner.Instance != null)
-                {
-                    HordeSpawner.Instance.SpawnFoxBoss(_player.transform.position + Vector3.forward * 6f);
-                }
-            }
-
-            GUILayout.Space(8);
-            GUILayout.Label("<b>[시간 기반 몬스터 레벨업 제어]</b>");
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("⏱️ +5분 가속 (Lv+1)"))
-            {
-                GameManager.Instance?.AddStageElapsedTime(300f);
-            }
-            if (GUILayout.Button("⏱️ -5분 단축 (Lv-1)"))
-            {
-                GameManager.Instance?.AddStageElapsedTime(-300f);
-            }
-            GUILayout.EndHorizontal();
-
-            GUILayout.Space(8);
-            GUILayout.Label("<b>[성장 트리 테스트]</b>");
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("인연 포인트 +5"))
-            {
-                if (save != null) save.affinityPoints += 5;
-            }
-            if (GUILayout.Button("스킬 포인트 +3"))
-            {
-                if (save != null) save.characterSkillPoints += 3;
-            }
-            GUILayout.EndHorizontal();
-
-            if (GUILayout.Button("🔄 캐릭터 스킬 트리 전체 리셋 (100% 환급)"))
-            {
-                CharacterTreeManager.Instance?.ResetAllSkills();
-            }
-
-            GUILayout.EndArea();
+            _infoLabel.text =
+                $"<b>거타지 HP:</b> <color=#55FF55>{Mathf.CeilToInt(hp)}</color> / {maxHp}\n" +
+                $"<b>보스방 열쇠:</b> {(hasKey ? "<color=yellow>🔑 보유 중</color>" : "<color=gray>❌ 미보유</color>")}\n" +
+                $"<b>요괴 처치 수:</b> {kills} 마리\n" +
+                $"<b>인런 레벨:</b> Lv.{level} (영혼석: {exp}/{reqExp})\n" +
+                $"<b>활동 요괴:</b> {MonsterAI.ActiveMonsters.Count} 마리";
         }
     }
 }

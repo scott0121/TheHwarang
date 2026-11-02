@@ -1,4 +1,6 @@
+using MythOfGuotaji.UI.Framework;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace MythOfGuotaji.UI
 {
@@ -7,7 +9,7 @@ namespace MythOfGuotaji.UI
     /// - 절차적 원형 비네트 텍스처를 동적 생성하여 화면 외곽에 즉각적인 피격 피드백 제공
     /// - 피격 시 최대 강도로 점멸 후 부드럽게 페이드 아웃
     /// </summary>
-    public class ScreenDamageVignetteUI : MonoBehaviour
+    public class ScreenDamageVignetteUI : UIScreen
     {
         private static ScreenDamageVignetteUI _instance;
         public static ScreenDamageVignetteUI Instance
@@ -45,6 +47,13 @@ namespace MythOfGuotaji.UI
 
         private Texture2D _vignetteTex;
         private float _currentAlpha = 0f;
+        private RawImage _vignetteImage;
+        private float _appliedAlpha = -1f;
+
+        // UGUI: 비네트는 입력을 막으면 안 되므로 레이캐스터/이벤트시스템 불필요
+        protected override int SortingOrder => UITheme.Sorting.Vignette;
+        protected override bool NeedsRaycaster => false;
+        protected override bool NeedsEventSystem => false;
 
         private void Awake()
         {
@@ -56,6 +65,17 @@ namespace MythOfGuotaji.UI
             _instance = this;
 
             GenerateProceduralVignetteTexture();
+            EnsureBuilt();
+        }
+
+        protected override void Build(RectTransform root)
+        {
+            _vignetteImage = new GameObject("Vignette", typeof(RectTransform), typeof(CanvasRenderer), typeof(RawImage)).GetComponent<RawImage>();
+            _vignetteImage.transform.SetParent(root, false);
+            UIKit.Stretch(_vignetteImage.rectTransform);
+            _vignetteImage.texture = _vignetteTex;
+            _vignetteImage.raycastTarget = false;
+            _vignetteImage.color = new Color(1f, 1f, 1f, 0f);
         }
 
         private void OnDestroy()
@@ -84,20 +104,20 @@ namespace MythOfGuotaji.UI
             }
         }
 
-        private void OnGUI()
+        // IMGUI(OnGUI) 대신 UGUI RawImage 로 렌더링: 알파가 바뀔 때만 갱신, 투명하면 Canvas 비활성
+        private void LateUpdate()
         {
-            if (_currentAlpha <= 0.002f || _vignetteTex == null) return;
+            if (_vignetteImage == null || _vignetteTex == null) return;
 
-            int originalDepth = GUI.depth;
-            GUI.depth = -1000; // 최상위 화면 오버레이
+            bool shouldShow = _currentAlpha > 0.002f;
+            if (shouldShow != IsVisible) SetVisible(shouldShow);
+            if (!shouldShow) { _appliedAlpha = -1f; return; }
 
-            Color oldColor = GUI.color;
-            GUI.color = new Color(1f, 1f, 1f, _currentAlpha);
-
-            GUI.DrawTexture(new Rect(0, 0, Screen.width, Screen.height), _vignetteTex, ScaleMode.StretchToFill);
-
-            GUI.color = oldColor;
-            GUI.depth = originalDepth;
+            if (!Mathf.Approximately(_appliedAlpha, _currentAlpha))
+            {
+                _appliedAlpha = _currentAlpha;
+                _vignetteImage.color = new Color(1f, 1f, 1f, _currentAlpha);
+            }
         }
 
         /// <summary>

@@ -647,40 +647,63 @@ namespace MythOfGuotaji.Actor
             return mesh;
         }
 
-        private static GUIStyle s_helperStatusStyle;
+        private TMPro.TextMeshProUGUI _worldStatusLabel;
+        private Transform _statusCanvasTransform;
 
-        private void OnGUI()
+        private void EnsureStatusLabel()
         {
-            // 헬퍼 머리 위 상태 표시
+            if (_worldStatusLabel != null) return;
+
+            var canvasGo = new GameObject("HelperStatusCanvas", typeof(RectTransform), typeof(Canvas));
+            canvasGo.transform.SetParent(transform, false);
+            canvasGo.transform.localPosition = new Vector3(0f, 1.55f, 0f);
+
+            var canvas = canvasGo.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            var rt = (RectTransform)canvasGo.transform;
+            rt.sizeDelta = new Vector2(200f, 30f);
+            rt.localScale = Vector3.one * 0.015f;
+
+            _statusCanvasTransform = canvasGo.transform;
+
+            var labelGo = new GameObject("Label", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI));
+            labelGo.transform.SetParent(canvasGo.transform, false);
+            var labelRt = (RectTransform)labelGo.transform;
+            labelRt.anchorMin = Vector2.zero;
+            labelRt.anchorMax = Vector2.one;
+            labelRt.sizeDelta = Vector2.zero;
+
+            _worldStatusLabel = labelGo.GetComponent<TMPro.TextMeshProUGUI>();
+            _worldStatusLabel.alignment = TMPro.TextAlignmentOptions.Center;
+            _worldStatusLabel.fontSize = 20;
+            _worldStatusLabel.fontStyle = TMPro.FontStyles.Bold;
+            _worldStatusLabel.raycastTarget = false;
+            MythOfGuotaji.UI.Framework.UIFontProvider.ApplyTo(_worldStatusLabel);
+        }
+
+        private void LateUpdate()
+        {
+            EnsureStatusLabel();
+
             var cam = Camera.main;
-            if (cam == null) return;
-
-            Vector3 screenPos = cam.WorldToScreenPoint(transform.position + Vector3.up * 1.55f);
-            if (screenPos.z <= 0f) return;
-
-            float x = screenPos.x - 70f;
-            float y = Screen.height - screenPos.y - 15f;
-
-            string statusText = _currentState switch
+            if (cam != null && _statusCanvasTransform != null)
             {
-                HelperState.FollowingPlayer => "<color=#B0E0E6>🐰 동행 중</color>",
-                HelperState.GatheringGems => "<color=#00FA9A>💎 안전 보석 수색 중</color>",
-                HelperState.FleeingToPlayer => "<color=#FF6347>⚠️ 요괴 출현! 후퇴</color>",
-                HelperState.PresentingSkill => "<color=#FFD700>✨ 스킬 제련 완료!</color>",
-                _ => ""
-            };
-
-            if (s_helperStatusStyle == null)
-            {
-                s_helperStatusStyle = new GUIStyle(GUI.skin.label)
-                {
-                    alignment = TextAnchor.MiddleCenter,
-                    fontSize = 12,
-                    fontStyle = FontStyle.Bold
-                };
+                _statusCanvasTransform.rotation = cam.transform.rotation;
             }
 
-            GUI.Label(new Rect(x, y, 140, 24), statusText, s_helperStatusStyle);
+            if (_worldStatusLabel != null)
+            {
+                string statusText = _currentState switch
+                {
+                    HelperState.FollowingPlayer => "<color=#B0E0E6>🐰 동행 중</color>",
+                    HelperState.GatheringGems => "<color=#00FA9A>💎 안전 보석 수색 중</color>",
+                    HelperState.FleeingToPlayer => "<color=#FF6347>⚠️ 요괴 출현! 후퇴</color>",
+                    HelperState.PresentingSkill => "<color=#FFD700>✨ 스킬 제련 완료!</color>",
+                    _ => ""
+                };
+
+                _worldStatusLabel.text = statusText;
+            }
         }
     }
 }

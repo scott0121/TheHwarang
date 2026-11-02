@@ -60,6 +60,11 @@ namespace MythOfGuotaji.Combat
             {
                 ActiveReflectables.Add(this);
             }
+            var pss = GetComponentsInChildren<ParticleSystem>(true);
+            foreach (var ps in pss)
+            {
+                if (!ps.isPlaying) ps.Play();
+            }
         }
 
         public void ApplyTopDepthPriority()
@@ -142,7 +147,13 @@ namespace MythOfGuotaji.Combat
 
             foreach (var r in rends)
             {
-                if (r != null && r.material != null)
+                if (r == null || r.material == null) continue;
+                if (r is ParticleSystemRenderer || r is TrailRenderer)
+                {
+                    if (r.material.HasProperty("_TintColor")) r.material.SetColor("_TintColor", typeColor);
+                    else if (r.material.HasProperty("_BaseColor")) r.material.SetColor("_BaseColor", typeColor);
+                }
+                else
                 {
                     r.material.color = typeColor;
                     if (r.material.HasProperty("_BaseColor")) r.material.SetColor("_BaseColor", typeColor);
@@ -209,6 +220,12 @@ namespace MythOfGuotaji.Combat
                 {
                     if (hit.collider.gameObject == _damageInfo.attacker) continue;
                     if (_damageInfo.attacker != null && hit.collider.transform.root == _damageInfo.attacker.transform.root) continue;
+
+                    // 몬스터가 쏜 투사체는 다른 몬스터를 절대 가로막거나 피격하지 않고 통과
+                    if (!_isFromPlayer && (hit.collider.CompareTag("Monster") || hit.collider.GetComponentInParent<Actor.MonsterAI>() != null))
+                    {
+                        continue;
+                    }
 
                     var damageable = hit.collider.GetComponentInParent<IDamageable>();
                     if (damageable != null && !damageable.IsDead)
